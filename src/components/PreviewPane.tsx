@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 
 import { api, errorMessage } from "../lib/api";
+import type { PreviewInfo } from "../lib/types";
+import { HistogramChart } from "./HistogramChart";
 
 interface Props {
     /**
@@ -22,6 +24,7 @@ interface Props {
  */
 export function PreviewPane({ frame, supported }: Props) {
     const [url, setUrl] = useState<string | null>(null);
+    const [info, setInfo] = useState<PreviewInfo | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     // Held in a ref, not state: the cleanup path must see the current value without
@@ -42,14 +45,21 @@ export function PreviewPane({ frame, supported }: Props) {
         setLoading(true);
         setError(null);
 
-        api.preview()
-            .then((bytes) => {
-                // A newer frame landed while this transfer was in flight; that fetch
-                // owns the display now.
-                if (!current) return;
-                // Null means the camera had nothing newer than what is on screen.
-                if (bytes) replace(URL.createObjectURL(new Blob([bytes], { type: "image/jpeg" })));
-            })
+        // Two steps by design: the metadata and histogram come back as JSON, the
+        // pixels as binary. The metadata arrives first, so the curves can already be
+        // drawn while the image is still crossing.
+        (async () => {
+            const next = await api.preview();
+            // Null means the camera had nothing newer than what is on screen.
+            if (!current || !next) return;
+            setInfo(next);
+
+            const bytes = await api.previewImage();
+            // A newer frame landed while this transfer was in flight; that fetch owns
+            // the display now.
+            if (!current || !bytes) return;
+            replace(URL.createObjectURL(new Blob([bytes], { type: "image/jpeg" })));
+        })()
             .catch((cause) => {
                 if (current) setError(errorMessage(cause));
             })
@@ -74,6 +84,15 @@ export function PreviewPane({ frame, supported }: Props) {
             <div className="preview__frame">
                 {url ? <img className="preview__image" src={url} alt={`Frame ${frame}`} /> : <p className="preview__placeholder">{placeholder(supported, frame)}</p>}
                 {loading && <span className="preview__badge">Loading…</span>}
+                {/* Overlaid rather than placed beside the image: the two are read
+                    together, and giving the histogram its own row would take height
+                    from the frame it describes. */}
+                {info?.histogram && (
+                    <div className="preview__histogram">
+                        <HistogramChart histogram={info.histogram} />
+                    </div>
+                )}
+                {info && <span className="preview__caption">{info.filename}</span>}
             </div>
             {error && (
                 <p className="notice notice--error" role="alert">

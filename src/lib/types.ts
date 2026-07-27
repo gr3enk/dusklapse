@@ -73,6 +73,33 @@ export interface ExposureSettings {
     iso: ExposureValue | null;
 }
 
+/**
+ * Tone distribution of a preview frame, 256 bins per curve.
+ *
+ * Four curves rather than one: luma answers "is the exposure where I want it",
+ * the separate channels answer "is one channel clipping", and the second question
+ * matters earlier - a red sunset blows red long before luma looks blown.
+ */
+export interface Histogram {
+    red: number[];
+    green: number[];
+    blue: number[];
+    luma: number[];
+    /** Pixels counted. Fewer than the frame has: the decode is scaled down. */
+    pixels: number;
+}
+
+/** A frame's metadata, without its pixels. */
+export interface PreviewInfo {
+    filename: string;
+    width: number;
+    height: number;
+    /** Size of the image the follow-up fetch will return. */
+    bytes: number;
+    /** `null` when the JPEG could not be decoded; the image is still shown. */
+    histogram: Histogram | null;
+}
+
 export interface BatteryStatus {
     percent: number | null;
     label: string;

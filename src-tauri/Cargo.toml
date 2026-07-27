@@ -35,3 +35,8 @@ async-trait = "0.1"
 tauri-plugin-log = "2"
 log = "0.4"
 thiserror = "2"
+
+# Histogram input. `rayon` is off on purpose: previews are decoded one at a time
+# inside an async task, and handing the work to a second thread pool would only add
+# contention on a phone.
+jpeg-decoder = { version = "0.3", default-features = false }

@@ -344,12 +344,24 @@ impl Camera for NikonPtpIp {
                 started.elapsed().as_secs_f32()
             );
 
+            // Decoded here rather than in the WebView so the curves on screen are the
+            // same data auto-ramping will read. A failure is logged and dropped: the
+            // image itself is still worth showing.
+            let histogram = match super::histogram::from_jpeg(&bytes) {
+                Ok(histogram) => Some(histogram),
+                Err(err) => {
+                    log::warn!("no histogram for {}: {err}", info.filename);
+                    None
+                }
+            };
+
             *lock(&self.delivered) = Some(handle);
             return Ok(Some(Preview {
                 bytes,
                 mime: "image/jpeg".into(),
                 filename: info.filename,
                 pixels: (info.pixel_width, info.pixel_height),
+                histogram,
             }));
         }
 

@@ -517,6 +517,48 @@ button:focus-visible {
     color: var(--text-muted);
 }
 
+/* Bottom-left, over the image. Photographers expect it in a corner of the frame,
+   and the corners are where a photograph carries least of its subject. */
+.preview__histogram {
+    position: absolute;
+    bottom: 0.6rem;
+    left: 0.6rem;
+    /* Wide enough for at least one pixel per bin. Below 256px the curves are
+       resampled on the way to the screen and narrow spikes - exactly the clipping you
+       are looking for - can be averaged away before you ever see them. */
+    width: min(18rem, 50%);
+    /* Taller than the single-plot version had to be: four stacked bands need real
+       height each, or the curves flatten into stripes and stop being readable. */
+    height: min(9.5rem, 36%);
+    padding: 0.35rem;
+    border: 1px solid rgb(255 255 255 / 0.15);
+    border-radius: calc(var(--radius) - 4px);
+    /* Dark and translucent so it reads over a bright frame as well as a dark one,
+       without hiding what is underneath it. */
+    background: rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+}
+
+.histogram {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.preview__caption {
+    position: absolute;
+    bottom: 0.6rem;
+    right: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.55);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
 .preview__badge {
     position: absolute;
     top: 0.6rem;

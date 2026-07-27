@@ -24,6 +24,7 @@
 mod canon;
 mod error;
 pub mod exposure;
+mod histogram;
 mod mock;
 mod model;
 // Public so diagnostics can reach the raw protocol below the `Camera` abstraction.
@@ -38,7 +39,7 @@ use tokio::sync::broadcast;
 pub use error::{CameraError, CameraResult};
 pub use model::{
     BatteryStatus, CameraEvent, CameraInfo, CameraTarget, Dial, ExposureCapabilities,
-    ExposureSettings, ExposureValue, Preview, Vendor,
+    ExposureSettings, ExposureValue, Histogram, Preview, Vendor,
 };
 
 #[async_trait]

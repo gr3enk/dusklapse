@@ -8,7 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type Vendor } from "./types";
+import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type Vendor } from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
@@ -51,14 +51,23 @@ export const api = {
     defaultPort: (vendor: Vendor) => invoke<number>("camera_default_port", { vendor }),
 
     /**
-     * Fetch the newest JPEG the camera wrote, as raw bytes.
+     * Ask the camera for the newest frame's metadata and histogram.
      *
-     * `null` when there is nothing new - the Rust side never sends the same frame
-     * twice, and signals that with an empty body. Only JPEGs ever arrive here; a
-     * RAW is identified and skipped on the camera side without being transferred.
+     * `null` when there is nothing new - the same frame is never fetched twice. Only
+     * JPEGs ever get here; a RAW is identified and skipped on the camera side without
+     * crossing the network. Call `previewImage` afterwards for the pixels.
      */
-    preview: async (): Promise<ArrayBuffer | null> => {
-        const bytes = await invoke<ArrayBuffer>("camera_preview");
+    preview: () => invoke<PreviewInfo | null>("camera_preview"),
+
+    /**
+     * The pixels of the frame `preview` last reported, as raw bytes.
+     *
+     * `null` before anything has been fetched. Separate from the metadata so the
+     * image travels as binary and the histogram as JSON, instead of forcing one of
+     * them into the wrong encoding.
+     */
+    previewImage: async (): Promise<ArrayBuffer | null> => {
+        const bytes = await invoke<ArrayBuffer>("camera_preview_image");
         return bytes.byteLength > 0 ? bytes : null;
     },
 

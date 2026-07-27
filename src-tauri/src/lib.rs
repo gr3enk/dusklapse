@@ -18,6 +18,7 @@ pub fn run() {
         )
         .plugin(tauri_plugin_opener::init())
         .manage(session::CameraSession::default())
+        .manage(commands::PreviewCache::default())
         .invoke_handler(tauri::generate_handler![
             commands::camera_connect,
             commands::camera_disconnect,
@@ -28,6 +29,7 @@ pub fn run() {
             commands::camera_shoot,
             commands::camera_battery,
             commands::camera_preview,
+            commands::camera_preview_image,
             commands::camera_default_port,
         ])
         .run(tauri::generate_context!())

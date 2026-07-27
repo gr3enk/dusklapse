@@ -194,6 +194,40 @@ pub enum CameraEvent {
     DialChanged { dial: Dial },
 }
 
+/// Tone distribution of a preview frame: the three channels separately plus
+/// weighted luma, 256 bins each.
+///
+/// All four are kept rather than derived on the fly because they answer different
+/// questions. Luma tells you whether the exposure is where you want it; the separate
+/// channels tell you whether a single channel is clipping, which happens long before
+/// luma looks blown - a red sunset blows red first, and a luma-only histogram hides
+/// that until it is unrecoverable.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Histogram {
+    pub red: Vec<u32>,
+    pub green: Vec<u32>,
+    pub blue: Vec<u32>,
+    pub luma: Vec<u32>,
+    /// Pixels counted. Fewer than the full frame: the decode is scaled down, since a
+    /// distribution does not need every pixel.
+    pub pixels: u32,
+}
+
+impl Histogram {
+    pub const BINS: usize = 256;
+
+    pub fn empty() -> Self {
+        Self {
+            red: vec![0; Self::BINS],
+            green: vec![0; Self::BINS],
+            blue: vec![0; Self::BINS],
+            luma: vec![0; Self::BINS],
+            pixels: 0,
+        }
+    }
+}
+
 /// An image pulled off the camera for on-screen review.
 ///
 /// Not `Serialize`: the bytes cross to the WebView as a raw IPC body, because a
@@ -205,6 +239,10 @@ pub struct Preview {
     pub mime: String,
     pub filename: String,
     pub pixels: (u32, u32),
+    /// `None` when the image could not be decoded. A preview that displays without
+    /// curves beats no preview at all, so a histogram failure must not sink the
+    /// frame it belongs to.
+    pub histogram: Option<Histogram>,
 }
 
 /// Remaining charge. Cameras are vague about this, so both fields are best

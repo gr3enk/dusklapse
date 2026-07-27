@@ -6,14 +6,26 @@
 //! response timing we control, and no real camera gives you that.
 
 use async_trait::async_trait;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 
 use super::error::CameraResult;
 use super::model::{
-    BatteryStatus, CameraInfo, CameraTarget, Dial, ExposureCapabilities, ExposureSettings,
-    ExposureValue, Vendor,
+    BatteryStatus, CameraEvent, CameraInfo, CameraTarget, Dial, ExposureCapabilities,
+    ExposureSettings, ExposureValue, Preview, Vendor,
 };
 use super::Camera;
+
+/// A real JPEG, embedded so the mock exercises the real decode path.
+///
+/// Synthesising pixel data would let a broken decoder or a wrong pixel format pass
+/// unnoticed; a genuine file is decoded by exactly the code a camera's frame goes
+/// through. It is a dusk scene with deliberately dissimilar channel distributions, so
+/// four separate histogram curves have something to show and a bug that collapses
+/// them into one is obvious.
+const MOCK_FRAME: &[u8] = include_bytes!("../../assets/mock-frame.jpg");
+
+/// Enough for a UI that reads the latest frame; previews are never a backlog.
+const EVENT_BUFFER: usize = 8;
 
 /// Roughly a mirrorless body's third-stop shutter range, trimmed to full stops.
 const SHUTTER: &[&str] = &[
@@ -36,6 +48,7 @@ pub struct MockCamera {
     target: CameraTarget,
     info: CameraInfo,
     state: Mutex<State>,
+    events: broadcast::Sender<CameraEvent>,
 }
 
 struct State {
@@ -56,7 +69,9 @@ impl MockCamera {
                 firmware: Some(env!("CARGO_PKG_VERSION").into()),
                 api_version: None,
                 supports_release: true,
-                pushes_events: false,
+                // Frames are announced the same way a real body announces them, so
+                // the event path is exercised rather than bypassed.
+                pushes_events: true,
             },
             target,
             state: Mutex::new(State {
@@ -65,6 +80,7 @@ impl MockCamera {
                 iso: "400".into(),
                 shots: 0,
             }),
+            events: broadcast::channel(EVENT_BUFFER).0,
         }
     }
 }
@@ -123,15 +139,20 @@ impl Camera for MockCamera {
 
     async fn shoot(&self, autofocus: bool) -> CameraResult<()> {
         tokio::time::sleep(SHOT_LATENCY).await;
-        let mut state = self.state.lock().await;
-        state.shots += 1;
-        log::info!(
-            "mock shot #{} at {} {} ISO {} (af: {autofocus})",
-            state.shots,
-            state.shutter,
-            state.aperture,
-            state.iso
-        );
+        {
+            let mut state = self.state.lock().await;
+            state.shots += 1;
+            log::info!(
+                "mock shot #{} at {} {} ISO {} (af: {autofocus})",
+                state.shots,
+                state.shutter,
+                state.aperture,
+                state.iso
+            );
+        };
+
+        // Err only means nobody is listening.
+        let _ = self.events.send(CameraEvent::FrameRecorded);
         Ok(())
     }
 
@@ -154,6 +175,24 @@ impl Camera for MockCamera {
             percent: Some(percent),
             label: format!("{percent}%"),
         }))
+    }
+
+    async fn preview(&self) -> CameraResult<Option<Preview>> {
+        // Unlike a real backend this returns the same frame every time rather than
+        // `None` once delivered: the point is to have something on screen whenever the
+        // UI asks, not to model the camera's de-duplication.
+        let histogram = super::histogram::from_jpeg(MOCK_FRAME)?;
+        Ok(Some(Preview {
+            bytes: MOCK_FRAME.to_vec(),
+            mime: "image/jpeg".into(),
+            filename: "MOCK_0001.JPG".into(),
+            pixels: (480, 320),
+            histogram: Some(histogram),
+        }))
+    }
+
+    fn events(&self) -> Option<broadcast::Receiver<CameraEvent>> {
+        Some(self.events.subscribe())
     }
 
     async fn disconnect(&self) -> CameraResult<()> {
@@ -190,6 +229,40 @@ mod tests {
         let camera = mock();
         let error = camera.set_exposure(Dial::Iso, "50").await.unwrap_err();
         assert_eq!(error.kind(), "valueNotSelectable");
+    }
+
+    /// The mock exists so the preview path can be exercised without hardware, which
+    /// only works if its embedded frame really decodes.
+    #[tokio::test]
+    async fn produces_a_preview_with_four_populated_curves() {
+        let camera = mock();
+        let preview = camera.preview().await.unwrap().expect("mock has a frame");
+
+        assert_eq!(preview.mime, "image/jpeg");
+        assert!(preview.bytes.len() > 1000, "embedded frame looks truncated");
+
+        let histogram = preview.histogram.expect("mock frame must decode");
+        assert!(histogram.pixels > 0);
+        for channel in [&histogram.red, &histogram.green, &histogram.blue, &histogram.luma] {
+            assert_eq!(channel.len(), 256);
+            assert_eq!(channel.iter().sum::<u32>(), histogram.pixels);
+        }
+        // The three channels must differ, or the test frame cannot show whether the
+        // four curves are actually drawn separately.
+        assert_ne!(histogram.red, histogram.green);
+        assert_ne!(histogram.green, histogram.blue);
+    }
+
+    /// The UI fetches a preview in response to this event, so a mock that never sends
+    /// it cannot drive the path it exists to drive.
+    #[tokio::test]
+    async fn announces_each_shot_as_a_frame() {
+        let camera = mock();
+        let mut events = camera.events().expect("mock pushes events");
+
+        camera.shoot(false).await.unwrap();
+
+        assert_eq!(events.recv().await.unwrap(), CameraEvent::FrameRecorded);
     }
 
     /// The whole point of the stop-space design: pick a brightness, snap it onto
