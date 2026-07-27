@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  iOS-only Info.plist additions.
+
+  Tauri merges this file into the generated
+  gen/apple/dusklapse_iOS/Info.plist at build time. Edit this file, never the
+  generated one - `tauri ios init` overwrites that.
+-->
+<plist version="1.0">
+<dict>
+	<!--
+	  Required since iOS 14 for *any* traffic to the local network. Without it,
+	  connections to a camera fail silently: no error, no prompt, just timeouts.
+	  iOS shows this string in the permission dialog, so it has to explain the
+	  benefit to the user rather than describe the API.
+	-->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Dusklapse needs access to your local network to find and control your camera over Wi-Fi.</string>
+
+	<!--
+	  Bonjour service types must be declared up front; iOS will not browse for a
+	  type that is not listed here. Canon bodies with CCAPI enabled advertise
+	  over HTTP, Nikon and Sony over PTP-IP.
+
+	  Manual IP entry does not need these, but it does still need the
+	  NSLocalNetworkUsageDescription above.
+	-->
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_http._tcp</string>
+		<string>_ptp._tcp</string>
+	</array>
+
+	<!--
+	  Camera APIs are plaintext HTTP on a private network and always will be.
+	  All camera I/O goes through reqwest in Rust, which has its own stack and is
+	  not subject to App Transport Security - this exemption is only so the
+	  WebView can reach the Vite dev server during `tauri ios dev`.
+	-->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+</dict>
+</plist>

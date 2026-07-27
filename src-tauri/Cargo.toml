@@ -1,0 +1,37 @@
+[package]
+name = "dusklapse"
+version = "0.1.0"
+description = "Holy-grail timelapse control for networked cameras"
+authors = ["Jakob"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "dusklapse_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# All camera I/O lives in Rust, never in the WebView: App Transport Security
+# blocks the plaintext HTTP that CCAPI speaks, and reqwest brings its own stack
+# so ATS does not apply to it.
+reqwest = { version = "0.13", default-features = false, features = ["json"] }
+tokio = { version = "1", features = ["macros", "net", "rt", "sync", "time"] }
+async-trait = "0.1"
+
+# On iOS there is no stdout to read, so without the log plugin every Rust-side
+# log line is lost. Debugging a camera protocol blind is miserable.
+tauri-plugin-log = "2"
+log = "0.4"
+thiserror = "2"
