@@ -107,7 +107,7 @@ pub async fn camera_preview(
         width: preview.pixels.0,
         height: preview.pixels.1,
         bytes: preview.bytes.len() as u32,
-        histogram: preview.histogram.clone(),
+        analysis: preview.analysis.clone(),
     };
     // Held for the follow-up call rather than sent now, so the caller decides when
     // to pay for the transfer across the IPC boundary.
@@ -152,7 +152,7 @@ pub struct PreviewInfo {
     pub height: u32,
     /// Size of the image the follow-up call will return.
     pub bytes: u32,
-    pub histogram: Option<crate::camera::Histogram>,
+    pub analysis: Option<crate::camera::FrameAnalysis>,
 }
 
 /// Default port per vendor, so the connect screen does not have to keep its own

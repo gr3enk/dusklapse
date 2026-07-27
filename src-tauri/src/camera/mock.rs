@@ -181,13 +181,13 @@ impl Camera for MockCamera {
         // Unlike a real backend this returns the same frame every time rather than
         // `None` once delivered: the point is to have something on screen whenever the
         // UI asks, not to model the camera's de-duplication.
-        let histogram = super::histogram::from_jpeg(MOCK_FRAME)?;
+        let analysis = super::histogram::analyse(MOCK_FRAME)?;
         Ok(Some(Preview {
             bytes: MOCK_FRAME.to_vec(),
             mime: "image/jpeg".into(),
             filename: "MOCK_0001.JPG".into(),
             pixels: (480, 320),
-            histogram: Some(histogram),
+            analysis: Some(analysis),
         }))
     }
 
@@ -241,7 +241,9 @@ mod tests {
         assert_eq!(preview.mime, "image/jpeg");
         assert!(preview.bytes.len() > 1000, "embedded frame looks truncated");
 
-        let histogram = preview.histogram.expect("mock frame must decode");
+        let analysis = preview.analysis.expect("mock frame must decode");
+
+        let histogram = analysis.histogram;
         assert!(histogram.pixels > 0);
         for channel in [&histogram.red, &histogram.green, &histogram.blue, &histogram.luma] {
             assert_eq!(channel.len(), 256);
@@ -251,6 +253,26 @@ mod tests {
         // four curves are actually drawn separately.
         assert_ne!(histogram.red, histogram.green);
         assert_ne!(histogram.green, histogram.blue);
+
+        // The brightness figure has to be a usable reading, not a degenerate 0 or full
+        // scale - otherwise the mock cannot stand in for a frame while the ramp is
+        // developed against it.
+        // Pinned against an independent re-derivation of the same definition (a
+        // separate log-average of linear luminance over the very same file, computed
+        // outside this codebase): 2269. The tolerance covers f32-versus-f64 rounding
+        // and small IDCT differences between decoders, not a difference in the formula.
+        let luminance = analysis.luminance;
+        assert!(
+            luminance.value.abs_diff(2269) <= 30,
+            "mock frame measured {}, expected about 2269",
+            luminance.value
+        );
+        assert!(luminance.linear > 0.0);
+
+        // The brightness of this frame against itself is zero stops - the identity the
+        // ramp's correction is built on.
+        let stops = luminance.stops_from(luminance).unwrap();
+        assert!(stops.abs() < 1e-6, "{stops} stops from itself");
     }
 
     /// The UI fetches a preview in response to this event, so a mock that never sends

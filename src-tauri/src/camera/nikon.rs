@@ -347,10 +347,17 @@ impl Camera for NikonPtpIp {
             // Decoded here rather than in the WebView so the curves on screen are the
             // same data auto-ramping will read. A failure is logged and dropped: the
             // image itself is still worth showing.
-            let histogram = match super::histogram::from_jpeg(&bytes) {
-                Ok(histogram) => Some(histogram),
+            let analysis = match super::histogram::analyse(&bytes) {
+                Ok(analysis) => {
+                    log::info!(
+                        "{} measures {} on the brightness scale",
+                        info.filename,
+                        analysis.luminance.value
+                    );
+                    Some(analysis)
+                }
                 Err(err) => {
-                    log::warn!("no histogram for {}: {err}", info.filename);
+                    log::warn!("could not measure {}: {err}", info.filename);
                     None
                 }
             };
@@ -361,7 +368,7 @@ impl Camera for NikonPtpIp {
                 mime: "image/jpeg".into(),
                 filename: info.filename,
                 pixels: (info.pixel_width, info.pixel_height),
-                histogram,
+                analysis,
             }));
         }
 

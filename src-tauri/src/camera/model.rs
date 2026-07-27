@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::luminance::Luminance;
+
 /// Which protocol dialect a camera speaks over the network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -228,6 +230,18 @@ impl Histogram {
     }
 }
 
+/// Everything a preview frame is measured for, from one decode.
+///
+/// One optional struct rather than two independent options: either the JPEG decoded and
+/// both statistics exist, or it did not and neither does. Two `Option`s that are always
+/// both set or both empty is an invariant waiting to be broken.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrameAnalysis {
+    pub histogram: Histogram,
+    pub luminance: Luminance,
+}
+
 /// An image pulled off the camera for on-screen review.
 ///
 /// Not `Serialize`: the bytes cross to the WebView as a raw IPC body, because a
@@ -240,9 +254,9 @@ pub struct Preview {
     pub filename: String,
     pub pixels: (u32, u32),
     /// `None` when the image could not be decoded. A preview that displays without
-    /// curves beats no preview at all, so a histogram failure must not sink the
+    /// measurements beats no preview at all, so a decode failure must not sink the
     /// frame it belongs to.
-    pub histogram: Option<Histogram>,
+    pub analysis: Option<FrameAnalysis>,
 }
 
 /// Remaining charge. Cameras are vague about this, so both fields are best

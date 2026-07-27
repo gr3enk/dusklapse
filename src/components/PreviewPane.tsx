@@ -87,9 +87,16 @@ export function PreviewPane({ frame, supported }: Props) {
                 {/* Overlaid rather than placed beside the image: the two are read
                     together, and giving the histogram its own row would take height
                     from the frame it describes. */}
-                {info?.histogram && (
+                {info?.analysis && (
                     <div className="preview__histogram">
-                        <HistogramChart histogram={info.histogram} />
+                        {/* Above the curves and larger than anything else here: this is
+                            the number the ramp is regulated against, so it is the one
+                            you glance at, not something to hunt for. */}
+                        <div className="preview__luminance">
+                            <span className="preview__luminance-label">Luminance</span>
+                            <span className="preview__luminance-value">{info.analysis.luminance.value}</span>
+                        </div>
+                        <HistogramChart histogram={info.analysis.histogram} />
                     </div>
                 )}
                 {info && <span className="preview__caption">{info.filename}</span>}

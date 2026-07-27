@@ -1,15 +1,22 @@
-//! Histograms from preview JPEGs.
+//! What a preview frame is measured for: its histogram and its brightness.
 //!
-//! Computed here in Rust rather than from a canvas in the WebView, for one reason
-//! that matters more than performance: this is the same data auto-ramping will read
-//! to decide the next exposure. One implementation means the curves on screen are
-//! exactly the ones the algorithm acted on, instead of a separate JavaScript
-//! calculation that might weight luminance differently and quietly disagree.
+//! Both come out of one decode, which is why they live together. Computed here in Rust
+//! rather than from a canvas in the WebView, for one reason that matters more than
+//! performance: this is the same data auto-ramping will read to decide the next
+//! exposure. One implementation means the curves on screen are exactly the ones the
+//! algorithm acted on, instead of a separate JavaScript calculation that might weight
+//! luminance differently and quietly disagree.
+//!
+//! The two statistics deliberately differ in one respect: the histogram counts
+//! gamma-encoded luma, as a camera's own histogram does, while the brightness figure is
+//! measured in linear light. See [`super::luminance`] for why regulating a ramp on the
+//! encoded value would not work.
 
 use jpeg_decoder::{Decoder, PixelFormat};
 
 use super::error::{CameraError, CameraResult};
-use super::model::Histogram;
+use super::luminance::Meter;
+use super::model::{FrameAnalysis, Histogram};
 
 /// Long edge to decode down to before counting.
 ///
@@ -30,8 +37,8 @@ const LUMA_BLUE: f32 = 0.0722;
 
 const BINS: usize = 256;
 
-/// Count the tones in a JPEG.
-pub fn from_jpeg(bytes: &[u8]) -> CameraResult<Histogram> {
+/// Decode a preview JPEG and measure it.
+pub fn analyse(bytes: &[u8]) -> CameraResult<FrameAnalysis> {
     let mut decoder = Decoder::new(bytes);
 
     decoder
@@ -72,19 +79,33 @@ pub fn from_jpeg(bytes: &[u8]) -> CameraResult<Histogram> {
         .ok_or_else(|| CameraError::Protocol("the preview JPEG lost its header".into()))?
         .pixel_format;
 
-    match format {
-        PixelFormat::RGB24 => Ok(count_rgb(&pixels)),
+    let (histogram, meter) = match format {
+        PixelFormat::RGB24 => measure_rgb(&pixels),
         // A greyscale JPEG has no channels to separate; all four curves coincide,
         // which is the honest representation rather than three fabricated ones.
-        PixelFormat::L8 => Ok(count_grey(&pixels)),
-        other => Err(CameraError::Protocol(format!(
-            "unsupported preview pixel format {other:?}"
-        ))),
-    }
+        PixelFormat::L8 => measure_grey(&pixels),
+        other => {
+            return Err(CameraError::Protocol(format!(
+                "unsupported preview pixel format {other:?}"
+            )))
+        }
+    };
+
+    let luminance = meter
+        .finish()
+        .ok_or_else(|| CameraError::Protocol("the preview decoded to no pixels".into()))?;
+
+    Ok(FrameAnalysis {
+        histogram,
+        luminance,
+    })
 }
 
-fn count_rgb(pixels: &[u8]) -> Histogram {
+/// One pass for both statistics. Walking a megapixel buffer twice would be a second
+/// trip through memory for data already sitting in cache.
+fn measure_rgb(pixels: &[u8]) -> (Histogram, Meter) {
     let mut histogram = Histogram::empty();
+    let mut meter = Meter::new();
 
     for pixel in pixels.chunks_exact(3) {
         let (red, green, blue) = (pixel[0], pixel[1], pixel[2]);
@@ -95,13 +116,16 @@ fn count_rgb(pixels: &[u8]) -> Histogram {
         let luma = LUMA_RED * red as f32 + LUMA_GREEN * green as f32 + LUMA_BLUE * blue as f32;
         histogram.luma[(luma.round() as usize).min(BINS - 1)] += 1;
         histogram.pixels += 1;
+
+        meter.add_rgb(red, green, blue);
     }
 
-    histogram
+    (histogram, meter)
 }
 
-fn count_grey(pixels: &[u8]) -> Histogram {
+fn measure_grey(pixels: &[u8]) -> (Histogram, Meter) {
     let mut histogram = Histogram::empty();
+    let mut meter = Meter::new();
 
     for &value in pixels {
         let bin = value as usize;
@@ -110,9 +134,11 @@ fn count_grey(pixels: &[u8]) -> Histogram {
         histogram.blue[bin] += 1;
         histogram.luma[bin] += 1;
         histogram.pixels += 1;
+
+        meter.add_grey(value);
     }
 
-    histogram
+    (histogram, meter)
 }
 
 #[cfg(test)]
@@ -126,7 +152,7 @@ mod tests {
     fn counts_each_channel_separately() {
         // Two pixels: pure red, then pure blue.
         let pixels = [255u8, 0, 0, 0, 0, 255];
-        let histogram = count_rgb(&pixels);
+        let (histogram, _) = measure_rgb(&pixels);
 
         assert_eq!(histogram.pixels, 2);
         assert_eq!(histogram.red[255], 1);
@@ -147,8 +173,8 @@ mod tests {
     fn luma_is_weighted_the_way_vision_is() {
         // Pure green reads far brighter than pure blue at the same value, which is
         // the whole point of weighting rather than averaging.
-        let green = count_rgb(&[0, 255, 0]);
-        let blue = count_rgb(&[0, 0, 255]);
+        let (green, _) = measure_rgb(&[0, 255, 0]);
+        let (blue, _) = measure_rgb(&[0, 0, 255]);
 
         let brightest = |h: &Histogram| h.luma.iter().rposition(|count| *count > 0).unwrap();
         assert_eq!(brightest(&green), (255.0 * LUMA_GREEN).round() as usize);
@@ -160,13 +186,13 @@ mod tests {
     fn white_lands_in_the_top_bin_without_overflowing_it() {
         // The weights sum to 1.0 but in f32, so white can round to 255.00001.
         // Clamping is what keeps that from panicking on an out-of-range index.
-        let histogram = count_rgb(&[255, 255, 255]);
+        let (histogram, _) = measure_rgb(&[255, 255, 255]);
         assert_eq!(histogram.luma[255], 1);
     }
 
     #[test]
     fn greyscale_gives_four_identical_curves() {
-        let histogram = count_grey(&[0, 128, 255]);
+        let (histogram, _) = measure_grey(&[0, 128, 255]);
         assert_eq!(histogram.pixels, 3);
         assert_eq!(histogram.red, histogram.luma);
         assert_eq!(histogram.green, histogram.luma);
@@ -175,7 +201,7 @@ mod tests {
 
     #[test]
     fn rejects_bytes_that_are_not_a_jpeg() {
-        let error = from_jpeg(b"definitely not a jpeg").unwrap_err();
+        let error = analyse(b"definitely not a jpeg").unwrap_err();
         assert_eq!(error.kind(), "protocol");
     }
 }

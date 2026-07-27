@@ -89,6 +89,26 @@ export interface Histogram {
     pixels: number;
 }
 
+/**
+ * Scene brightness of a frame, the quantity a ramp regulates on.
+ *
+ * `value` is the readout, 0 to 10000 with mid-grey near 5000 - the same kind of number
+ * qDslrDashboard shows. `linear` is the one to compute with: it is proportional to the
+ * light that reached the sensor, so a ratio of two of them is an exposure difference in
+ * stops. Deliberately not the same as the histogram's luma, which is gamma-encoded and
+ * therefore not linear in stops.
+ */
+export interface Luminance {
+    linear: number;
+    value: number;
+}
+
+/** Everything a frame is measured for. Present together or not at all. */
+export interface FrameAnalysis {
+    histogram: Histogram;
+    luminance: Luminance;
+}
+
 /** A frame's metadata, without its pixels. */
 export interface PreviewInfo {
     filename: string;
@@ -97,7 +117,13 @@ export interface PreviewInfo {
     /** Size of the image the follow-up fetch will return. */
     bytes: number;
     /** `null` when the JPEG could not be decoded; the image is still shown. */
-    histogram: Histogram | null;
+    analysis: FrameAnalysis | null;
+}
+
+/** Stops between two brightness readings. Positive means `frame` is brighter. */
+export function stopsBetween(frame: Luminance, reference: Luminance): number | null {
+    if (frame.linear <= 0 || reference.linear <= 0) return null;
+    return Math.log2(frame.linear / reference.linear);
 }
 
 export interface BatteryStatus {
