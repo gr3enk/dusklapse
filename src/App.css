@@ -142,6 +142,82 @@ h1 {
    Connect screen
    -------------------------------------------------------------------------- */
 
+/* Breaks out of the padding the app container applies, so the footage runs to the
+   edges of the display including under the notch. The controls inside keep their own
+   safe-area padding. */
+.landing {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    /* Controls at the bottom, footage above them. Anchoring to the bottom rather than
+       reserving a fixed slice means the layout works at any height without a second
+       set of rules for short screens. */
+    justify-content: flex-end;
+    align-self: stretch;
+    min-height: 100dvh;
+    margin: calc(-1 * (env(safe-area-inset-top) + 1.5rem)) calc(-1 * (env(safe-area-inset-right) + 1.25rem)) calc(-1 * (env(safe-area-inset-bottom) + 1.5rem))
+        calc(-1 * (env(safe-area-inset-left) + 1.25rem));
+    overflow: hidden;
+}
+
+.landing__backdrop {
+    position: absolute;
+    inset: 0;
+    /* Behind the controls, and not in the way of taps. */
+    z-index: 0;
+    pointer-events: none;
+}
+
+.landing__video {
+    width: 100%;
+    height: 100%;
+    /* Cover, not contain: this is wallpaper. Letterboxing it would put grey bars
+       through the composition. */
+    object-fit: cover;
+}
+
+.landing__scrim {
+    position: absolute;
+    inset: 0;
+    /* Transparent over the footage, opaque where the controls sit. Fully opaque well
+       before the bottom, so the form always lands on flat colour rather than on
+       moving footage - text over a timelapse is unreadable and the motion pulls the
+       eye away from the thing you came here to do. */
+    background: linear-gradient(to bottom, rgb(13 15 19 / 0) 0%, rgb(13 15 19 / 0) 40%, var(--bg) 65%, var(--bg) 100%);
+}
+
+/* Falls back to the poster frame for anyone who asked the system for less motion. */
+@media (prefers-reduced-motion: reduce) {
+    .landing__video {
+        display: none;
+    }
+
+    .landing__backdrop {
+        background: url("./assets/background-poster.jpg") center / cover no-repeat;
+    }
+}
+
+.landing__content {
+    position: relative;
+    z-index: 1;
+    align-self: center;
+    padding: 2rem calc(env(safe-area-inset-right) + 1.25rem) calc(env(safe-area-inset-bottom) + 2rem) calc(env(safe-area-inset-left) + 1.25rem);
+}
+
+/* The wordmark, painted rather than drawn: see the note at the use site. */
+.logo {
+    display: block;
+    width: min(8.5rem, 40%);
+    /* From the artwork's own 591.93 x 263.76 viewBox, so the mask never distorts. */
+    aspect-ratio: 591.93 / 263.76;
+    /* The mark is narrower than the form it sits above, so without this it hangs off
+       the left edge and reads as misaligned rather than as a header. */
+    margin-inline: auto;
+    background-color: var(--text);
+    -webkit-mask: url("./assets/logo.svg") center / contain no-repeat;
+    mask: url("./assets/logo.svg") center / contain no-repeat;
+}
+
 .connect {
     width: 100%;
     max-width: 26rem;
@@ -150,8 +226,14 @@ h1 {
     gap: 1.25rem;
 }
 
+/* Centred as a block. A centred mark over left-aligned text looks like an accident;
+   centring both makes it a header, with the form fields left-aligned below as usual. */
+.connect__header {
+    text-align: center;
+}
+
 .connect__header p {
-    margin: 0.35rem 0 0;
+    margin: 0.75rem 0 0;
     color: var(--text-muted);
 }
 
@@ -194,6 +276,29 @@ h1 {
     margin: 0;
     font-size: 0.85rem;
     color: var(--text-muted);
+}
+
+/* All hints occupy one grid cell, so the box is always as tall as the longest of them
+   and switching camera cannot change the layout's height. */
+.hint-stack {
+    display: grid;
+}
+
+.hint-stack__item {
+    grid-area: 1 / 1;
+    /* `visibility` rather than `display: none`: hidden items must still take part in
+       sizing the cell, which is the entire point. It also keeps them out of the
+       accessibility tree and the tab order. */
+    visibility: hidden;
+}
+
+.hint-stack__item[data-active="true"] {
+    visibility: visible;
+}
+
+/* Present for its height alone - see the note at the use site. */
+.field-row[data-reserved="true"] {
+    visibility: hidden;
 }
 
 .field-row {

@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
+import backgroundPoster from "../assets/background-poster.jpg";
+import backgroundVideo from "../assets/background-loop.mp4";
 import { api, errorMessage } from "../lib/api";
 import { ACCESS_POINT_HOST, VENDORS, type CameraInfo, type Vendor } from "../lib/types";
 
@@ -13,6 +15,7 @@ export function ConnectScreen({ onConnected }: Props) {
     const [port, setPort] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const video = useRef<HTMLVideoElement | null>(null);
 
     // The port lives in Rust so there is one source of truth for it.
     useEffect(() => {
@@ -36,6 +39,15 @@ export function ConnectScreen({ onConnected }: Props) {
         setHost(ACCESS_POINT_HOST[vendor] ?? "");
     }, [vendor]);
 
+    // iOS grants autoplay only to muted inline video, and even then refuses it in a few
+    // states (low power mode among them). A refusal is not a problem worth surfacing:
+    // the poster frame stays, which is a perfectly good still backdrop.
+    useEffect(() => {
+        video.current?.play().catch(() => {
+            /* Poster frame it is. */
+        });
+    }, []);
+
     const needsAddress = vendor !== "mock";
     const canSubmit = !busy && (!needsAddress || host.trim().length > 0);
 
@@ -57,29 +69,59 @@ export function ConnectScreen({ onConnected }: Props) {
         }
     }
 
-    const selected = VENDORS.find((entry) => entry.id === vendor);
-
     return (
-        <form className="connect" onSubmit={connect}>
-            <header className="connect__header">
-                <h1>Dusklapse</h1>
-                <p>Connect to a camera on your network.</p>
-            </header>
+        <div className="landing">
+            <div className="landing__backdrop" aria-hidden="true">
+                {/* All four attributes are load-bearing on iOS: without `muted` autoplay
+                    is refused outright, and without `playsInline` the video is taken
+                    fullscreen instead of staying in the layout. */}
+                <video className="landing__video" ref={video} src={backgroundVideo} poster={backgroundPoster} autoPlay muted loop playsInline preload="auto" tabIndex={-1} />
+                {/* Fades the footage into the page colour so the controls below sit on
+                    flat background rather than on moving footage, which would make them
+                    hard to read and harder to ignore. */}
+                <div className="landing__scrim" />
+            </div>
 
-            <fieldset className="field">
-                <legend>Camera</legend>
-                <div className="segmented">
-                    {VENDORS.map((entry) => (
-                        <button key={entry.id} type="button" className="segmented__option" aria-pressed={vendor === entry.id} onClick={() => setVendor(entry.id)}>
-                            {entry.label}
-                        </button>
-                    ))}
-                </div>
-                {selected && <p className="field__hint">{selected.hint}</p>}
-            </fieldset>
+            <form className="landing__content connect" onSubmit={connect}>
+                <header className="connect__header">
+                    {/* A mask, not an <img>: the file's strokes are hardcoded black and
+                        would vanish on this background. Masking discards its colours and
+                        paints the shape in the current text colour, so the SVG stays the
+                        single source and the theme decides how it looks. */}
+                    <span className="logo" role="img" aria-label="Dusklapse" />
+                    <p>Connect to a camera on your network.</p>
+                </header>
 
-            {needsAddress && (
-                <div className="field-row">
+                <fieldset className="field">
+                    <legend>Camera</legend>
+                    <div className="segmented">
+                        {VENDORS.map((entry) => (
+                            <button key={entry.id} type="button" className="segmented__option" aria-pressed={vendor === entry.id} onClick={() => setVendor(entry.id)}>
+                                {entry.label}
+                            </button>
+                        ))}
+                    </div>
+                    {/* Every hint is rendered, all in the same grid cell, with the
+                        inactive ones hidden. The box therefore always has the height of
+                        the longest one and picking a camera cannot resize it. A
+                        min-height in `em` would need a magic number and would still be
+                        wrong at some width, because how many lines a hint wraps to
+                        depends on the screen. */}
+                    <div className="field__hint hint-stack">
+                        {VENDORS.map((entry) => (
+                            <span key={entry.id} className="hint-stack__item" aria-hidden={entry.id !== vendor} data-active={entry.id === vendor}>
+                                {entry.hint}
+                            </span>
+                        ))}
+                    </div>
+                </fieldset>
+
+                {/* Kept in the layout even when it has nothing to show. The content is
+                    anchored to the bottom of the screen, so a row that comes and goes
+                    shoves the logo and everything above it up and down on every change
+                    of camera. Reserving the space costs nothing and holds the page
+                    still. */}
+                <div className="field-row" aria-hidden={!needsAddress} data-reserved={!needsAddress}>
                     <label className="field">
                         <span className="field__label">Address</span>
                         <input
@@ -98,22 +140,22 @@ export function ConnectScreen({ onConnected }: Props) {
                         <input value={port} onChange={(event) => setPort(event.currentTarget.value)} inputMode="numeric" />
                     </label>
                 </div>
-            )}
 
-            <button className="button button--primary" type="submit" disabled={!canSubmit}>
-                {busy ? "Connecting…" : "Connect"}
-            </button>
+                <button className="button button--primary" type="submit" disabled={!canSubmit}>
+                    {busy ? "Connecting…" : "Connect"}
+                </button>
 
-            {error && (
-                <p className="notice notice--error" role="alert">
-                    {error}
+                {error && (
+                    <p className="notice notice--error" role="alert">
+                        {error}
+                    </p>
+                )}
+
+                <p className="connect__footnote">
+                    Let the camera host its own Wi-Fi and join that network with this device. On Nikon use <strong>connect to smart device</strong>, not connect to computer - the computer path wants to be
+                    paired with Nikon's transmitter utility and drops the connection as soon as you leave its pairing screen.
                 </p>
-            )}
-
-            <p className="connect__footnote">
-                Let the camera host its own Wi-Fi and join that network with this device. On Nikon use <strong>connect to smart device</strong>, not connect to computer - the computer path wants to be
-                paired with Nikon's transmitter utility and drops the connection as soon as you leave its pairing screen.
-            </p>
-        </form>
+            </form>
+        </div>
     );
 }
