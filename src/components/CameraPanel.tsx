@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, errorMessage } from "../lib/api";
+import { PreviewPane } from "./PreviewPane";
 import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings } from "../lib/types";
 
 interface Props {
@@ -161,6 +162,8 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     </button>
                 </div>
             </header>
+
+            {info.pushesEvents && <PreviewPane frame={frames} />}
 
             <section className="dials">
                 {DIALS.map(({ id, label }) => {

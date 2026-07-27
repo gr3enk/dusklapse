@@ -51,12 +51,23 @@ export const api = {
     defaultPort: (vendor: Vendor) => invoke<number>("camera_default_port", { vendor }),
 
     /**
+     * Fetch the newest JPEG the camera wrote, as raw bytes.
+     *
+     * `null` when there is nothing new - the Rust side never sends the same frame
+     * twice, and signals that with an empty body. Only JPEGs ever arrive here; a
+     * RAW is identified and skipped on the camera side without being transferred.
+     */
+    preview: async (): Promise<ArrayBuffer | null> => {
+        const bytes = await invoke<ArrayBuffer>("camera_preview");
+        return bytes.byteLength > 0 ? bytes : null;
+    },
+
+    /**
      * Subscribe to what the camera reports on its own.
      *
      * Returns the unlisten function. Await it before dropping the subscription:
      * `listen` resolves after the channel is registered, and discarding the promise
      * leaks the handler.
      */
-    onCameraEvent: (handler: (event: CameraEvent) => void) =>
-        listen<CameraEvent>(CAMERA_EVENT, (message) => handler(message.payload)),
+    onCameraEvent: (handler: (event: CameraEvent) => void) => listen<CameraEvent>(CAMERA_EVENT, (message) => handler(message.payload)),
 };
