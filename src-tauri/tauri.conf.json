@@ -28,7 +28,7 @@
     "active": true,
     "targets": "all",
     "iOS": {
-      "minimumSystemVersion": "14.0"
+      "minimumSystemVersion": "16.4"
     },
     "icon": [
       "icons/32x32.png",

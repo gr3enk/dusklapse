@@ -4,13 +4,15 @@ import backgroundPoster from "../assets/background-poster.jpg";
 import backgroundVideo from "../assets/background-loop.mp4";
 import { api, errorMessage } from "../lib/api";
 import { ACCESS_POINT_HOST, VENDORS, type CameraInfo, type Vendor } from "../lib/types";
-
+import { ArrowLeftIcon, CircleQuestionMarkIcon } from "lucide-react";
+import NikonConnectionHelp from "./help/NikonConnectionHelp";
 interface Props {
     onConnected: (info: CameraInfo) => void;
 }
 
 export function ConnectScreen({ onConnected }: Props) {
     const [vendor, setVendor] = useState<Vendor>("mock");
+    const [showConnectionHelp, setShowConnectionHelp] = useState(false);
     const [host, setHost] = useState("");
     const [port, setPort] = useState("");
     const [busy, setBusy] = useState(false);
@@ -67,6 +69,10 @@ export function ConnectScreen({ onConnected }: Props) {
         } finally {
             setBusy(false);
         }
+    }
+
+    if (showConnectionHelp) {
+        return <ConnectionHelp vendor={vendor} onClose={() => setShowConnectionHelp(false)} />;
     }
 
     return (
@@ -141,9 +147,14 @@ export function ConnectScreen({ onConnected }: Props) {
                     </label>
                 </div>
 
-                <button className="button button--primary" type="submit" disabled={!canSubmit}>
-                    {busy ? "Connecting…" : "Connect"}
-                </button>
+                <div className="flex gap-2">
+                    <button style={{ flex: 1 }} className="button button--primary" type="submit" disabled={!canSubmit}>
+                        {busy ? "Connecting…" : "Connect"}
+                    </button>
+                    <button className="button button--primary button--icon" type="button" onClick={() => setShowConnectionHelp(true)}>
+                        <CircleQuestionMarkIcon />
+                    </button>
+                </div>
 
                 {error && (
                     <p className="notice notice--error" role="alert">
@@ -152,10 +163,32 @@ export function ConnectScreen({ onConnected }: Props) {
                 )}
 
                 <p className="connect__footnote">
-                    Let the camera host its own Wi-Fi and join that network with this device. On Nikon use <strong>connect to smart device</strong>, not connect to computer - the computer path wants to be
-                    paired with Nikon's transmitter utility and drops the connection as soon as you leave its pairing screen.
+                    Let the camera host its own Wi-Fi and join that network with this device. On Nikon use <strong>connect to smart device</strong>, not connect to computer - the computer path wants
+                    to be paired with Nikon's transmitter utility and drops the connection as soon as you leave its pairing screen.
                 </p>
             </form>
+        </div>
+    );
+}
+
+const CONNECTION_HELP_COMPONENTS = {
+    nikon: NikonConnectionHelp,
+} as const;
+
+function ConnectionHelp({ vendor, onClose }: { vendor: Vendor; onClose: () => void }) {
+    const ConnectionHelpComponent = CONNECTION_HELP_COMPONENTS[vendor as keyof typeof CONNECTION_HELP_COMPONENTS];
+    return (
+        <div className="absolute inset-0 p-16 justify-start items-center">
+            <div className="flex justify-between items-center">
+                <button className="flex items-center gap-2" onClick={onClose}>
+                    <ArrowLeftIcon />
+                    Back
+                </button>
+                <h2>Connection Help</h2>
+            </div>
+            <div className="py-8">
+                <ConnectionHelpComponent />
+            </div>
         </div>
     );
 }

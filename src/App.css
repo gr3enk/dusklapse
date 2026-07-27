@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 /*
  * Dark by default and not as a preference: this app gets used at dusk and in
  * the dark, pointed at a camera, and a bright screen ruins both your night
@@ -31,679 +33,724 @@
     overscroll-behavior: none;
 }
 
-* {
-    box-sizing: border-box;
+/*
+ * Hands the palette above to Tailwind without duplicating a single value.
+ *
+ * `inline` is what makes this work: the generated utilities reference `var(--surface)`
+ * rather than copying its value, so `:root` stays the one place a colour is defined and
+ * `bg-surface` and `background: var(--surface)` can never drift apart.
+ *
+ * The utility names follow from the token names, so `--text-muted` gives
+ * `text-text-muted`. Slightly awkward to read; renaming the tokens would fix it and is
+ * a mechanical change whenever it starts to grate.
+ */
+@theme inline {
+    --color-bg: var(--bg);
+    --color-surface: var(--surface);
+    --color-surface-raised: var(--surface-raised);
+    --color-border: var(--border);
+    --color-text: var(--text);
+    --color-text-muted: var(--text-muted);
+    --color-accent: var(--accent);
+    --color-accent-text: var(--accent-text);
+    --color-danger: var(--danger);
+
+    --radius-card: var(--radius);
 }
 
-body {
-    margin: 0;
-    background: var(--bg);
-}
-
-.app {
-    min-height: 100vh;
-    min-height: 100dvh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    /* Keep clear of the notch, the home indicator and rounded corners. */
-    padding: calc(env(safe-area-inset-top) + 1.5rem) calc(env(safe-area-inset-right) + 1.25rem) calc(env(safe-area-inset-bottom) + 1.5rem) calc(env(safe-area-inset-left) + 1.25rem);
-}
-
-/* The working screen owns the whole viewport instead of being a centred card.
-   The definite height is load-bearing, not decoration: `min-height` alone leaves
-   the container content-sized, so the workspace's `fr` rows have nothing to resolve
-   against and the ramping panel grows the page instead of scrolling inside itself.
-   `overflow: hidden` is the backstop - the panes each manage their own scrolling,
-   and the page itself must never scroll. */
-.app--filling {
-    height: 100vh;
-    height: 100dvh;
-    max-height: 100dvh;
-    overflow: hidden;
-    justify-content: stretch;
-    align-items: stretch;
-}
-
-.app__loading {
-    color: var(--text-muted);
-}
-
-/* --------------------------------------------------------------------------
-   Workspace: the three panes, arranged by orientation
-   --------------------------------------------------------------------------
-   Orientation is handled here rather than in JavaScript. A media query relayouts
-   the moment the device turns, with no re-render and no resize listener to get
-   wrong, and the three components stay ignorant of where they sit.
-
-   `minmax(0, ...)` on every flexible track is load-bearing: grid tracks default to
-   a minimum of auto, so a long ramping list or a wide image would push the track
-   past the viewport instead of scrolling inside it.
-   -------------------------------------------------------------------------- */
-
-.workspace {
-    flex: 1;
-    min-height: 0;
-    display: grid;
-    gap: 0.75rem;
-    width: 100%;
-    max-width: 80rem;
-    margin: 0 auto;
-
-    /* Portrait: preview on top, the status strip under it, ramping below. The
-       preview gets slightly less than the ramping column because the strip sits
-       between them and the settings list is the thing you scroll. */
-    grid-template-areas:
-        "preview"
-        "status"
-        "ramping";
-    grid-template-rows: minmax(0, 0.9fr) auto minmax(0, 1.1fr);
-    grid-template-columns: minmax(0, 1fr);
-}
-
-@media (orientation: landscape) {
-    .workspace {
-        /* Landscape: ramping becomes a full-height column beside the preview, with
-           the status strip tucked under the preview only. */
-        grid-template-areas:
-            "ramping preview"
-            "ramping status";
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
-        grid-template-rows: minmax(0, 1fr) auto;
+/*
+ * Everything below is layered on purpose.
+ *
+ * Unlayered CSS beats every cascade layer, Tailwind's utilities included, so leaving
+ * these rules unlayered would mean `class="p-4"` silently losing to whatever padding a
+ * component class already sets. Inside `components` they sit below `utilities`, which is
+ * what lets this file be migrated to utilities a piece at a time instead of all at once.
+ */
+@layer components {
+    * {
+        box-sizing: border-box;
     }
-}
 
-.workspace__preview {
-    grid-area: preview;
-    min-height: 0;
-}
+    body {
+        margin: 0;
+        background: var(--bg);
+    }
 
-.workspace__status {
-    grid-area: status;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
+    .app {
+        min-height: 100vh;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        /* Keep clear of the notch, the home indicator and rounded corners. */
+        padding: calc(env(safe-area-inset-top) + 1.5rem) calc(env(safe-area-inset-right) + 1.25rem) calc(env(safe-area-inset-bottom) + 1.5rem) calc(env(safe-area-inset-left) + 1.25rem);
+    }
 
-.workspace__ramping {
-    grid-area: ramping;
-    min-height: 0;
-}
+    /* The working screen owns the whole viewport instead of being a centred card.
+       The definite height is load-bearing, not decoration: `min-height` alone leaves
+       the container content-sized, so the workspace's `fr` rows have nothing to resolve
+       against and the ramping panel grows the page instead of scrolling inside itself.
+       `overflow: hidden` is the backstop - the panes each manage their own scrolling,
+       and the page itself must never scroll. */
+    .app--filling {
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100dvh;
+        overflow: hidden;
+        justify-content: stretch;
+        align-items: stretch;
+    }
 
-h1 {
-    margin: 0;
-    font-size: 1.6rem;
-    font-weight: 650;
-    letter-spacing: -0.01em;
-}
+    .app__loading {
+        color: var(--text-muted);
+    }
 
-/* --------------------------------------------------------------------------
-   Connect screen
-   -------------------------------------------------------------------------- */
+    /* --------------------------------------------------------------------------
+       Workspace: the three panes, arranged by orientation
+       --------------------------------------------------------------------------
+       Orientation is handled here rather than in JavaScript. A media query relayouts
+       the moment the device turns, with no re-render and no resize listener to get
+       wrong, and the three components stay ignorant of where they sit.
 
-/* Breaks out of the padding the app container applies, so the footage runs to the
-   edges of the display including under the notch. The controls inside keep their own
-   safe-area padding. */
-.landing {
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    /* Controls at the bottom, footage above them. Anchoring to the bottom rather than
-       reserving a fixed slice means the layout works at any height without a second
-       set of rules for short screens. */
-    justify-content: flex-end;
-    align-self: stretch;
-    min-height: 100dvh;
-    margin: calc(-1 * (env(safe-area-inset-top) + 1.5rem)) calc(-1 * (env(safe-area-inset-right) + 1.25rem)) calc(-1 * (env(safe-area-inset-bottom) + 1.5rem))
-        calc(-1 * (env(safe-area-inset-left) + 1.25rem));
-    overflow: hidden;
-}
+       `minmax(0, ...)` on every flexible track is load-bearing: grid tracks default to
+       a minimum of auto, so a long ramping list or a wide image would push the track
+       past the viewport instead of scrolling inside it.
+       -------------------------------------------------------------------------- */
 
-.landing__backdrop {
-    position: absolute;
-    inset: 0;
-    /* Behind the controls, and not in the way of taps. */
-    z-index: 0;
-    pointer-events: none;
-}
+    .workspace {
+        flex: 1;
+        min-height: 0;
+        display: grid;
+        gap: 0.75rem;
+        width: 100%;
+        max-width: 80rem;
+        margin: 0 auto;
 
-.landing__video {
-    width: 100%;
-    height: 100%;
-    /* Cover, not contain: this is wallpaper. Letterboxing it would put grey bars
-       through the composition. */
-    object-fit: cover;
-}
+        /* Portrait: preview on top, the status strip under it, ramping below. The
+           preview gets slightly less than the ramping column because the strip sits
+           between them and the settings list is the thing you scroll. */
+        grid-template-areas:
+            "preview"
+            "status"
+            "ramping";
+        grid-template-rows: minmax(0, 0.9fr) auto minmax(0, 1.1fr);
+        grid-template-columns: minmax(0, 1fr);
+    }
 
-.landing__scrim {
-    position: absolute;
-    inset: 0;
-    /* Transparent over the footage, opaque where the controls sit. Fully opaque well
-       before the bottom, so the form always lands on flat colour rather than on
-       moving footage - text over a timelapse is unreadable and the motion pulls the
-       eye away from the thing you came here to do. */
-    background: linear-gradient(to bottom, rgb(13 15 19 / 0) 0%, rgb(13 15 19 / 0) 40%, var(--bg) 65%, var(--bg) 100%);
-}
+    @media (orientation: landscape) {
+        .workspace {
+            /* Landscape: ramping becomes a full-height column beside the preview, with
+               the status strip tucked under the preview only. */
+            grid-template-areas:
+                "ramping preview"
+                "ramping status";
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+            grid-template-rows: minmax(0, 1fr) auto;
+        }
+    }
 
-/* Falls back to the poster frame for anyone who asked the system for less motion. */
-@media (prefers-reduced-motion: reduce) {
-    .landing__video {
-        display: none;
+    .workspace__preview {
+        grid-area: preview;
+        min-height: 0;
+    }
+
+    .workspace__status {
+        grid-area: status;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .workspace__ramping {
+        grid-area: ramping;
+        min-height: 0;
+    }
+
+    h1 {
+        margin: 0;
+        font-size: 1.6rem;
+        font-weight: 650;
+        letter-spacing: -0.01em;
+    }
+
+    /* --------------------------------------------------------------------------
+       Connect screen
+       -------------------------------------------------------------------------- */
+
+    /* Breaks out of the padding the app container applies, so the footage runs to the
+       edges of the display including under the notch. The controls inside keep their own
+       safe-area padding. */
+    .landing {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        /* Controls at the bottom, footage above them. Anchoring to the bottom rather than
+           reserving a fixed slice means the layout works at any height without a second
+           set of rules for short screens. */
+        justify-content: flex-end;
+        align-self: stretch;
+        min-height: 100dvh;
+        margin: calc(-1 * (env(safe-area-inset-top) + 1.5rem)) calc(-1 * (env(safe-area-inset-right) + 1.25rem)) calc(-1 * (env(safe-area-inset-bottom) + 1.5rem))
+            calc(-1 * (env(safe-area-inset-left) + 1.25rem));
+        overflow: hidden;
     }
 
     .landing__backdrop {
-        background: url("./assets/background-poster.jpg") center / cover no-repeat;
+        position: absolute;
+        inset: 0;
+        /* Behind the controls, and not in the way of taps. */
+        z-index: 0;
+        pointer-events: none;
     }
-}
-
-.landing__content {
-    position: relative;
-    z-index: 1;
-    align-self: center;
-    padding: 2rem calc(env(safe-area-inset-right) + 1.25rem) calc(env(safe-area-inset-bottom) + 2rem) calc(env(safe-area-inset-left) + 1.25rem);
-}
-
-/* The wordmark, painted rather than drawn: see the note at the use site. */
-.logo {
-    display: block;
-    width: min(8.5rem, 40%);
-    /* From the artwork's own 591.93 x 263.76 viewBox, so the mask never distorts. */
-    aspect-ratio: 591.93 / 263.76;
-    /* The mark is narrower than the form it sits above, so without this it hangs off
-       the left edge and reads as misaligned rather than as a header. */
-    margin-inline: auto;
-    background-color: var(--text);
-    -webkit-mask: url("./assets/logo.svg") center / contain no-repeat;
-    mask: url("./assets/logo.svg") center / contain no-repeat;
-}
-
-.connect {
-    width: 100%;
-    max-width: 26rem;
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-}
-
-/* Centred as a block. A centred mark over left-aligned text looks like an accident;
-   centring both makes it a header, with the form fields left-aligned below as usual. */
-.connect__header {
-    text-align: center;
-}
-
-.connect__header p {
-    margin: 0.75rem 0 0;
-    color: var(--text-muted);
-}
-
-.connect__footnote {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
-
-/* --------------------------------------------------------------------------
-   Fields
-   -------------------------------------------------------------------------- */
-
-.field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.4rem;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    border: 0;
-    flex: 1;
-}
-
-.field--narrow {
-    flex: 0 0 6.5rem;
-}
-
-.field__label,
-.field legend {
-    padding: 0;
-    font-size: 0.8rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-}
-
-.field__hint {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
-
-/* All hints occupy one grid cell, so the box is always as tall as the longest of them
-   and switching camera cannot change the layout's height. */
-.hint-stack {
-    display: grid;
-}
-
-.hint-stack__item {
-    grid-area: 1 / 1;
-    /* `visibility` rather than `display: none`: hidden items must still take part in
-       sizing the cell, which is the entire point. It also keeps them out of the
-       accessibility tree and the tab order. */
-    visibility: hidden;
-}
-
-.hint-stack__item[data-active="true"] {
-    visibility: visible;
-}
-
-/* Present for its height alone - see the note at the use site. */
-.field-row[data-reserved="true"] {
-    visibility: hidden;
-}
-
-.field-row {
-    display: flex;
-    gap: 0.75rem;
-}
-
-input,
-select,
-button {
-    font: inherit;
-    color: inherit;
-}
-
-input {
-    min-height: var(--tap);
-    padding: 0 0.85rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-    /* Below 16px iOS zooms the viewport on focus. */
-    font-size: 1rem;
-}
-
-input:focus-visible,
-select:focus-visible,
-button:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-}
-
-/* --------------------------------------------------------------------------
-   Segmented control
-   -------------------------------------------------------------------------- */
-
-.segmented {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
-    gap: 0.35rem;
-    padding: 0.3rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-}
-
-.segmented__option {
-    min-height: calc(var(--tap) - 0.5rem);
-    border: 0;
-    border-radius: calc(var(--radius) - 4px);
-    background: transparent;
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    cursor: pointer;
-}
-
-.segmented__option[aria-pressed="true"] {
-    background: var(--surface-raised);
-    color: var(--text);
-    font-weight: 600;
-    box-shadow: inset 0 0 0 1px var(--border);
-}
-
-/* --------------------------------------------------------------------------
-   Buttons
-   -------------------------------------------------------------------------- */
-
-.button {
-    min-height: var(--tap);
-    padding: 0 1.1rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface-raised);
-    font-weight: 550;
-    cursor: pointer;
-}
-
-.button:active:not(:disabled) {
-    transform: translateY(1px);
-}
-
-.button:disabled {
-    opacity: 0.5;
-    cursor: default;
-}
-
-.button--primary {
-    border-color: transparent;
-    background: var(--accent);
-    color: var(--accent-text);
-    font-weight: 650;
-}
-
-/* --------------------------------------------------------------------------
-   Status strip
-   -------------------------------------------------------------------------- */
-
-.status {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 0.5rem 1rem;
-    padding: 0.6rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-}
-
-.status__dials {
-    display: flex;
-    /* Takes the width its content needs and no more, so what is left over goes to
-       the meta group beside it. Given room to grow, the dials would claim all of it
-       and force the meta group onto a line of its own. */
-    flex: 1 1 auto;
-    gap: 0.5rem;
-    min-width: 0;
-    max-width: 26rem;
-}
-
-/* Wraps as one unit under the dials on a narrow strip, sits beside them on a wide
-   one - one deliberate break instead of two ragged ones. */
-.status__meta {
-    display: flex;
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.5rem 0.75rem;
-    min-width: 0;
-}
-
-.status__readouts,
-.status__identity {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-}
-
-.status__ev {
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
-}
-
-.status__model {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-weight: 600;
-}
-
-.badge {
-    padding: 0.3rem 0.6rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
-    white-space: nowrap;
-}
-
-.dial {
-    display: flex;
-    flex: 1 1 0;
-    flex-direction: column;
-    gap: 0.25rem;
-    min-width: 0;
-}
-
-.dial__label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--text-muted);
-}
-
-.dial__select {
-    min-height: var(--tap);
-    /* Room for the native select chevron on iOS without clipping the value. */
-    padding: 0 0.5rem;
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) - 4px);
-    background: var(--surface-raised);
-    font-size: 1.05rem;
-    font-variant-numeric: tabular-nums;
-}
-
-.dial__select:disabled {
-    opacity: 0.5;
-}
-
-/* --------------------------------------------------------------------------
-   Ramping panel
-   -------------------------------------------------------------------------- */
-
-.ramping {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    height: 100%;
-    padding: 0.9rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    background: var(--surface);
-
-    /* Scrolls itself rather than growing the page, so the preview and the status
-       strip stay put while a long settings list is worked through. */
-    overflow-y: auto;
-    /* Do not hand the scroll on to the page when this list hits its end. */
-    overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch;
-}
-
-.ramping__header h2 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 650;
-}
-
-.ramping__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-}
-
-.ramping__pending {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-}
-
-.ramping__pending h3 {
-    margin: 0 0 0.4rem;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-}
-
-.ramping__pending ul {
-    margin: 0;
-    padding-left: 1.1rem;
-}
-
-.ramping__pending li + li {
-    margin-top: 0.25rem;
-}
-
-.button--compact {
-    min-height: calc(var(--tap) - 8px);
-    padding: 0 0.7rem;
-    font-size: 0.85rem;
-}
-
-/* --------------------------------------------------------------------------
-   Notices
-   -------------------------------------------------------------------------- */
-
-.notice {
-    margin: 0;
-    padding: 0.75rem 0.9rem;
-    border-radius: var(--radius);
-    font-size: 0.9rem;
-}
-
-.notice--error {
-    border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
-    background: color-mix(in srgb, var(--danger) 14%, transparent);
-    color: var(--danger);
-}
-
-.notice--info {
-    flex: 1 1 16rem;
-    border: 1px solid var(--border);
-    background: var(--surface);
-    color: var(--text-muted);
-}
-
-/* --------------------------------------------------------------------------
-   Preview
-   -------------------------------------------------------------------------- */
-
-.preview {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    height: 100%;
-    min-height: 0;
-}
-
-.preview__frame {
-    position: relative;
-    display: flex;
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    /* Fills the grid cell rather than imposing an aspect ratio: the cell's shape
-       already differs between orientations, and a fixed ratio would fight it. The
-       image is centred with object-fit instead. */
-    min-height: 0;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    /* Black rather than the surface colour: this is a photograph, and a grey
-       surround biases how you judge its exposure. */
-    background: #000;
-    overflow: hidden;
-}
-
-.preview__image {
-    width: 100%;
-    height: 100%;
-    /* Contain, never cover - a cropped preview would hide exactly the blown
-       highlights you are checking for. */
-    object-fit: contain;
-}
-
-.preview__placeholder {
-    margin: 0;
-    padding: 1rem;
-    text-align: center;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-}
-
-/* Bottom-left, over the image. Photographers expect it in a corner of the frame,
-   and the corners are where a photograph carries least of its subject. */
-.preview__histogram {
-    position: absolute;
-    bottom: 0.6rem;
-    left: 0.6rem;
-    /* Wide enough for at least one pixel per bin. Below 256px the curves are
-       resampled on the way to the screen and narrow spikes - exactly the clipping you
-       are looking for - can be averaged away before you ever see them. */
-    width: min(18rem, 50%);
-    /* Four stacked bands need real height each, or the curves flatten into stripes
-       and stop being readable - plus a row for the luminance readout above them. */
-    height: min(11.5rem, 42%);
-    padding: 0.35rem;
-    border: 1px solid rgb(255 255 255 / 0.15);
-    border-radius: calc(var(--radius) - 4px);
-    /* Dark and translucent so it reads over a bright frame as well as a dark one,
-       without hiding what is underneath it. */
-    background: rgb(0 0 0 / 0.55);
-    backdrop-filter: blur(6px);
-    pointer-events: none;
-}
-
-/* The overlay now stacks a readout above the curves. */
-.preview__histogram {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-}
-
-.preview__luminance {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
-}
-
-.preview__luminance-label {
-    font-size: 0.6rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--text-muted);
-}
-
-.preview__luminance-value {
-    font-size: 1rem;
-    font-weight: 650;
-    /* Tabular figures so the number does not jitter sideways as it changes - it is
-       watched continuously during a ramp. */
-    font-variant-numeric: tabular-nums;
-    line-height: 1;
-    color: var(--text);
-}
-
-.histogram {
-    display: block;
-    flex: 1;
-    width: 100%;
-    min-height: 0;
-}
-
-.preview__caption {
-    position: absolute;
-    bottom: 0.6rem;
-    right: 0.6rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: 999px;
-    background: rgb(0 0 0 / 0.55);
-    font-size: 0.7rem;
-    font-variant-numeric: tabular-nums;
-    color: var(--text-muted);
-    pointer-events: none;
-}
-
-.preview__badge {
-    position: absolute;
-    top: 0.6rem;
-    right: 0.6rem;
-    padding: 0.25rem 0.55rem;
-    border-radius: 999px;
-    background: rgb(0 0 0 / 0.6);
-    font-size: 0.75rem;
-    color: var(--text);
+
+    .landing__video {
+        width: 100%;
+        height: 100%;
+        /* Cover, not contain: this is wallpaper. Letterboxing it would put grey bars
+           through the composition. */
+        object-fit: cover;
+    }
+
+    .landing__scrim {
+        position: absolute;
+        inset: 0;
+        /* Transparent over the footage, opaque where the controls sit. Fully opaque well
+           before the bottom, so the form always lands on flat colour rather than on
+           moving footage - text over a timelapse is unreadable and the motion pulls the
+           eye away from the thing you came here to do. */
+        background: linear-gradient(to bottom, rgb(13 15 19 / 0) 0%, rgb(13 15 19 / 0) 40%, var(--bg) 65%, var(--bg) 100%);
+    }
+
+    /* Falls back to the poster frame for anyone who asked the system for less motion. */
+    @media (prefers-reduced-motion: reduce) {
+        .landing__video {
+            display: none;
+        }
+
+        .landing__backdrop {
+            background: url("./assets/background-poster.jpg") center / cover no-repeat;
+        }
+    }
+
+    .landing__content {
+        position: relative;
+        z-index: 1;
+        align-self: center;
+        padding: 2rem calc(env(safe-area-inset-right) + 1.25rem) calc(env(safe-area-inset-bottom) + 2rem) calc(env(safe-area-inset-left) + 1.25rem);
+    }
+
+    /* The wordmark, painted rather than drawn: see the note at the use site. */
+    .logo {
+        display: block;
+        width: min(8.5rem, 40%);
+        /* From the artwork's own 591.93 x 263.76 viewBox, so the mask never distorts. */
+        aspect-ratio: 591.93 / 263.76;
+        /* The mark is narrower than the form it sits above, so without this it hangs off
+           the left edge and reads as misaligned rather than as a header. */
+        margin-inline: auto;
+        background-color: var(--text);
+        -webkit-mask: url("./assets/logo.svg") center / contain no-repeat;
+        mask: url("./assets/logo.svg") center / contain no-repeat;
+    }
+
+    .connect {
+        width: 100%;
+        max-width: 26rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    /* Centred as a block. A centred mark over left-aligned text looks like an accident;
+       centring both makes it a header, with the form fields left-aligned below as usual. */
+    .connect__header {
+        text-align: center;
+    }
+
+    .connect__header p {
+        margin: 0.75rem 0 0;
+        color: var(--text-muted);
+    }
+
+    .connect__footnote {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    /* --------------------------------------------------------------------------
+       Fields
+       -------------------------------------------------------------------------- */
+
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        flex: 1;
+    }
+
+    .field--narrow {
+        flex: 0 0 6.5rem;
+    }
+
+    .field__label,
+    .field legend {
+        padding: 0;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+    }
+
+    .field__hint {
+        margin: 0;
+        font-size: 0.85rem;
+        color: var(--text-muted);
+    }
+
+    /* All hints occupy one grid cell, so the box is always as tall as the longest of them
+       and switching camera cannot change the layout's height. */
+    .hint-stack {
+        display: grid;
+    }
+
+    .hint-stack__item {
+        grid-area: 1 / 1;
+        /* `visibility` rather than `display: none`: hidden items must still take part in
+           sizing the cell, which is the entire point. It also keeps them out of the
+           accessibility tree and the tab order. */
+        visibility: hidden;
+    }
+
+    .hint-stack__item[data-active="true"] {
+        visibility: visible;
+    }
+
+    /* Present for its height alone - see the note at the use site. */
+    .field-row[data-reserved="true"] {
+        visibility: hidden;
+    }
+
+    .field-row {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    input,
+    select,
+    button {
+        font: inherit;
+        color: inherit;
+    }
+
+    input {
+        min-height: var(--tap);
+        padding: 0 0.85rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+        /* Below 16px iOS zooms the viewport on focus. */
+        font-size: 1rem;
+    }
+
+    input:focus-visible,
+    select:focus-visible,
+    button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    /* --------------------------------------------------------------------------
+       Segmented control
+       -------------------------------------------------------------------------- */
+
+    .segmented {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
+        gap: 0.35rem;
+        padding: 0.3rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+    }
+
+    .segmented__option {
+        min-height: calc(var(--tap) - 0.5rem);
+        border: 0;
+        border-radius: calc(var(--radius) - 4px);
+        background: transparent;
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        cursor: pointer;
+    }
+
+    .segmented__option[aria-pressed="true"] {
+        background: var(--surface-raised);
+        color: var(--text);
+        font-weight: 600;
+        box-shadow: inset 0 0 0 1px var(--border);
+    }
+
+    /* --------------------------------------------------------------------------
+       Buttons
+       -------------------------------------------------------------------------- */
+
+    .button {
+        min-height: var(--tap);
+        padding: 0 1.1rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface-raised);
+        font-weight: 550;
+        cursor: pointer;
+    }
+
+    .button:active:not(:disabled) {
+        transform: translateY(1px);
+    }
+
+    .button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+
+    .button--primary {
+        border-color: transparent;
+        background: var(--accent);
+        color: var(--accent-text);
+        font-weight: 650;
+    }
+
+    .button--icon {
+        aspect-ratio: 1 / 1;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* --------------------------------------------------------------------------
+       Status strip
+       -------------------------------------------------------------------------- */
+
+    .status {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: 0.5rem 1rem;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+    }
+
+    .status__dials {
+        display: flex;
+        /* Takes the width its content needs and no more, so what is left over goes to
+           the meta group beside it. Given room to grow, the dials would claim all of it
+           and force the meta group onto a line of its own. */
+        flex: 1 1 auto;
+        gap: 0.5rem;
+        min-width: 0;
+        max-width: 26rem;
+    }
+
+    /* Wraps as one unit under the dials on a narrow strip, sits beside them on a wide
+       one - one deliberate break instead of two ragged ones. */
+    .status__meta {
+        display: flex;
+        flex: 1 1 auto;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem 0.75rem;
+        min-width: 0;
+    }
+
+    .status__readouts,
+    .status__identity {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+    }
+
+    .status__ev {
+        font-variant-numeric: tabular-nums;
+        color: var(--text-muted);
+    }
+
+    .status__model {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 600;
+    }
+
+    .badge {
+        padding: 0.3rem 0.6rem;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-muted);
+        white-space: nowrap;
+    }
+
+    .dial {
+        display: flex;
+        flex: 1 1 0;
+        flex-direction: column;
+        gap: 0.25rem;
+        min-width: 0;
+    }
+
+    .dial__label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+    }
+
+    .dial__select {
+        min-height: var(--tap);
+        /* Room for the native select chevron on iOS without clipping the value. */
+        padding: 0 0.5rem;
+        border: 1px solid var(--border);
+        border-radius: calc(var(--radius) - 4px);
+        background: var(--surface-raised);
+        font-size: 1.05rem;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .dial__select:disabled {
+        opacity: 0.5;
+    }
+
+    /* --------------------------------------------------------------------------
+       Ramping panel
+       -------------------------------------------------------------------------- */
+
+    .ramping {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        height: 100%;
+        padding: 0.9rem;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--surface);
+
+        /* Scrolls itself rather than growing the page, so the preview and the status
+           strip stay put while a long settings list is worked through. */
+        overflow-y: auto;
+        /* Do not hand the scroll on to the page when this list hits its end. */
+        overscroll-behavior: contain;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .ramping__header h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 650;
+    }
+
+    .ramping__actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.6rem;
+    }
+
+    .ramping__pending {
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    .ramping__pending h3 {
+        margin: 0 0 0.4rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+
+    .ramping__pending ul {
+        margin: 0;
+        padding-left: 1.1rem;
+        /* Restored explicitly: Tailwind's preflight strips markers from every list. */
+        list-style: disc;
+    }
+
+    .ramping__pending li + li {
+        margin-top: 0.25rem;
+    }
+
+    .button--compact {
+        min-height: calc(var(--tap) - 8px);
+        padding: 0 0.7rem;
+        font-size: 0.85rem;
+    }
+
+    /* --------------------------------------------------------------------------
+       Notices
+       -------------------------------------------------------------------------- */
+
+    .notice {
+        margin: 0;
+        padding: 0.75rem 0.9rem;
+        border-radius: var(--radius);
+        font-size: 0.9rem;
+    }
+
+    .notice--error {
+        border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+        background: color-mix(in srgb, var(--danger) 14%, transparent);
+        color: var(--danger);
+    }
+
+    .notice--info {
+        flex: 1 1 16rem;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+    }
+
+    /* --------------------------------------------------------------------------
+       Preview
+       -------------------------------------------------------------------------- */
+
+    .preview {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        height: 100%;
+        min-height: 0;
+    }
+
+    .preview__frame {
+        position: relative;
+        display: flex;
+        flex: 1;
+        align-items: center;
+        justify-content: center;
+        /* Fills the grid cell rather than imposing an aspect ratio: the cell's shape
+           already differs between orientations, and a fixed ratio would fight it. The
+           image is centred with object-fit instead. */
+        min-height: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        /* Black rather than the surface colour: this is a photograph, and a grey
+           surround biases how you judge its exposure. */
+        background: #000;
+        overflow: hidden;
+    }
+
+    .preview__image {
+        width: 100%;
+        height: 100%;
+        /* Contain, never cover - a cropped preview would hide exactly the blown
+           highlights you are checking for. */
+        object-fit: contain;
+    }
+
+    .preview__placeholder {
+        margin: 0;
+        padding: 1rem;
+        text-align: center;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+    }
+
+    /* Bottom-left, over the image. Photographers expect it in a corner of the frame,
+       and the corners are where a photograph carries least of its subject. */
+    .preview__histogram {
+        position: absolute;
+        bottom: 0.6rem;
+        left: 0.6rem;
+        /* Wide enough for at least one pixel per bin. Below 256px the curves are
+           resampled on the way to the screen and narrow spikes - exactly the clipping you
+           are looking for - can be averaged away before you ever see them. */
+        width: min(18rem, 50%);
+        /* Four stacked bands need real height each, or the curves flatten into stripes
+           and stop being readable - plus a row for the luminance readout above them. */
+        height: min(11.5rem, 42%);
+        padding: 0.35rem;
+        border: 1px solid rgb(255 255 255 / 0.15);
+        border-radius: calc(var(--radius) - 4px);
+        /* Dark and translucent so it reads over a bright frame as well as a dark one,
+           without hiding what is underneath it. */
+        background: rgb(0 0 0 / 0.55);
+        backdrop-filter: blur(6px);
+        pointer-events: none;
+    }
+
+    /* The overlay now stacks a readout above the curves. */
+    .preview__histogram {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+
+    .preview__luminance {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .preview__luminance-label {
+        font-size: 0.6rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+    }
+
+    .preview__luminance-value {
+        font-size: 1rem;
+        font-weight: 650;
+        /* Tabular figures so the number does not jitter sideways as it changes - it is
+           watched continuously during a ramp. */
+        font-variant-numeric: tabular-nums;
+        line-height: 1;
+        color: var(--text);
+    }
+
+    .histogram {
+        display: block;
+        flex: 1;
+        width: 100%;
+        min-height: 0;
+    }
+
+    .preview__caption {
+        position: absolute;
+        bottom: 0.6rem;
+        right: 0.6rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 999px;
+        background: rgb(0 0 0 / 0.55);
+        font-size: 0.7rem;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-muted);
+        pointer-events: none;
+    }
+
+    .preview__badge {
+        position: absolute;
+        top: 0.6rem;
+        right: 0.6rem;
+        padding: 0.25rem 0.55rem;
+        border-radius: 999px;
+        background: rgb(0 0 0 / 0.6);
+        font-size: 0.75rem;
+        color: var(--text);
+    }
 }
