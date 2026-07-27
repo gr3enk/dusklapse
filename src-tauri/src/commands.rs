@@ -4,20 +4,33 @@
 //! No camera logic lives here, so the same operations stay reachable from a
 //! future headless runner that has no WebView at all.
 
-use tauri::State;
+use std::sync::Arc;
+
+use tauri::{AppHandle, Emitter, State};
 
 use crate::camera::{
     BatteryStatus, CameraInfo, CameraResult, CameraTarget, Dial, ExposureCapabilities,
     ExposureSettings, Vendor,
 };
-use crate::session::CameraSession;
+use crate::session::{CameraSession, EventSink};
+
+/// Channel the frontend listens on for anything the camera reports unprompted.
+pub const CAMERA_EVENT: &str = "camera://event";
 
 #[tauri::command]
 pub async fn camera_connect(
     target: CameraTarget,
+    app: AppHandle,
     session: State<'_, CameraSession>,
 ) -> CameraResult<CameraInfo> {
-    session.connect(target).await
+    let sink: EventSink = Arc::new(move |event| {
+        // A delivery failure means the WebView is gone, which is not something the
+        // camera session should die over.
+        if let Err(err) = app.emit(CAMERA_EVENT, event) {
+            log::warn!("could not deliver a camera event to the UI: {err}");
+        }
+    });
+    session.connect(target, sink).await
 }
 
 #[tauri::command]

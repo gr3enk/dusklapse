@@ -5,65 +5,61 @@
  */
 
 :root {
-  --bg: #0d0f13;
-  --surface: #171a21;
-  --surface-raised: #1f2430;
-  --border: #2b313d;
-  --text: #eef1f6;
-  --text-muted: #98a1b2;
-  --accent: #f0872b;
-  --accent-text: #17130d;
-  --danger: #ff6b6b;
+    --bg: #0d0f13;
+    --surface: #171a21;
+    --surface-raised: #1f2430;
+    --border: #2b313d;
+    --text: #eef1f6;
+    --text-muted: #98a1b2;
+    --accent: #6faaf7;
+    --accent-text: #17130d;
+    --danger: #ff6b6b;
 
-  --radius: 12px;
-  /* iOS needs a 44pt minimum for anything tappable. */
-  --tap: 44px;
+    --radius: 12px;
+    /* iOS needs a 44pt minimum for anything tappable. */
+    --tap: 44px;
 
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
-  font-size: 16px;
-  line-height: 1.45;
-  color: var(--text);
-  background-color: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+    color: var(--text);
+    background-color: var(--bg);
 
-  -webkit-font-smoothing: antialiased;
-  -webkit-text-size-adjust: 100%;
-  /* Rubber-band scrolling over a fixed control surface reads as a bug. */
-  overscroll-behavior: none;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+    /* Rubber-band scrolling over a fixed control surface reads as a bug. */
+    overscroll-behavior: none;
 }
 
 * {
-  box-sizing: border-box;
+    box-sizing: border-box;
 }
 
 body {
-  margin: 0;
-  background: var(--bg);
+    margin: 0;
+    background: var(--bg);
 }
 
 .app {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  /* Keep clear of the notch, the home indicator and rounded corners. */
-  padding: calc(env(safe-area-inset-top) + 1.5rem)
-    calc(env(safe-area-inset-right) + 1.25rem)
-    calc(env(safe-area-inset-bottom) + 1.5rem)
-    calc(env(safe-area-inset-left) + 1.25rem);
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    /* Keep clear of the notch, the home indicator and rounded corners. */
+    padding: calc(env(safe-area-inset-top) + 1.5rem) calc(env(safe-area-inset-right) + 1.25rem) calc(env(safe-area-inset-bottom) + 1.5rem) calc(env(safe-area-inset-left) + 1.25rem);
 }
 
 .app__loading {
-  color: var(--text-muted);
+    color: var(--text-muted);
 }
 
 h1 {
-  margin: 0;
-  font-size: 1.6rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+    margin: 0;
+    font-size: 1.6rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
 }
 
 /* --------------------------------------------------------------------------
@@ -71,22 +67,22 @@ h1 {
    -------------------------------------------------------------------------- */
 
 .connect {
-  width: 100%;
-  max-width: 26rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+    width: 100%;
+    max-width: 26rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
 }
 
 .connect__header p {
-  margin: 0.35rem 0 0;
-  color: var(--text-muted);
+    margin: 0.35rem 0 0;
+    color: var(--text-muted);
 }
 
 .connect__footnote {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
 
 /* --------------------------------------------------------------------------
@@ -94,63 +90,63 @@ h1 {
    -------------------------------------------------------------------------- */
 
 .field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-width: 0;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    flex: 1;
 }
 
 .field--narrow {
-  flex: 0 0 6.5rem;
+    flex: 0 0 6.5rem;
 }
 
 .field__label,
 .field legend {
-  padding: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
+    padding: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
 }
 
 .field__hint {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
 
 .field-row {
-  display: flex;
-  gap: 0.75rem;
+    display: flex;
+    gap: 0.75rem;
 }
 
 input,
 select,
 button {
-  font: inherit;
-  color: inherit;
+    font: inherit;
+    color: inherit;
 }
 
 input {
-  min-height: var(--tap);
-  padding: 0 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  /* Below 16px iOS zooms the viewport on focus. */
-  font-size: 1rem;
+    min-height: var(--tap);
+    padding: 0 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    /* Below 16px iOS zooms the viewport on focus. */
+    font-size: 1rem;
 }
 
 input:focus-visible,
 select:focus-visible,
 button:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 /* --------------------------------------------------------------------------
@@ -158,30 +154,30 @@ button:focus-visible {
    -------------------------------------------------------------------------- */
 
 .segmented {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
-  gap: 0.35rem;
-  padding: 0.3rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(5rem, 1fr));
+    gap: 0.35rem;
+    padding: 0.3rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
 }
 
 .segmented__option {
-  min-height: calc(var(--tap) - 0.5rem);
-  border: 0;
-  border-radius: calc(var(--radius) - 4px);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 0.95rem;
-  cursor: pointer;
+    min-height: calc(var(--tap) - 0.5rem);
+    border: 0;
+    border-radius: calc(var(--radius) - 4px);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    cursor: pointer;
 }
 
 .segmented__option[aria-pressed="true"] {
-  background: var(--surface-raised);
-  color: var(--text);
-  font-weight: 600;
-  box-shadow: inset 0 0 0 1px var(--border);
+    background: var(--surface-raised);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px var(--border);
 }
 
 /* --------------------------------------------------------------------------
@@ -189,29 +185,29 @@ button:focus-visible {
    -------------------------------------------------------------------------- */
 
 .button {
-  min-height: var(--tap);
-  padding: 0 1.1rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface-raised);
-  font-weight: 550;
-  cursor: pointer;
+    min-height: var(--tap);
+    padding: 0 1.1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-raised);
+    font-weight: 550;
+    cursor: pointer;
 }
 
 .button:active:not(:disabled) {
-  transform: translateY(1px);
+    transform: translateY(1px);
 }
 
 .button:disabled {
-  opacity: 0.5;
-  cursor: default;
+    opacity: 0.5;
+    cursor: default;
 }
 
 .button--primary {
-  border-color: transparent;
-  background: var(--accent);
-  color: var(--accent-text);
-  font-weight: 650;
+    border-color: transparent;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-weight: 650;
 }
 
 /* --------------------------------------------------------------------------
@@ -219,86 +215,86 @@ button:focus-visible {
    -------------------------------------------------------------------------- */
 
 .panel {
-  width: 100%;
-  max-width: 34rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+    width: 100%;
+    max-width: 34rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
 }
 
 .panel__header {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: flex-start;
-  justify-content: space-between;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-start;
+    justify-content: space-between;
 }
 
 .panel__subtitle {
-  margin: 0.25rem 0 0;
-  font-size: 0.85rem;
-  color: var(--text-muted);
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
 }
 
 .panel__actions {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
 }
 
 .panel__meta {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
 }
 
 .panel__buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
 }
 
 .badge {
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-muted);
 }
 
 .dials {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.75rem;
 }
 
 .dial {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
 }
 
 .dial__label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
 }
 
 .dial__select {
-  min-height: var(--tap);
-  padding: 0 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  font-size: 1.05rem;
-  font-variant-numeric: tabular-nums;
+    min-height: var(--tap);
+    padding: 0 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    font-size: 1.05rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .dial__select:disabled {
-  opacity: 0.5;
+    opacity: 0.5;
 }
 
 /* --------------------------------------------------------------------------
@@ -306,14 +302,27 @@ button:focus-visible {
    -------------------------------------------------------------------------- */
 
 .notice {
-  margin: 0;
-  padding: 0.75rem 0.9rem;
-  border-radius: var(--radius);
-  font-size: 0.9rem;
+    margin: 0;
+    padding: 0.75rem 0.9rem;
+    border-radius: var(--radius);
+    font-size: 0.9rem;
 }
 
 .notice--error {
-  border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
-  color: var(--danger);
+    border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+    background: color-mix(in srgb, var(--danger) 14%, transparent);
+    color: var(--danger);
+}
+
+.notice--info {
+    flex: 1 1 16rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text-muted);
+}
+
+/* Quiet enough not to compete with the values it sits next to. */
+.panel__pulse {
+    opacity: 0.6;
+    font-size: 0.85em;
 }

@@ -26,15 +26,19 @@ mod error;
 pub mod exposure;
 mod mock;
 mod model;
+// Public so diagnostics can reach the raw protocol below the `Camera` abstraction.
+pub mod nikon;
+pub mod ptpip;
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use tokio::sync::broadcast;
 
 pub use error::{CameraError, CameraResult};
 pub use model::{
-    BatteryStatus, CameraInfo, CameraTarget, Dial, ExposureCapabilities, ExposureSettings,
-    ExposureValue, Vendor,
+    BatteryStatus, CameraEvent, CameraInfo, CameraTarget, Dial, ExposureCapabilities,
+    ExposureSettings, ExposureValue, Vendor,
 };
 
 #[async_trait]
@@ -70,6 +74,17 @@ pub trait Camera: Send + Sync {
     /// `None` when the body does not report charge at all.
     async fn battery(&self) -> CameraResult<Option<BatteryStatus>>;
 
+    /// Subscribe to what the camera reports unprompted, or `None` for a backend
+    /// with no event channel.
+    ///
+    /// Where this exists it replaces polling outright: a Nikon names the property
+    /// that changed, so the app can refresh exactly one dial the moment a ring is
+    /// turned instead of re-reading all three on a timer and still lagging a second
+    /// behind. Canon has no push channel and stays on polling.
+    fn events(&self) -> Option<broadcast::Receiver<CameraEvent>> {
+        None
+    }
+
     async fn disconnect(&self) -> CameraResult<()>;
 }
 
@@ -77,7 +92,10 @@ pub trait Camera: Send + Sync {
 pub async fn connect(target: CameraTarget) -> CameraResult<Arc<dyn Camera>> {
     match target.vendor {
         Vendor::Canon => Ok(Arc::new(canon::CanonCcapi::connect(target).await?)),
+        Vendor::Nikon => Ok(Arc::new(nikon::NikonPtpIp::connect(target).await?)),
         Vendor::Mock => Ok(Arc::new(mock::MockCamera::new(target))),
-        vendor @ (Vendor::Nikon | Vendor::Sony) => Err(CameraError::UnsupportedVendor { vendor }),
+        // Sony has no usable public Wi-Fi API; it needs reverse-engineered vendor
+        // opcodes on top of the PTP-IP layer that now exists.
+        vendor @ Vendor::Sony => Err(CameraError::UnsupportedVendor { vendor }),
     }
 }

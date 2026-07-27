@@ -119,24 +119,105 @@ impl ExposureValue {
 /// Turn a wire token into something worth putting on screen.
 fn pretty_label(dial: Dial, raw: &str) -> String {
     match dial {
-        Dial::Shutter => match parse_shutter_seconds(raw) {
-            // Sub-second speeds read best as the fraction the photographer
-            // knows, whatever notation the camera happened to use.
-            Some(seconds) if seconds < 0.5 => format!("1/{}", (1.0 / seconds).round() as i64),
-            Some(seconds) if seconds < 1.0 => format!("{seconds:.1}s"),
-            Some(seconds) if seconds.fract() == 0.0 => format!("{}s", seconds as i64),
-            Some(seconds) => format!("{seconds:.1}s"),
-            None => raw.to_uppercase(),
-        },
-        Dial::Aperture => match parse_f_number(raw) {
-            Some(f) => format!("f/{f}"),
-            None => raw.to_string(),
-        },
-        Dial::Iso => match parse_iso(raw) {
-            Some(iso) => format!("{}", iso as i64),
-            None => raw.to_uppercase(),
-        },
+        Dial::Shutter => parse_shutter_seconds(raw)
+            .map(shutter_label)
+            .unwrap_or_else(|| raw.to_uppercase()),
+        Dial::Aperture => parse_f_number(raw)
+            .map(aperture_label)
+            .unwrap_or_else(|| raw.to_string()),
+        Dial::Iso => parse_iso(raw)
+            .map(iso_label)
+            .unwrap_or_else(|| raw.to_uppercase()),
     }
+}
+
+/// The standard third-stop shutter series, with the labels cameras print for it.
+///
+/// This is a table rather than a formula on purpose: the conventional speeds are
+/// not clean powers of two (1/8000 is not 2^-13, and the sequence switches from
+/// fractions to decimals at 0.4 s by convention, not by arithmetic). Deriving
+/// them would produce labels no camera displays.
+///
+/// Its real job is undoing lossy transport encodings. PTP-IP carries exposure
+/// time as a count of 100 µs units, so 1/1600 s arrives as 6 units - which is
+/// literally 1/1667. Snapping back onto this series recovers both the label the
+/// camera shows and a stop value closer to the physical truth.
+#[rustfmt::skip]
+const NOMINAL_SHUTTER: &[(f32, &str)] = &[
+    (1.0 / 8000.0, "1/8000"), (1.0 / 6400.0, "1/6400"), (1.0 / 5000.0, "1/5000"),
+    (1.0 / 4000.0, "1/4000"), (1.0 / 3200.0, "1/3200"), (1.0 / 2500.0, "1/2500"),
+    (1.0 / 2000.0, "1/2000"), (1.0 / 1600.0, "1/1600"), (1.0 / 1250.0, "1/1250"),
+    (1.0 / 1000.0, "1/1000"), (1.0 / 800.0,  "1/800"),  (1.0 / 640.0,  "1/640"),
+    (1.0 / 500.0,  "1/500"),  (1.0 / 400.0,  "1/400"),  (1.0 / 320.0,  "1/320"),
+    (1.0 / 250.0,  "1/250"),  (1.0 / 200.0,  "1/200"),  (1.0 / 160.0,  "1/160"),
+    (1.0 / 125.0,  "1/125"),  (1.0 / 100.0,  "1/100"),  (1.0 / 80.0,   "1/80"),
+    (1.0 / 60.0,   "1/60"),   (1.0 / 50.0,   "1/50"),   (1.0 / 40.0,   "1/40"),
+    (1.0 / 30.0,   "1/30"),   (1.0 / 25.0,   "1/25"),   (1.0 / 20.0,   "1/20"),
+    (1.0 / 15.0,   "1/15"),   (1.0 / 13.0,   "1/13"),   (1.0 / 10.0,   "1/10"),
+    (1.0 / 8.0,    "1/8"),    (1.0 / 6.0,    "1/6"),    (1.0 / 5.0,    "1/5"),
+    (1.0 / 4.0,    "1/4"),    (1.0 / 3.0,    "1/3"),
+    (0.4, "0.4s"), (0.5, "0.5s"), (0.6, "0.6s"), (0.8, "0.8s"),
+    (1.0, "1s"), (1.3, "1.3s"), (1.6, "1.6s"), (2.0, "2s"), (2.5, "2.5s"),
+    (3.0, "3s"), (4.0, "4s"), (5.0, "5s"), (6.0, "6s"), (8.0, "8s"),
+    (10.0, "10s"), (13.0, "13s"), (15.0, "15s"), (20.0, "20s"), (25.0, "25s"),
+    (30.0, "30s"),
+];
+
+/// How far off a value may be and still count as one of the standard speeds.
+///
+/// Slightly wider than one third-stop step, because the coarsest encoding error
+/// we have to absorb is 1/8000 arriving as 1/10000 - a third of a stop. Since we
+/// always take the *nearest* entry and camera value lists are the standard
+/// series, a generous window cannot pick a wrong neighbour.
+const SHUTTER_SNAP_TOLERANCE_STOPS: f32 = 0.4;
+
+/// Find the standard shutter speed a value was meant to be.
+///
+/// Returns the exact seconds and the camera's own label. `None` when the value is
+/// too far from any standard speed to be one of them.
+pub fn snap_shutter(seconds: f32) -> Option<(f32, &'static str)> {
+    if seconds <= 0.0 {
+        return None;
+    }
+    let target = seconds.log2();
+
+    let (nominal, label, distance) = NOMINAL_SHUTTER.iter().fold(
+        (0.0f32, "", f32::INFINITY),
+        |best, (candidate, label)| {
+            let distance = (candidate.log2() - target).abs();
+            if distance < best.2 {
+                (*candidate, *label, distance)
+            } else {
+                best
+            }
+        },
+    );
+
+    (distance <= SHUTTER_SNAP_TOLERANCE_STOPS).then_some((nominal, label))
+}
+
+/// Exposure time as a photographer reads it off a camera back.
+///
+/// Public because backends that receive numeric values rather than strings -
+/// PTP-IP encodes exposure time as an integer count - need the same formatting.
+pub fn shutter_label(seconds: f32) -> String {
+    if let Some((_, label)) = snap_shutter(seconds) {
+        return label.to_string();
+    }
+    // Outside the standard series: describe it rather than pretend.
+    match seconds {
+        s if s < 0.5 => format!("1/{}", (1.0 / s).round() as i64),
+        s if s.fract() == 0.0 => format!("{}s", s as i64),
+        s => format!("{s:.1}s"),
+    }
+}
+
+pub fn aperture_label(f_number: f32) -> String {
+    format!("f/{f_number}")
+}
+
+pub fn iso_label(iso: f32) -> String {
+    format!("{}", iso as i64)
 }
 
 impl ExposureSettings {

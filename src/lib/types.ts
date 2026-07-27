@@ -23,7 +23,30 @@ export interface CameraInfo {
     serial: string | null;
     firmware: string | null;
     apiVersion: string | null;
+    /**
+     * Whether the body accepts a remote shutter release. False for Nikon over
+     * Wi-Fi, where frame timing has to come from an intervalometer.
+     */
+    supportsRelease: boolean;
+    /**
+     * Whether the camera announces its own changes. Decides how hard the UI has to
+     * poll: a body that pushes needs only a slow heartbeat to notice it vanished.
+     */
+    pushesEvents: boolean;
 }
+
+/**
+ * Something the camera reported unprompted, delivered over the `camera://event`
+ * channel. Mirrors the Rust `CameraEvent`, which serializes with a `kind` tag.
+ */
+export type CameraEvent =
+    /** One exposure finished. The signal a ramp advances on. */
+    | { kind: "frameRecorded" }
+    /** A dial was turned on the body itself. */
+    | { kind: "dialChanged"; dial: Dial };
+
+/** Tauri event name the Rust side emits on. */
+export const CAMERA_EVENT = "camera://event";
 
 /**
  * One selectable position on a dial.
@@ -57,7 +80,15 @@ export interface BatteryStatus {
 
 export const VENDORS: { id: Vendor; label: string; hint: string }[] = [
     { id: "canon", label: "Canon", hint: "CCAPI over HTTP - must be unlocked per body" },
-    { id: "nikon", label: "Nikon", hint: "PTP-IP - not implemented yet" },
+    {
+        id: "nikon",
+        // Measured on a Z 6: the "connect to computer" path demands pairing with
+        // Nikon's Wireless Transmitter Utility and tears the session down the
+        // moment the camera leaves its pairing screen. The smart-device path in
+        // access point mode has no such gate, and the camera stays fully usable.
+        label: "Nikon",
+        hint: "PTP-IP - use 'connect to smart device' and join the camera's own Wi-Fi",
+    },
     { id: "sony", label: "Sony", hint: "PTP-IP - not implemented yet" },
     { id: "mock", label: "Simulator", hint: "Fake camera running in-process" },
 ];
@@ -67,3 +98,14 @@ export const DIALS: { id: Dial; label: string }[] = [
     { id: "aperture", label: "Aperture" },
     { id: "iso", label: "ISO" },
 ];
+
+/**
+ * Address a camera takes when it hosts its own network.
+ *
+ * Offered as a preset because access point mode is the mode that works in the
+ * field, and there is exactly one device on that network - typing an address is
+ * pure friction. Nikon bodies answer here; Canon's differs, hence per vendor.
+ */
+export const ACCESS_POINT_HOST: Partial<Record<Vendor, string>> = {
+    nikon: "192.168.1.1",
+};

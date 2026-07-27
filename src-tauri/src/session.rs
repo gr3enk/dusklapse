@@ -4,24 +4,51 @@
 
 use std::sync::Arc;
 
-use tokio::sync::RwLock;
+use tokio::sync::{broadcast, Mutex, RwLock};
+use tokio::task::JoinHandle;
 
-use crate::camera::{self, Camera, CameraError, CameraInfo, CameraResult, CameraTarget};
+use crate::camera::{
+    self, Camera, CameraError, CameraEvent, CameraInfo, CameraResult, CameraTarget,
+};
+
+/// Where camera events go once the session picks them up.
+///
+/// A callback rather than a Tauri handle so this layer stays testable and knows
+/// nothing about the WebView; the command layer supplies one that emits over IPC.
+pub type EventSink = Arc<dyn Fn(CameraEvent) + Send + Sync>;
 
 #[derive(Default)]
 pub struct CameraSession {
     slot: RwLock<Option<Arc<dyn Camera>>>,
+    /// Pumps the connected camera's events into the sink. Aborted and replaced
+    /// with the camera it belongs to.
+    forwarder: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl CameraSession {
-    pub async fn connect(&self, target: CameraTarget) -> CameraResult<CameraInfo> {
+    pub async fn connect(
+        &self,
+        target: CameraTarget,
+        sink: EventSink,
+    ) -> CameraResult<CameraInfo> {
         // Connect before taking the lock: a probe against an unreachable host
         // blocks for the full request timeout, and the UI still needs to be able
         // to read the current session while that runs.
         let camera = camera::connect(target).await?;
         let info = camera.info().clone();
 
+        // Subscribe before the camera becomes reachable, so nothing the body says
+        // in the gap is lost.
+        let forwarder = camera
+            .events()
+            .map(|events| tokio::spawn(forward(events, sink)));
+
         let previous = self.slot.write().await.replace(camera);
+        if let Some(previous_forwarder) =
+            std::mem::replace(&mut *self.forwarder.lock().await, forwarder)
+        {
+            previous_forwarder.abort();
+        }
         if let Some(previous) = previous {
             // Best effort. A camera that already dropped off the network must not
             // be able to block the new connection.
@@ -34,6 +61,9 @@ impl CameraSession {
     }
 
     pub async fn disconnect(&self) -> CameraResult<()> {
+        if let Some(forwarder) = self.forwarder.lock().await.take() {
+            forwarder.abort();
+        }
         match self.slot.write().await.take() {
             Some(camera) => camera.disconnect().await,
             None => Ok(()),
@@ -59,6 +89,21 @@ impl CameraSession {
     }
 }
 
+/// Relay events until the camera goes away.
+async fn forward(mut events: broadcast::Receiver<CameraEvent>, sink: EventSink) {
+    loop {
+        match events.recv().await {
+            Ok(event) => sink(event),
+            // Falling behind costs us events, not the session. Better than letting
+            // a slow UI apply back pressure to the camera connection.
+            Err(broadcast::error::RecvError::Lagged(missed)) => {
+                log::warn!("dropped {missed} camera event(s) while busy");
+            }
+            Err(broadcast::error::RecvError::Closed) => return,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,6 +111,11 @@ mod tests {
 
     fn mock() -> CameraTarget {
         CameraTarget::new(Vendor::Mock, "mock", 0)
+    }
+
+    /// Events go nowhere in these tests; the mock has no event channel.
+    fn discard() -> EventSink {
+        Arc::new(|_| {})
     }
 
     #[tokio::test]
@@ -81,7 +131,7 @@ mod tests {
     async fn connect_use_disconnect() {
         let session = CameraSession::default();
 
-        let info = session.connect(mock()).await.unwrap();
+        let info = session.connect(mock(), discard()).await.unwrap();
         assert_eq!(info.vendor, Vendor::Mock);
         assert_eq!(session.info().await.unwrap(), info);
 
@@ -96,13 +146,17 @@ mod tests {
     /// A failed connect must not cost you the camera you already had - losing a
     /// running session to a typo in an IP address would be unforgivable
     /// mid-timelapse.
+    ///
+    /// Uses Sony because it is still unimplemented, so the failure is immediate
+    /// and needs no network. Pointing this at Nikon would spend the connect
+    /// timeout on an unreachable host.
     #[tokio::test]
     async fn a_failed_connect_leaves_the_session_intact() {
         let session = CameraSession::default();
-        session.connect(mock()).await.unwrap();
+        session.connect(mock(), discard()).await.unwrap();
 
         let error = session
-            .connect(CameraTarget::new(Vendor::Nikon, "10.0.0.1", 15740))
+            .connect(CameraTarget::new(Vendor::Sony, "10.0.0.1", 15740), discard())
             .await
             .unwrap_err();
         assert_eq!(error.kind(), "unsupportedVendor");

@@ -92,6 +92,9 @@ impl CanonCcapi {
             serial: device.serialnumber,
             firmware: device.firmwareversion,
             api_version,
+            supports_release: true,
+            // CCAPI has an event-polling endpoint but no push channel.
+            pushes_events: false,
         };
         log::info!("connected to {} {}", info.manufacturer, info.model);
 

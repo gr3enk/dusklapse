@@ -76,6 +76,18 @@ pub struct CameraInfo {
     pub firmware: Option<String>,
     /// Protocol version actually negotiated, e.g. Canon's `ver130`.
     pub api_version: Option<String>,
+    /// Whether this body accepts a remote shutter release.
+    ///
+    /// False for Nikon over Wi-Fi, which exposes no capture operation - frame
+    /// timing has to come from an intervalometer there. The UI reads this rather
+    /// than offering a button that is guaranteed to fail.
+    pub supports_release: bool,
+    /// Whether the camera pushes events rather than having to be polled.
+    ///
+    /// Decides how hard the UI has to poll: a body that announces its own changes
+    /// needs only a slow heartbeat to notice it vanished, while one that does not
+    /// has to be asked repeatedly.
+    pub pushes_events: bool,
 }
 
 /// The three exposure dials a ramp can move.
@@ -159,6 +171,27 @@ pub struct ExposureValue {
     /// Human-readable form for the UI.
     pub label: String,
     pub stops: Option<f32>,
+}
+
+/// Something the camera reported on its own initiative.
+///
+/// Deliberately narrow. A body volunteers far more than this - a Z 6 fires a
+/// property-changed notification every time the focus point moves, eleven times in
+/// five seconds while someone half-presses the shutter - and reacting to all of it
+/// would be pure waste. Only what changes what the app displays or decides gets
+/// through.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", tag = "kind")]
+pub enum CameraEvent {
+    /// One exposure finished.
+    ///
+    /// This is the frame signal, and the only trustworthy one: with an external
+    /// intervalometer it is how the app learns a frame happened, so it is what a
+    /// ramp advances on. Counting written files instead would double-count every
+    /// frame shot as RAW+JPEG.
+    FrameRecorded,
+    /// A dial moved on the body itself.
+    DialChanged { dial: Dial },
 }
 
 /// Remaining charge. Cameras are vague about this, so both fields are best

@@ -55,6 +55,8 @@ impl MockCamera {
                 serial: Some("MOCK-0001".into()),
                 firmware: Some(env!("CARGO_PKG_VERSION").into()),
                 api_version: None,
+                supports_release: true,
+                pushes_events: false,
             },
             target,
             state: Mutex::new(State {

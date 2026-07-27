@@ -7,7 +7,8 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
-import type { BatteryStatus, CameraInfo, CameraTarget, Dial, ExposureCapabilities, ExposureSettings, Vendor } from "./types";
+import { listen } from "@tauri-apps/api/event";
+import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type Vendor } from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
@@ -48,4 +49,14 @@ export const api = {
     battery: () => invoke<BatteryStatus | null>("camera_battery"),
 
     defaultPort: (vendor: Vendor) => invoke<number>("camera_default_port", { vendor }),
+
+    /**
+     * Subscribe to what the camera reports on its own.
+     *
+     * Returns the unlisten function. Await it before dropping the subscription:
+     * `listen` resolves after the channel is registered, and discarding the promise
+     * leaks the handler.
+     */
+    onCameraEvent: (handler: (event: CameraEvent) => void) =>
+        listen<CameraEvent>(CAMERA_EVENT, (message) => handler(message.payload)),
 };
