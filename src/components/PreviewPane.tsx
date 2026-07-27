@@ -8,6 +8,8 @@ interface Props {
      * pane never polls, because a preview only exists after an exposure.
      */
     frame: number;
+    /** Whether this camera reports new frames at all. Only changes the wording. */
+    supported: boolean;
 }
 
 /**
@@ -18,7 +20,7 @@ interface Props {
  * revoked when it is replaced - a long sequence would otherwise accumulate a
  * megabyte or two per frame until the WebView is killed.
  */
-export function PreviewPane({ frame }: Props) {
+export function PreviewPane({ frame, supported }: Props) {
     const [url, setUrl] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
@@ -68,9 +70,9 @@ export function PreviewPane({ frame }: Props) {
     }, []);
 
     return (
-        <section className="preview">
+        <section className="preview" aria-label="Latest frame">
             <div className="preview__frame">
-                {url ? <img className="preview__image" src={url} alt={`Frame ${frame}`} /> : <p className="preview__placeholder">{frame === 0 ? "Waiting for the first frame…" : "No preview yet"}</p>}
+                {url ? <img className="preview__image" src={url} alt={`Frame ${frame}`} /> : <p className="preview__placeholder">{placeholder(supported, frame)}</p>}
                 {loading && <span className="preview__badge">Loading…</span>}
             </div>
             {error && (
@@ -80,4 +82,11 @@ export function PreviewPane({ frame }: Props) {
             )}
         </section>
     );
+}
+
+function placeholder(supported: boolean, frame: number): string {
+    // Distinguishing these matters: "waiting" invites you to keep waiting, and on a
+    // body that will never send a frame that would be a lie.
+    if (!supported) return "This camera does not report new frames.";
+    return frame === 0 ? "Waiting for the first frame…" : "No preview yet";
 }

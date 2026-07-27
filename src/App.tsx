@@ -19,8 +19,13 @@ export default function App() {
             .finally(() => setRestoring(false));
     }, []);
 
+    // The working screen fills the viewport and lays itself out; the connect and
+    // loading screens are single centred cards. Two different jobs, so the container
+    // cannot centre unconditionally.
+    const filling = !restoring && info !== null;
+
     return (
-        <main className="app">
+        <main className={filling ? "app app--filling" : "app"}>
             {restoring ? (
                 <p className="app__loading">Checking for a connected camera…</p>
             ) : info ? (

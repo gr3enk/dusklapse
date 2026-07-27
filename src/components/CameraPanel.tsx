@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, errorMessage } from "../lib/api";
+import type { BatteryStatus, CameraInfo, Dial, ExposureCapabilities, ExposureSettings } from "../lib/types";
+import { CameraStatusBar } from "./CameraStatusBar";
 import { PreviewPane } from "./PreviewPane";
-import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings } from "../lib/types";
-
-interface Props {
-    info: CameraInfo;
-    onDisconnected: () => void;
-}
+import { RampingPanel } from "./RampingPanel";
 
 /**
  * How often to re-read a camera that has to be asked.
@@ -27,12 +24,19 @@ const POLL_INTERVAL_MS = 2000;
  */
 const HEARTBEAT_INTERVAL_MS = 20000;
 
+interface Props {
+    info: CameraInfo;
+    onDisconnected: () => void;
+}
+
 /**
- * Manual control over the connected camera.
+ * Owns the camera session state and arranges the three working panes.
  *
- * This is not the timelapse UI - it exists to prove the whole chain end to end
- * (dial lists, writes) against a real body before any ramping logic is layered
- * on top.
+ * The arrangement itself is CSS, not JavaScript: `.workspace` is a grid whose named
+ * areas are reshuffled by an `(orientation: landscape)` media query. Rotating the
+ * device therefore relayouts without a re-render and without a resize listener to
+ * get wrong - and none of the three components below has to know which orientation
+ * it is in.
  */
 export function CameraPanel({ info, onDisconnected }: Props) {
     const [capabilities, setCapabilities] = useState<ExposureCapabilities | null>(null);
@@ -40,7 +44,6 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     const [battery, setBattery] = useState<BatteryStatus | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
-    const [lastRead, setLastRead] = useState<Date | null>(null);
     // Counted from CaptureComplete, so one per exposure rather than one per file.
     const [frames, setFrames] = useState(0);
 
@@ -55,7 +58,6 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         setCapabilities(nextCapabilities);
         setExposure(nextExposure);
         setBattery(nextBattery);
-        setLastRead(new Date());
     }, []);
 
     const refresh = useCallback(async () => {
@@ -140,98 +142,24 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         onDisconnected();
     }
 
-    const totalStops = brightnessStops(exposure);
-
     return (
-        <div className="panel">
-            <header className="panel__header">
-                <div>
-                    <h1>{info.model}</h1>
-                    <p className="panel__subtitle">
-                        {info.manufacturer}
-                        {info.apiVersion && ` · ${info.apiVersion}`}
-                        {info.firmware && ` · ${info.firmware}`}
-                        {info.serial && ` · #${info.serial}`}
-                    </p>
-                </div>
-                <div className="panel__actions">
-                    {info.pushesEvents && <span className="badge">{frames} frames</span>}
-                    {battery && <span className="badge">{batteryLabel(battery)}</span>}
-                    <button className="button" type="button" onClick={disconnect}>
-                        Disconnect
-                    </button>
-                </div>
-            </header>
-
-            {info.pushesEvents && <PreviewPane frame={frames} />}
-
-            <section className="dials">
-                {DIALS.map(({ id, label }) => {
-                    const values = capabilities?.[id] ?? [];
-                    const current = exposure?.[id];
-                    return (
-                        <label className="dial" key={id}>
-                            <span className="dial__label">{label}</span>
-                            <select className="dial__select" value={current?.raw ?? ""} disabled={busy || values.length === 0} onChange={(event) => void changeDial(id, event.currentTarget.value)}>
-                                {/* A dial we cannot read still needs a stable option to show. */}
-                                {!current && <option value="">-</option>}
-                                {values.map((value) => (
-                                    <option key={value.raw} value={value.raw}>
-                                        {value.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
-                    );
-                })}
-            </section>
-
-            <p className="panel__meta">
-                {totalStops === null ? "Brightness unavailable - one dial is on bulb or auto." : `Brightness ${totalStops > 0 ? "+" : ""}${totalStops.toFixed(2)} EV`}
-                {lastRead && <span className="panel__pulse"> · read {lastRead.toLocaleTimeString()}</span>}
-            </p>
-
-            <div className="panel__buttons">
-                {info.supportsRelease ? (
-                    <button className="button button--primary" type="button" onClick={() => void shoot()} disabled={busy}>
-                        {busy ? "Working…" : "Take a frame"}
-                    </button>
-                ) : (
-                    // Offering a button that is guaranteed to fail is worse than
-                    // explaining why there is none.
-                    <p className="notice notice--info">This body takes no remote release over Wi-Fi. Frame timing comes from your intervalometer; Dusklapse ramps the exposure between frames.</p>
-                )}
-                <button className="button" type="button" onClick={() => void refresh()} disabled={busy}>
-                    Re-read camera
-                </button>
+        <div className="workspace">
+            <div className="workspace__preview">
+                <PreviewPane frame={frames} supported={info.pushesEvents} />
             </div>
 
-            {error && (
-                <p className="notice notice--error" role="alert">
-                    {error}
-                </p>
-            )}
+            <div className="workspace__status">
+                <CameraStatusBar info={info} capabilities={capabilities} exposure={exposure} battery={battery} frames={frames} busy={busy} onChangeDial={changeDial} onDisconnect={disconnect} />
+                {error && (
+                    <p className="notice notice--error" role="alert">
+                        {error}
+                    </p>
+                )}
+            </div>
+
+            <div className="workspace__ramping">
+                <RampingPanel info={info} busy={busy} onShoot={() => void shoot()} onRefresh={() => void refresh()} />
+            </div>
         </div>
     );
-}
-
-/**
- * Total brightness of the current settings, in stops.
- *
- * `null` when any dial has no fixed brightness - the same rule the Rust side
- * applies. Better to show nothing than a number that is quietly wrong.
- */
-function brightnessStops(exposure: ExposureSettings | null): number | null {
-    if (!exposure) return null;
-    const parts = [exposure.shutter, exposure.aperture, exposure.iso];
-    let total = 0;
-    for (const part of parts) {
-        if (part?.stops == null) return null;
-        total += part.stops;
-    }
-    return total;
-}
-
-function batteryLabel(battery: BatteryStatus): string {
-    return battery.percent === null ? battery.label : `${battery.percent}%`;
 }
