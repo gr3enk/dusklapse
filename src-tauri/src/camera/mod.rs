@@ -38,7 +38,7 @@ use tokio::sync::broadcast;
 pub use error::{CameraError, CameraResult};
 pub use model::{
     BatteryStatus, CameraEvent, CameraInfo, CameraTarget, Dial, ExposureCapabilities,
-    ExposureSettings, ExposureValue, Vendor,
+    ExposureSettings, ExposureValue, Preview, Vendor,
 };
 
 #[async_trait]
@@ -73,6 +73,17 @@ pub trait Camera: Send + Sync {
 
     /// `None` when the body does not report charge at all.
     async fn battery(&self) -> CameraResult<Option<BatteryStatus>>;
+
+    /// The newest JPEG the camera has written, or `None` when there is nothing new
+    /// since the last call.
+    ///
+    /// Only JPEGs: shooting RAW+JPEG deliberately produces a small companion file
+    /// for exactly this purpose, and a backend must identify a file's format before
+    /// transferring it so a RAW never crosses the network at all. `None` rather than
+    /// an error when a backend cannot do previews.
+    async fn preview(&self) -> CameraResult<Option<Preview>> {
+        Ok(None)
+    }
 
     /// Subscribe to what the camera reports unprompted, or `None` for a backend
     /// with no event channel.

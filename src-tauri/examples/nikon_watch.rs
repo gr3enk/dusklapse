@@ -1,21 +1,27 @@
-//! Answer one question: does the camera still work while we hold a session open?
+//! Watch a camera over a held-open session.
 //!
 //! ```sh
-//! cargo run --example nikon_watch -- 192.168.178.75
+//! cargo run --example nikon_watch -- 192.168.1.1              # two minutes
+//! cargo run --example nikon_watch -- 192.168.1.1 1800          # half an hour
+//! cargo run --example nikon_watch -- 192.168.1.1 1800 --preview
 //! ```
 //!
-//! Connects, then sits there printing every event the camera volunteers and every
-//! settings change it observes. While this runs, go and use the camera: press the
-//! shutter, turn a dial, fire your intervalometer.
+//! Prints every event the camera volunteers and every settings change it observes.
+//! While it runs, go and use the camera: press the shutter, turn a dial, fire your
+//! intervalometer.
 //!
 //! What to look for:
 //!
-//! * `0x4002 ObjectAdded` - a frame was written. This is proof the body still
-//!   shoots with our session open, and it is the signal a ramp would advance on.
+//! * `0x400d CaptureComplete` - one exposure. This is the frame signal.
+//! * `0x4002 ObjectAdded` - one *file*. Two per frame when shooting RAW+JPEG.
 //! * `0x4006 DevicePropChanged` - something moved on the body.
-//! * settings lines - the same thing seen through polling rather than events.
 //!
-//! Read-only. Never writes a setting, never releases the shutter.
+//! With `--preview` it also fetches the JPEG after each frame, which is the way to
+//! check the JPEG-only filtering without deploying to a device: the log names each
+//! file it skips and why. Leave it off for a long durability run - every fetch is
+//! several megabytes over the camera's access point.
+//!
+//! Read-only either way. Never writes a setting, never releases the shutter.
 
 use std::time::Duration;
 
@@ -26,15 +32,22 @@ use dusklapse_lib::camera::ptpip::{
 };
 use dusklapse_lib::camera::{Camera, CameraTarget, ExposureSettings, Vendor};
 
-const WATCH_FOR: Duration = Duration::from_secs(120);
+const DEFAULT_SECONDS: u64 = 120;
 const POLL_EVERY: Duration = Duration::from_secs(2);
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let host = std::env::args().nth(1).unwrap_or_else(|| {
-        eprintln!("usage: nikon_watch <camera-ip>");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let host = args.first().cloned().unwrap_or_else(|| {
+        eprintln!("usage: nikon_watch <camera-ip> [seconds] [--preview]");
         std::process::exit(2);
     });
+    let seconds = args
+        .iter()
+        .skip(1)
+        .find_map(|arg| arg.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_SECONDS);
+    let fetch_previews = args.iter().any(|arg| arg == "--preview");
 
     let target = CameraTarget::new(Vendor::Nikon, host, Vendor::Nikon.default_port());
     let camera = NikonPtpIp::connect(target).await?;
@@ -44,18 +57,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let info = camera.info();
     println!(
-        "connected to {} {} - watching for {} seconds\n",
+        "connected to {} {} - watching for {seconds} seconds{}\n",
         info.manufacturer,
         info.model,
-        WATCH_FOR.as_secs()
+        if fetch_previews {
+            ", fetching previews"
+        } else {
+            ""
+        }
     );
     println!("Go use the camera now: press the shutter, turn a dial, run your");
     println!("intervalometer. Anything the body reports shows up below.\n");
 
-    let deadline = tokio::time::Instant::now() + WATCH_FOR;
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(seconds);
     let mut poll = tokio::time::interval(POLL_EVERY);
     let mut frames = 0usize;
     let mut files = 0usize;
+    let mut previews = 0usize;
     let mut previous: Option<ExposureSettings> = None;
 
     loop {
@@ -64,13 +82,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             received = events.recv() => match received {
                 Ok(event) => {
-                    // One exposure, however many files it produced.
                     match event.code {
                         EVENT_CAPTURE_COMPLETE => frames += 1,
                         EVENT_OBJECT_ADDED => files += 1,
                         _ => {}
                     }
                     println!("  {:>8}  event  {}", stamp(), describe(&event));
+
+                    if fetch_previews && event.code == EVENT_CAPTURE_COMPLETE {
+                        // Blocks this loop for the transfer, exactly as it blocks the
+                        // command channel in the app. Events queue meanwhile.
+                        match camera.preview().await {
+                            Ok(Some(preview)) => {
+                                previews += 1;
+                                println!(
+                                    "  {:>8}  image  {} - {} KiB, {}x{}",
+                                    stamp(),
+                                    preview.filename,
+                                    preview.bytes.len() / 1024,
+                                    preview.pixels.0,
+                                    preview.pixels.1,
+                                );
+                            }
+                            Ok(None) => {
+                                println!("  {:>8}  image  nothing new to fetch", stamp());
+                            }
+                            Err(err) => {
+                                println!("  {:>8}  image  failed: {err}", stamp());
+                            }
+                        }
+                    }
                 }
                 // Lagged only means we fell behind; the session is fine.
                 Err(tokio::sync::broadcast::error::RecvError::Lagged(missed)) => {
@@ -98,6 +139,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     println!("\n{frames} frame(s) and {files} file(s) while the session was open.");
+    if fetch_previews {
+        println!("{previews} preview(s) fetched.");
+    }
     if frames > 0 {
         println!("The body shoots with a session held open - an external");
         println!("intervalometer is all the frame timing this needs.");

@@ -41,16 +41,20 @@
 //! it nominally means. Irrelevant between 1/60 and 30 s, where a timelapse
 //! lives; wrong if you put it on screen as an exact EV.
 
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+
 use async_trait::async_trait;
 
 use super::error::{CameraError, CameraResult};
 use super::exposure;
 use super::model::{
     BatteryStatus, CameraEvent, CameraInfo, CameraTarget, Dial, ExposureCapabilities,
-    ExposureSettings, ExposureValue, Vendor,
+    ExposureSettings, ExposureValue, Preview, Vendor,
 };
 use super::ptpip::{
-    Form, PropDesc, PtpEvent, PtpIp, EVENT_CAPTURE_COMPLETE, EVENT_DEVICE_PROP_CHANGED,
+    is_jpeg, EventMapper, Form, PropDesc, PtpEvent, PtpIp, EVENT_CAPTURE_COMPLETE,
+    EVENT_DEVICE_PROP_CHANGED, EVENT_OBJECT_ADDED,
 };
 use super::Camera;
 
@@ -70,6 +74,13 @@ const F_NUMBER_SCALE: f32 = 100.0;
 /// Sentinels for the two settings with no fixed duration.
 const EXPOSURE_TIME_BULB: u32 = 0xFFFF_FFFF;
 const EXPOSURE_TIME_TIME: u32 = 0xFFFF_FFFD;
+
+/// How many freshly written files to remember the handles of.
+///
+/// One exposure in RAW+JPEG writes two, and a frame can finish while the previous
+/// one is still being flushed, so a little headroom keeps the JPEG we want from
+/// falling off the end before anyone asks for it.
+const RECENT_HANDLES: usize = 6;
 
 fn dial_property(dial: Dial) -> u16 {
     match dial {
@@ -97,26 +108,57 @@ fn property_dial(property: u16) -> Option<Dial> {
 ///
 /// `CaptureComplete` rather than `ObjectAdded` for frames, because a single
 /// exposure shooting RAW+JPEG writes two files and would otherwise count twice.
-fn map_event(event: &PtpEvent) -> Option<CameraEvent> {
-    match event.code {
+/// `ObjectAdded` still matters, just not as a frame: its parameter is the handle a
+/// preview is later fetched by, so it gets recorded on the way past.
+fn make_mapper(recent: Arc<Mutex<VecDeque<u32>>>) -> EventMapper {
+    Arc::new(move |event: &PtpEvent| match event.code {
         EVENT_CAPTURE_COMPLETE => Some(CameraEvent::FrameRecorded),
+
+        EVENT_OBJECT_ADDED => {
+            if let Some(handle) = event.params.first() {
+                let mut recent = lock(&recent);
+                recent.push_front(*handle);
+                recent.truncate(RECENT_HANDLES);
+            }
+            // Recorded, not surfaced: two of these arrive per frame.
+            None
+        }
+
         EVENT_DEVICE_PROP_CHANGED => {
             let property = *event.params.first()? as u16;
             property_dial(property).map(|dial| CameraEvent::DialChanged { dial })
         }
+
         _ => None,
-    }
+    })
+}
+
+/// A poisoned lock here means a thread panicked while pushing a file handle. The
+/// contents are still a valid list of handles, and giving up on previews for the
+/// rest of the session would be the worse outcome.
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 pub struct NikonPtpIp {
     target: CameraTarget,
     session: PtpIp,
     info: CameraInfo,
+    /// Handles of recently written files, newest first, filled in by the event
+    /// mapper. Both RAW and JPEG land here; which is which is only known after
+    /// asking the camera.
+    recent: Arc<Mutex<VecDeque<u32>>>,
+    /// The last handle handed to the UI, so a second request for the same frame
+    /// does not pull the same megabytes across again.
+    delivered: Mutex<Option<u32>>,
 }
 
 impl NikonPtpIp {
     pub async fn connect(target: CameraTarget) -> CameraResult<Self> {
-        let session = PtpIp::connect(&target.host, target.port, CLIENT_NAME, map_event).await?;
+        let recent = Arc::new(Mutex::new(VecDeque::with_capacity(RECENT_HANDLES)));
+        let session =
+            PtpIp::connect(&target.host, target.port, CLIENT_NAME, make_mapper(recent.clone()))
+                .await?;
 
         let device = session.device_info();
         let info = CameraInfo {
@@ -138,6 +180,8 @@ impl NikonPtpIp {
             target,
             session,
             info,
+            recent,
+            delivered: Mutex::new(None),
         })
     }
 
@@ -253,6 +297,65 @@ impl Camera for NikonPtpIp {
         }
     }
 
+    async fn preview(&self) -> CameraResult<Option<Preview>> {
+        // Newest first, so the first JPEG found is the current frame's.
+        let candidates: Vec<u32> = lock(&self.recent).iter().copied().collect();
+
+        for handle in candidates {
+            // Ask what it is before moving a byte of it. This is what keeps a NEF
+            // off the network: the answer costs a few dozen bytes.
+            let info = match self.session.object_info(handle).await {
+                Ok(info) => info,
+                Err(err) => {
+                    // A handle can go stale - deleted, or the card swapped. Not a
+                    // reason to give up on the ones behind it.
+                    log::debug!("could not read object {handle}: {err}");
+                    continue;
+                }
+            };
+
+            if !is_jpeg(info.format) {
+                log::debug!(
+                    "skipping {} - format 0x{:04x} is not a JPEG",
+                    info.filename,
+                    info.format
+                );
+                continue;
+            }
+
+            if *lock(&self.delivered) == Some(handle) {
+                // Newest JPEG is the one already on screen.
+                return Ok(None);
+            }
+
+            log::info!(
+                "fetching {} ({} KiB, {}x{})",
+                info.filename,
+                info.compressed_size / 1024,
+                info.pixel_width,
+                info.pixel_height
+            );
+            let started = std::time::Instant::now();
+            let bytes = self.session.object(handle).await?;
+            log::info!(
+                "fetched {} - {} KiB in {:.1}s",
+                info.filename,
+                bytes.len() / 1024,
+                started.elapsed().as_secs_f32()
+            );
+
+            *lock(&self.delivered) = Some(handle);
+            return Ok(Some(Preview {
+                bytes,
+                mime: "image/jpeg".into(),
+                filename: info.filename,
+                pixels: (info.pixel_width, info.pixel_height),
+            }));
+        }
+
+        Ok(None)
+    }
+
     fn events(&self) -> Option<tokio::sync::broadcast::Receiver<CameraEvent>> {
         Some(self.session.subscribe_camera())
     }
@@ -344,7 +447,6 @@ fn non_empty(text: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::camera::ptpip::EVENT_OBJECT_ADDED;
 
     fn approx(a: f32, b: f32) {
         assert!((a - b).abs() < 1e-3, "{a} != {b}");
@@ -467,24 +569,30 @@ mod tests {
         }
     }
 
+    /// A mapper with a throwaway handle log, for the cases that only care about the
+    /// mapping.
+    fn mapper() -> EventMapper {
+        make_mapper(Arc::new(Mutex::new(VecDeque::new())))
+    }
+
     /// The parameter values are the ones a Z 6 actually sent, in decimal as they
     /// appeared in the log.
     #[test]
     fn maps_dial_changes_to_the_dial_that_moved() {
         assert_eq!(
-            map_event(&event(EVENT_DEVICE_PROP_CHANGED, &[20493])), // 0x500D
+            mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[20493])), // 0x500D
             Some(CameraEvent::DialChanged {
                 dial: Dial::Shutter
             })
         );
         assert_eq!(
-            map_event(&event(EVENT_DEVICE_PROP_CHANGED, &[20487])), // 0x5007
+            mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[20487])), // 0x5007
             Some(CameraEvent::DialChanged {
                 dial: Dial::Aperture
             })
         );
         assert_eq!(
-            map_event(&event(EVENT_DEVICE_PROP_CHANGED, &[20495])), // 0x500F
+            mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[20495])), // 0x500F
             Some(CameraEvent::DialChanged { dial: Dial::Iso })
         );
     }
@@ -496,21 +604,53 @@ mod tests {
     fn ignores_the_focus_chatter() {
         for property in [20490u32, 20508] {
             // 0x500A FocusMode, 0x501C FocusMeteringMode
-            assert_eq!(map_event(&event(EVENT_DEVICE_PROP_CHANGED, &[property])), None);
+            assert_eq!(mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[property])), None);
         }
         // And a property-changed with no parameter must not panic.
-        assert_eq!(map_event(&event(EVENT_DEVICE_PROP_CHANGED, &[])), None);
+        assert_eq!(mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[])), None);
+    }
+
+    /// The handles are what previews are fetched by, so losing them loses previews.
+    /// Replays one frame exactly as a Z 6 reported it.
+    #[test]
+    fn records_written_file_handles_newest_first() {
+        let recent = Arc::new(Mutex::new(VecDeque::new()));
+        let map = make_mapper(recent.clone());
+
+        map(&event(EVENT_OBJECT_ADDED, &[689539863]));
+        map(&event(EVENT_OBJECT_ADDED, &[152668951]));
+        map(&event(EVENT_CAPTURE_COMPLETE, &[0]));
+
+        let handles: Vec<u32> = lock(&recent).iter().copied().collect();
+        // Newest first: the JPEG is looked for from the most recent end.
+        assert_eq!(handles, vec![152668951, 689539863]);
+    }
+
+    #[test]
+    fn forgets_handles_beyond_the_window() {
+        let recent = Arc::new(Mutex::new(VecDeque::new()));
+        let map = make_mapper(recent.clone());
+
+        for handle in 1..=(RECENT_HANDLES as u32 + 4) {
+            map(&event(EVENT_OBJECT_ADDED, &[handle]));
+        }
+
+        let handles: Vec<u32> = lock(&recent).iter().copied().collect();
+        assert_eq!(handles.len(), RECENT_HANDLES);
+        // The newest survived; the oldest fell off.
+        assert_eq!(handles[0], RECENT_HANDLES as u32 + 4);
+        assert!(!handles.contains(&1));
     }
 
     /// One frame per exposure, not one per written file.
     #[test]
     fn counts_frames_by_capture_not_by_file() {
         assert_eq!(
-            map_event(&event(EVENT_CAPTURE_COMPLETE, &[0])),
+            mapper()(&event(EVENT_CAPTURE_COMPLETE, &[0])),
             Some(CameraEvent::FrameRecorded)
         );
         // RAW+JPEG emits this twice per frame, so it must not become a frame event.
-        assert_eq!(map_event(&event(EVENT_OBJECT_ADDED, &[689539863])), None);
+        assert_eq!(mapper()(&event(EVENT_OBJECT_ADDED, &[689539863])), None);
     }
 
     #[test]

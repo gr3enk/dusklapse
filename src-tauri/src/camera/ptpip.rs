@@ -25,6 +25,7 @@
 //! and omits every property operation - while serving them perfectly. Do not
 //! gate features on that list; probe instead.
 
+use std::sync::Arc;
 use std::time::Duration;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -40,11 +41,20 @@ use super::model::CameraEvent;
 /// Passed in by the vendor backend because the mapping is vendor knowledge -
 /// which property codes matter, which events are noise. Taking it here rather
 /// than mapping in a second task means one reader owns the event channel.
-pub type EventMapper = fn(&PtpEvent) -> Option<CameraEvent>;
+///
+/// A closure rather than a plain function pointer so a backend can record state as
+/// events go past - the Nikon one notes the handles of newly written files, which
+/// is where previews come from.
+pub type EventMapper = Arc<dyn Fn(&PtpEvent) -> Option<CameraEvent> + Send + Sync>;
 
 /// Cameras on a local network answer in milliseconds. A long timeout only hides
 /// a body that has gone to sleep behind a stalled UI.
 const IO_TIMEOUT: Duration = Duration::from_secs(6);
+
+/// Pulling an image is different: several megabytes over the camera's own access
+/// point, which is not a fast link. Applied per packet, so a stalled transfer
+/// still fails rather than hanging forever.
+const TRANSFER_TIMEOUT: Duration = Duration::from_secs(60);
 
 // Packet types.
 const INIT_COMMAND_REQUEST: u32 = 1;
@@ -68,8 +78,21 @@ const PROBE_RESPONSE: u32 = 14;
 pub const OP_GET_DEVICE_INFO: u16 = 0x1001;
 pub const OP_OPEN_SESSION: u16 = 0x1002;
 pub const OP_CLOSE_SESSION: u16 = 0x1003;
+pub const OP_GET_OBJECT_INFO: u16 = 0x1008;
+pub const OP_GET_OBJECT: u16 = 0x1009;
 pub const OP_GET_DEVICE_PROP_DESC: u16 = 0x1014;
 pub const OP_SET_DEVICE_PROP_VALUE: u16 = 0x1016;
+
+/// EXIF/JPEG. The only format worth pulling off a card for a preview - asking for
+/// the object info first is what keeps a multi-megabyte NEF from ever being
+/// transferred.
+pub const FORMAT_EXIF_JPEG: u16 = 0x3801;
+/// Plain JFIF, in case a body reports that instead.
+pub const FORMAT_JFIF: u16 = 0x3808;
+
+pub fn is_jpeg(format: u16) -> bool {
+    matches!(format, FORMAT_EXIF_JPEG | FORMAT_JFIF)
+}
 
 const RESPONSE_OK: u16 = 0x2001;
 const RESPONSE_OPERATION_NOT_SUPPORTED: u16 = 0x2005;
@@ -144,6 +167,20 @@ pub struct PropDesc {
     pub form: Form,
 }
 
+/// What the camera knows about one file on the card, without transferring it.
+///
+/// Reading this before fetching is the whole trick behind JPEG-only previews:
+/// `format` says what a file is for the cost of a few dozen bytes, so a RAW never
+/// has to cross the network to be recognised and rejected.
+#[derive(Debug, Clone)]
+pub struct ObjectInfo {
+    pub format: u16,
+    pub compressed_size: u32,
+    pub pixel_width: u32,
+    pub pixel_height: u32,
+    pub filename: String,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct DeviceInfo {
     pub manufacturer: String,
@@ -213,7 +250,7 @@ impl PtpIp {
         payload.extend_from_slice(&PROTOCOL_VERSION.to_le_bytes());
         write_packet(&mut command, INIT_COMMAND_REQUEST, &payload).await?;
 
-        let (kind, body) = read_packet(&mut command).await?;
+        let (kind, body) = read_packet(&mut command, IO_TIMEOUT).await?;
         if kind == INIT_FAIL {
             let reason = Reader::new(&body).u32().unwrap_or(0);
             return Err(CameraError::Rejected {
@@ -243,7 +280,7 @@ impl PtpIp {
             &connection_number.to_le_bytes(),
         )
         .await?;
-        let (kind, _) = read_packet(&mut event).await?;
+        let (kind, _) = read_packet(&mut event, IO_TIMEOUT).await?;
         if kind != INIT_EVENT_ACK {
             return Err(CameraError::Protocol(format!(
                 "expected Init_Event_Ack, got packet type {kind}"
@@ -273,8 +310,8 @@ impl PtpIp {
         };
 
         // Session id must be non-zero.
-        session.operation(OP_OPEN_SESSION, &[1]).await?;
-        let raw = session.operation(OP_GET_DEVICE_INFO, &[]).await?;
+        session.operation(OP_OPEN_SESSION, &[1], IO_TIMEOUT).await?;
+        let raw = session.operation(OP_GET_DEVICE_INFO, &[], IO_TIMEOUT).await?;
         session.device_info = parse_device_info(&raw)?;
         log::info!(
             "PTP-IP session open: {} {} ({})",
@@ -313,7 +350,7 @@ impl PtpIp {
 
     pub async fn prop_desc(&self, property: u16) -> CameraResult<PropDesc> {
         let raw = self
-            .operation(OP_GET_DEVICE_PROP_DESC, &[property as u32])
+            .operation(OP_GET_DEVICE_PROP_DESC, &[property as u32], IO_TIMEOUT)
             .await?;
         let desc = parse_prop_desc(&raw)?;
 
@@ -328,6 +365,24 @@ impl PtpIp {
             )));
         }
         Ok(desc)
+    }
+
+    /// Ask what a file is without downloading it.
+    pub async fn object_info(&self, handle: u32) -> CameraResult<ObjectInfo> {
+        let raw = self
+            .operation(OP_GET_OBJECT_INFO, &[handle], IO_TIMEOUT)
+            .await?;
+        parse_object_info(&raw)
+    }
+
+    /// Download a file whole.
+    ///
+    /// Check [`PtpIp::object_info`] first. This blocks the command channel for the
+    /// duration of the transfer - PTP allows one transaction at a time - so pulling
+    /// a RAW by mistake would stall every other read for as long as it takes.
+    pub async fn object(&self, handle: u32) -> CameraResult<Vec<u8>> {
+        self.operation(OP_GET_OBJECT, &[handle], TRANSFER_TIMEOUT)
+            .await
     }
 
     /// Write a property, encoding the payload at the width the property declares.
@@ -348,14 +403,19 @@ impl PtpIp {
     }
 
     pub async fn close(&self) -> CameraResult<()> {
-        let result = self.operation(OP_CLOSE_SESSION, &[]).await.map(|_| ());
+        let result = self.operation(OP_CLOSE_SESSION, &[], IO_TIMEOUT).await.map(|_| ());
         self.events.abort();
         result
     }
 
     /// An operation with no data-out phase. Returns the data-in bytes, empty when
     /// the operation carries none.
-    async fn operation(&self, opcode: u16, params: &[u32]) -> CameraResult<Vec<u8>> {
+    async fn operation(
+        &self,
+        opcode: u16,
+        params: &[u32],
+        timeout: Duration,
+    ) -> CameraResult<Vec<u8>> {
         let mut channel = self.command.lock().await;
         let transaction = channel.take_transaction();
         write_packet(
@@ -364,7 +424,7 @@ impl PtpIp {
             &operation_payload(1, opcode, transaction, params),
         )
         .await?;
-        read_until_response(&mut channel.stream, opcode).await
+        read_until_response(&mut channel.stream, opcode, timeout).await
     }
 
     /// An operation that sends data to the camera.
@@ -393,7 +453,7 @@ impl PtpIp {
         end.extend_from_slice(data);
         write_packet(&mut channel.stream, END_DATA, &end).await?;
 
-        read_until_response(&mut channel.stream, opcode).await
+        read_until_response(&mut channel.stream, opcode, IO_TIMEOUT).await
     }
 }
 
@@ -433,10 +493,14 @@ fn operation_payload(data_phase: u32, opcode: u16, transaction: u32, params: &[u
 }
 
 /// Collect the data phase, then interpret the response code.
-async fn read_until_response(stream: &mut TcpStream, opcode: u16) -> CameraResult<Vec<u8>> {
+async fn read_until_response(
+    stream: &mut TcpStream,
+    opcode: u16,
+    timeout: Duration,
+) -> CameraResult<Vec<u8>> {
     let mut data = Vec::new();
     loop {
-        let (kind, body) = read_packet(stream).await?;
+        let (kind, body) = read_packet(stream, timeout).await?;
         match kind {
             START_DATA => {}
             // Both carry a 4-byte transaction id ahead of the payload.
@@ -554,9 +618,12 @@ async fn write_packet<W: tokio::io::AsyncWrite + Unpin>(
         .map_err(|err| CameraError::Transport(err.to_string()))
 }
 
-async fn read_packet(stream: &mut TcpStream) -> CameraResult<(u32, Vec<u8>)> {
+async fn read_packet(
+    stream: &mut TcpStream,
+    timeout: Duration,
+) -> CameraResult<(u32, Vec<u8>)> {
     let mut header = [0u8; 8];
-    tokio::time::timeout(IO_TIMEOUT, stream.read_exact(&mut header))
+    tokio::time::timeout(timeout, stream.read_exact(&mut header))
         .await
         .map_err(|_| CameraError::Transport("the camera stopped answering".into()))?
         .map_err(|err| CameraError::Transport(err.to_string()))?;
@@ -570,7 +637,7 @@ async fn read_packet(stream: &mut TcpStream) -> CameraResult<(u32, Vec<u8>)> {
     }
 
     let mut body = vec![0u8; length - 8];
-    tokio::time::timeout(IO_TIMEOUT, stream.read_exact(&mut body))
+    tokio::time::timeout(timeout, stream.read_exact(&mut body))
         .await
         .map_err(|_| CameraError::Transport("the camera stopped mid-packet".into()))?
         .map_err(|err| CameraError::Transport(err.to_string()))?;
@@ -605,6 +672,37 @@ fn parse_device_info(data: &[u8]) -> CameraResult<DeviceInfo> {
         serial: reader.ptp_string()?,
         operations,
         properties,
+    })
+}
+
+/// ObjectInfo dataset. Fixed-width preamble, then four PTP strings.
+///
+/// Everything past the filename is date and keyword metadata we have no use for,
+/// so parsing stops there.
+fn parse_object_info(data: &[u8]) -> CameraResult<ObjectInfo> {
+    let mut reader = Reader::new(data);
+    reader.u32()?; // storage id
+    let format = reader.u16()?;
+    reader.u16()?; // protection status
+    let compressed_size = reader.u32()?;
+    reader.u16()?; // thumb format
+    reader.u32()?; // thumb compressed size
+    reader.u32()?; // thumb width
+    reader.u32()?; // thumb height
+    let pixel_width = reader.u32()?;
+    let pixel_height = reader.u32()?;
+    reader.u32()?; // image bit depth
+    reader.u32()?; // parent object
+    reader.u16()?; // association type
+    reader.u32()?; // association description
+    reader.u32()?; // sequence number
+
+    Ok(ObjectInfo {
+        format,
+        compressed_size,
+        pixel_width,
+        pixel_height,
+        filename: reader.ptp_string()?,
     })
 }
 
@@ -800,6 +898,49 @@ mod tests {
             }
             other => panic!("expected an enumeration, got {other:?}"),
         }
+    }
+
+    /// The dataset a Z 6 returns for a JPEG. Getting the fixed-width preamble wrong
+    /// by one field would misread the format and let a RAW through.
+    #[test]
+    fn parses_object_info_and_identifies_a_jpeg() {
+        let mut data = Vec::new();
+        data.extend_from_slice(&0x0001_0001u32.to_le_bytes()); // storage id
+        data.extend_from_slice(&FORMAT_EXIF_JPEG.to_le_bytes());
+        data.extend_from_slice(&0u16.to_le_bytes()); // protection
+        data.extend_from_slice(&1_234_567u32.to_le_bytes()); // compressed size
+        data.extend_from_slice(&FORMAT_EXIF_JPEG.to_le_bytes()); // thumb format
+        data.extend_from_slice(&8_000u32.to_le_bytes()); // thumb size
+        data.extend_from_slice(&160u32.to_le_bytes()); // thumb width
+        data.extend_from_slice(&120u32.to_le_bytes()); // thumb height
+        data.extend_from_slice(&6048u32.to_le_bytes()); // image width
+        data.extend_from_slice(&4024u32.to_le_bytes()); // image height
+        data.extend_from_slice(&24u32.to_le_bytes()); // bit depth
+        data.extend_from_slice(&0u32.to_le_bytes()); // parent
+        data.extend_from_slice(&0u16.to_le_bytes()); // association type
+        data.extend_from_slice(&0u32.to_le_bytes()); // association desc
+        data.extend_from_slice(&1u32.to_le_bytes()); // sequence number
+        // Filename "A.JPG" as a PTP string: 6 chars including the terminator.
+        data.push(6);
+        for unit in "A.JPG\0".encode_utf16() {
+            data.extend_from_slice(&unit.to_le_bytes());
+        }
+
+        let info = parse_object_info(&data).unwrap();
+        assert_eq!(info.filename, "A.JPG");
+        assert_eq!(info.compressed_size, 1_234_567);
+        assert_eq!((info.pixel_width, info.pixel_height), (6048, 4024));
+        assert!(is_jpeg(info.format));
+    }
+
+    #[test]
+    fn nikon_raw_is_not_mistaken_for_a_jpeg() {
+        // 0xB101 is Nikon's vendor format for NEF; 0x3000 is "undefined".
+        assert!(!is_jpeg(0xB101));
+        assert!(!is_jpeg(0x3000));
+        assert!(!is_jpeg(0x3801 + 1));
+        assert!(is_jpeg(FORMAT_EXIF_JPEG));
+        assert!(is_jpeg(FORMAT_JFIF));
     }
 
     #[test]

@@ -194,6 +194,19 @@ pub enum CameraEvent {
     DialChanged { dial: Dial },
 }
 
+/// An image pulled off the camera for on-screen review.
+///
+/// Not `Serialize`: the bytes cross to the WebView as a raw IPC body, because a
+/// multi-megabyte JPEG re-encoded as base64 inside a JSON string is roughly a third
+/// larger again and has to be parsed as text on a device with little to spare.
+#[derive(Debug, Clone)]
+pub struct Preview {
+    pub bytes: Vec<u8>,
+    pub mime: String,
+    pub filename: String,
+    pub pixels: (u32, u32),
+}
+
 /// Remaining charge. Cameras are vague about this, so both fields are best
 /// effort: `percent` is only present when the body reports something numeric or
 /// maps cleanly onto a level.

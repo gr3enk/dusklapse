@@ -83,6 +83,25 @@ pub async fn camera_battery(
     session.camera().await?.battery().await
 }
 
+/// The newest JPEG the camera has written.
+///
+/// Returns the raw file as an IPC binary body rather than JSON: a multi-megabyte
+/// image base64-encoded inside a JSON string is a third larger again and has to be
+/// parsed as text, which on a phone is the difference between a preview appearing
+/// and the UI hitching.
+///
+/// **An empty body means "nothing new since last time"** - the same frame is never
+/// sent twice. The frontend checks `byteLength`.
+#[tauri::command]
+pub async fn camera_preview(
+    session: State<'_, CameraSession>,
+) -> CameraResult<tauri::ipc::Response> {
+    let preview = session.camera().await?.preview().await?;
+    Ok(tauri::ipc::Response::new(
+        preview.map(|preview| preview.bytes).unwrap_or_default(),
+    ))
+}
+
 /// Default port per vendor, so the connect screen does not have to keep its own
 /// copy of these numbers.
 #[tauri::command]
