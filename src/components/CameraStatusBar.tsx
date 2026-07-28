@@ -31,7 +31,7 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
             {/* Takes the width its content needs and no more, so what is left over goes to
                 the meta group beside it. Given room to grow, the dials would claim all of
                 it and force the meta group onto a line of its own. */}
-            <div className="flex min-w-0 max-w-[26rem] flex-auto gap-2">
+            <div className="flex min-w-0 max-w-104 flex-auto gap-2">
                 {DIALS.map(({ id, label }) => {
                     const values = capabilities?.[id] ?? [];
                     const current = exposure?.[id];

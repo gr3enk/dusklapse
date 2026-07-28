@@ -121,7 +121,7 @@ export function ConnectScreen({ onConnected }: Props) {
 
             <form
                 className={cn(
-                    "relative z-10 flex w-full max-w-[26rem] flex-col gap-5 self-center",
+                    "relative z-10 flex w-full max-w-104 flex-col gap-5 self-center",
                     "pt-8 pr-[calc(var(--spacing-safe-r)+1.25rem)] pb-[calc(var(--spacing-safe-b)+2rem)] pl-[calc(var(--spacing-safe-l)+1.25rem)]",
                 )}
                 onSubmit={connect}
@@ -136,12 +136,7 @@ export function ConnectScreen({ onConnected }: Props) {
 
                 <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
                     <Label asLegend>Camera</Label>
-                    <SegmentedControl
-                        aria-label="Camera"
-                        value={vendor}
-                        onChange={setVendor}
-                        options={profiles.map((profile) => ({ value: profile.vendor, label: profile.label }))}
-                    />
+                    <SegmentedControl aria-label="Camera" value={vendor} onChange={setVendor} options={profiles.map((profile) => ({ value: profile.vendor, label: profile.label }))} />
                     <HintStack active={vendor} items={profiles.map((profile) => ({ key: profile.vendor, content: profile.summary }))} />
                 </fieldset>
 
@@ -208,9 +203,7 @@ function ConnectionHelp({ vendor, onClose }: { vendor: Vendor; onClose: () => vo
                 <h2 className="m-0 text-[1.1rem] font-[650]">Connection help</h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                {Help ? <Help /> : <Notice>There is nothing to set up for this camera beyond picking it.</Notice>}
-            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{Help ? <Help /> : <Notice>There is nothing to set up for this camera beyond picking it.</Notice>}</div>
         </div>
     );
 }

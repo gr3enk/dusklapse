@@ -152,7 +152,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         // the viewport instead of scrolling inside it.
         <div
             className={cn(
-                "mx-auto grid min-h-0 w-full max-w-[80rem] flex-1 gap-3",
+                "mx-auto grid min-h-0 w-full max-w-7xl flex-1 gap-3",
                 "grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,0.9fr)_auto_minmax(0,1.1fr)]",
                 "landscape:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] landscape:grid-rows-[minmax(0,1fr)_auto]",
             )}

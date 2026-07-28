@@ -96,7 +96,7 @@ export function PreviewPane({ frame, supported }: Props) {
                     <p className="m-0 p-4 text-center text-[0.9rem] text-text-muted">{placeholder(supported, frame)}</p>
                 )}
 
-                {loading && <span className="absolute top-[0.6rem] right-[0.6rem] rounded-full bg-black/60 px-[0.5rem] py-[0.2rem] text-[0.75rem]">Loading…</span>}
+                {loading && <span className="absolute top-[0.6rem] right-[0.6rem] rounded-full bg-black/60 px-2 py-[0.2rem] text-[0.75rem]">Loading…</span>}
 
                 {/* Overlaid rather than placed beside the image: the two are read together,
                     and giving the histogram its own row would take height from the frame it
@@ -113,7 +113,11 @@ export function PreviewPane({ frame, supported }: Props) {
                     </div>
                 )}
 
-                {info && <span className="pointer-events-none absolute bottom-[0.6rem] right-[0.6rem] rounded-full bg-black/55 px-[0.5rem] py-[0.2rem] text-[0.7rem] tabular-nums text-text-muted">{info.filename}</span>}
+                {info && (
+                    <span className="pointer-events-none absolute bottom-[0.6rem] right-[0.6rem] rounded-full bg-black/55 px-2 py-[0.2rem] text-[0.7rem] tabular-nums text-text-muted">
+                        {info.filename}
+                    </span>
+                )}
             </div>
 
             {error && <Notice variant="error">{error}</Notice>}

@@ -135,13 +135,6 @@
      * A class because five colour stops inside an arbitrary value is write-only code.
      */
     .scrim {
-        background: linear-gradient(
-            to bottom,
-            rgb(13 15 19 / 0) 0%,
-            rgb(13 15 19 / 0.25) 28%,
-            rgb(13 15 19 / 0.85) 48%,
-            var(--bg) 62%,
-            var(--bg) 100%
-        );
+        background: linear-gradient(to bottom, rgb(13 15 19 / 0) 0%, rgb(13 15 19 / 0.25) 28%, rgb(13 15 19 / 0.85) 48%, var(--bg) 62%, var(--bg) 100%);
     }
 }

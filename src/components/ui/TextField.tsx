@@ -20,7 +20,11 @@ export function TextField({ label, fieldClassName, className, ...rest }: Props) 
         <label className={cn("flex min-w-0 flex-1 flex-col gap-1", fieldClassName)}>
             <Label>{label}</Label>
             <input
-                className={cn("min-h-tap rounded-card border border-border bg-surface px-[0.85rem] text-base", "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent", className)}
+                className={cn(
+                    "min-h-tap rounded-card border border-border bg-surface px-[0.85rem] text-base",
+                    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                    className,
+                )}
                 {...rest}
             />
         </label>
