@@ -12,6 +12,7 @@ use crate::camera::{
     BatteryStatus, CameraInfo, CameraResult, CameraTarget, Dial, ExposureCapabilities,
     ExposureSettings, Vendor,
 };
+use crate::ramp::plan::{plan, BlockedDial};
 use crate::ramp::{RampSettings, RampState};
 use crate::session::{CameraSession, EventSink};
 
@@ -183,6 +184,113 @@ pub async fn ramp_reference_from_latest_frame(
         Some(luminance) => Ok(Some(ramp.set_reference(luminance).await)),
         None => Ok(None),
     }
+}
+
+/// One dial move the ramp made, or tried to.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppliedChange {
+    pub dial: Dial,
+    pub from: String,
+    pub to: String,
+    pub gained_stops: f32,
+    pub applied: bool,
+}
+
+/// What the ramp did about the frame on screen.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RampOutcome {
+    pub deviation_stops: f32,
+    /// The move that was made, if any. At most one per frame - the ramp steps rather than
+    /// jumping, so the change is invisible in the finished sequence.
+    pub change: Option<AppliedChange>,
+    /// Why each dial could not be used, when none of them could.
+    ///
+    /// The reason the UI can say "ISO is already at its limit of 1250" instead of leaving
+    /// someone to guess what ran out.
+    pub blocked: Vec<BlockedDial>,
+    /// Set when the camera refused the move.
+    pub failed: Option<String>,
+}
+
+/// Correct the exposure for the frame on screen, if it needs it.
+///
+/// Reads the brightness from the frame already measured and cached, works out the correction,
+/// and applies it. `None` when there is nothing to decide: no frame yet, or the ramp is
+/// disarmed.
+///
+/// At most one dial moves per frame. See [`crate::ramp::plan`] for why stepping beats jumping.
+#[tauri::command]
+pub async fn ramp_apply(
+    session: State<'_, CameraSession>,
+    cache: State<'_, PreviewCache>,
+    ramp: State<'_, RampState>,
+) -> CameraResult<Option<RampOutcome>> {
+    let Some(frame) = cache
+        .0
+        .lock()
+        .await
+        .as_ref()
+        .and_then(|preview| preview.analysis.as_ref())
+        .map(|analysis| analysis.luminance)
+    else {
+        return Ok(None);
+    };
+
+    let settings = ramp.get().await;
+    let camera = session.camera().await?;
+
+    // Read both before deciding: the value lists depend on the shooting mode and the lens, and
+    // a plan built on a stale list would choose values the body no longer offers.
+    let capabilities = camera.capabilities().await?;
+    let exposure = camera.exposure().await?;
+
+    let Some(correction) = plan(&settings, &capabilities, &exposure, frame) else {
+        return Ok(None);
+    };
+
+    let mut applied = None;
+    let mut failed = None;
+
+    if let Some(change) = &correction.change {
+        match camera.set_exposure(change.dial, &change.to).await {
+            Ok(()) => {
+                log::info!(
+                    "ramp moved {:?} {} -> {} ({:+.2} stops)",
+                    change.dial,
+                    change.from,
+                    change.to,
+                    change.gained_stops
+                );
+                applied = Some(AppliedChange {
+                    dial: change.dial,
+                    from: change.from.clone(),
+                    to: change.to.clone(),
+                    gained_stops: change.gained_stops,
+                    applied: true,
+                });
+            }
+            Err(err) => {
+                log::warn!("ramp could not move {:?} to {}: {err}", change.dial, change.to);
+                applied = Some(AppliedChange {
+                    dial: change.dial,
+                    from: change.from.clone(),
+                    to: change.to.clone(),
+                    gained_stops: change.gained_stops,
+                    applied: false,
+                });
+                failed = Some(err.to_string());
+            }
+        }
+    }
+
+    Ok(Some(RampOutcome {
+        deviation_stops: correction.deviation_stops,
+        change: applied,
+        blocked: correction.blocked,
+        failed,
+    }))
 }
 
 /// The most recently fetched frame, waiting to be collected by the WebView.

@@ -8,7 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampSettings, type VendorProfile } from "./types";
+import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampOutcome, type RampSettings, type VendorProfile } from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
@@ -91,6 +91,15 @@ export const api = {
      * that made a round trip through the UI. `null` when nothing has been analysed yet.
      */
     rampReferenceFromLatestFrame: () => invoke<RampSettings | null>("ramp_reference_from_latest_frame"),
+
+    /**
+     * Correct the exposure for the frame on screen, if it needs it.
+     *
+     * Takes no argument: the backend reads the brightness from the frame it already measured,
+     * decides the correction and applies it. `null` when there was nothing to decide - no
+     * frame yet, or the ramp disarmed.
+     */
+    rampApply: () => invoke<RampOutcome | null>("ramp_apply"),
 
     /**
      * Subscribe to what the camera reports on its own.

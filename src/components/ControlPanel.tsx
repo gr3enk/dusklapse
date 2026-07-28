@@ -1,7 +1,8 @@
 import { CrosshairIcon, SunriseIcon, SunsetIcon } from "lucide-react";
 
+import type { AutoRamp } from "../hooks/useAutoRamp";
 import type { Ramp } from "../hooks/useRamp";
-import { DIALS, dialLimitLabel, stopsBetween, type CameraInfo, type Dial, type DialRamp, type ExposureCapabilities, type Luminance, type RampMode } from "../lib/types";
+import { DIALS, dialLimitLabel, stopsBetween, type CameraInfo, type Dial, type DialRamp, type ExposureCapabilities, type Luminance, type RampMode, type RampOutcome, type Blocked } from "../lib/types";
 import { DialRampRow } from "./DialRampRow";
 import { Button } from "./ui/Button";
 import { Label } from "./ui/Label";
@@ -9,6 +10,7 @@ import { Notice } from "./ui/Notice";
 import NumberSelector from "./ui/NumberSelector";
 import { Panel } from "./ui/Panel";
 import Toggle from "./ui/Toggle";
+import { cn } from "../lib/utils";
 
 /** The reported brightness scale, matching `SCALE` in the Rust luminance module. */
 const LUMINANCE_MIN = 0;
@@ -30,6 +32,8 @@ interface Props {
     info: CameraInfo;
     busy: boolean;
     ramp: Ramp;
+    /** What the ramp last did, for the readout at the bottom. */
+    autoRamp: AutoRamp;
     /** What the camera currently offers on each dial, for the limit dropdowns. */
     capabilities: ExposureCapabilities | null;
     /** Brightness of the frame on screen, or `null` before the first one. */
@@ -50,7 +54,7 @@ interface Props {
  * which is what lets it survive a WebView reload and lets the engine read the same values
  * the controls here are showing.
  */
-export function ControlPanel({ info, busy, ramp, capabilities, frameLuminance, onShoot, onRefresh }: Props) {
+export function ControlPanel({ info, busy, ramp, autoRamp, capabilities, frameLuminance, onShoot, onRefresh }: Props) {
     const { settings, update, useCurrentFrame, saving, error } = ramp;
 
     // Everything below needs a loaded configuration; disabling rather than hiding keeps the
@@ -158,7 +162,7 @@ export function ControlPanel({ info, busy, ramp, capabilities, frameLuminance, o
                     does not: the limit is always the far end of the ramp's travel, and which
                     end that is depends on which way the light is going. */}
                     {DIALS.map(({ id }, index) => (
-                        <div className={`portrait:col-2 portrait:row-${index + 1}`}>
+                        <div className={cn("portrait:col-2", `portrait:row-${index + 1}`)}>
                             <DialRampRow
                                 key={id}
                                 dial={id}
@@ -173,7 +177,12 @@ export function ControlPanel({ info, busy, ramp, capabilities, frameLuminance, o
                     ))}
                 </div>
 
+                {/* What the ramp actually did, and the one thing that has to be visible before
+                    it is too late: running out of headroom. */}
+                {autoRamp.outcome && <RampReadout outcome={autoRamp.outcome} capabilities={capabilities} />}
+
                 {error && <Notice variant="error">{error}</Notice>}
+                {autoRamp.error && <Notice variant="error">{autoRamp.error}</Notice>}
             </div>
         </Panel>
     );
@@ -190,3 +199,67 @@ function describeDeviation(stops: number): string {
     if (magnitude < 0.05) return "on target.";
     return `${magnitude.toFixed(2)} EV ${stops > 0 ? "over" : "under"} reference.`;
 }
+
+/**
+ * What the ramp did about the last frame.
+ *
+ * When nothing could move, this names the dial and the limit rather than reporting a number of
+ * stops. "Out of headroom by 3.31 EV" is true and useless; "ISO is at its limit of 1250" is
+ * something you can act on.
+ */
+function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabilities: ExposureCapabilities | null }) {
+    // A raw token is the camera's own vocabulary, not something to show. Resolve it back to
+    // the label the dial displays.
+    const labelFor = (dial: Dial, raw: string) => capabilities?.[dial].find((value) => value.raw === raw)?.label ?? raw;
+
+    const stuck = outcome.blocked.filter((entry) => entry.reason.kind !== "disabled");
+    const off = outcome.blocked.filter((entry) => entry.reason.kind === "disabled");
+
+    return (
+        <div className="space-y-2">
+            {outcome.change?.applied && (
+                <p className="m-0 tabular-nums">
+                    {DIAL_LABELS[outcome.change.dial]} {labelFor(outcome.change.dial, outcome.change.from)} → {labelFor(outcome.change.dial, outcome.change.to)} (
+                    {outcome.change.gainedStops > 0 ? "+" : ""}
+                    {outcome.change.gainedStops.toFixed(2)} EV)
+                </p>
+            )}
+
+            {outcome.blocked.length > 0 && (
+                <Notice variant="error">
+                    <span className="block">Nothing left to adjust, so the sequence will keep drifting from here.</span>
+                    {stuck.map((entry) => (
+                        <span key={entry.dial} className="block">
+                            {DIAL_LABELS[entry.dial]}: {describeBlocked(entry.reason, (raw) => labelFor(entry.dial, raw))}
+                        </span>
+                    ))}
+                    {off.length > 0 && <span className="block">Ramping is switched off for {off.map((entry) => DIAL_LABELS[entry.dial]).join(" and ")}.</span>}
+                </Notice>
+            )}
+
+            {outcome.failed && <Notice variant="error">The camera refused the change: {outcome.failed}</Notice>}
+        </div>
+    );
+}
+
+function describeBlocked(reason: Blocked, label: (raw: string) => string): string {
+    switch (reason.kind) {
+        case "disabled":
+            return "ramping is switched off.";
+        case "atLimit":
+            return `already at its limit of ${label(reason.limit)}.`;
+        case "endOfRange":
+            return "the camera offers nothing further in this direction.";
+        case "noStopPosition":
+            return "it is on bulb or auto, which the ramp cannot reason about.";
+        case "limitUnavailable":
+            return `its limit of ${label(reason.limit)} is not offered by the camera right now.`;
+    }
+}
+
+/** Dial names for the readout, so it does not repeat the label helper's mode-dependent ones. */
+const DIAL_LABELS: Record<Dial, string> = {
+    shutter: "Shutter",
+    aperture: "Aperture",
+    iso: "ISO",
+};

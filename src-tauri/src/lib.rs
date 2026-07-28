@@ -41,6 +41,7 @@ pub fn run() {
             commands::ramp_settings,
             commands::ramp_configure,
             commands::ramp_reference_from_latest_frame,
+            commands::ramp_apply,
             commands::camera_default_port,
         ])
         .run(tauri::generate_context!())

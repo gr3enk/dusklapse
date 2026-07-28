@@ -9,6 +9,7 @@ import { cn } from "../lib/utils";
 import { ControlPanel } from "./ControlPanel";
 import { useLatestFrame } from "../hooks/useLatestFrame";
 import { useRamp } from "../hooks/useRamp";
+import { useAutoRamp } from "../hooks/useAutoRamp";
 
 /**
  * How often to re-read a camera that has to be asked.
@@ -55,6 +56,8 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     // controls need the brightness - so they cannot live inside the pane that shows them.
     const frame = useLatestFrame(frames);
     const ramp = useRamp();
+    // Corrects the exposure once per measured frame. Only runs while the ramp is armed.
+    const autoRamp = useAutoRamp(frame.info, ramp.settings?.active ?? false);
 
     // Read by the poll timer, which must not restart every time `busy` flips.
     const busyRef = useRef(false);
@@ -179,6 +182,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     info={info}
                     busy={busy}
                     ramp={ramp}
+                    autoRamp={autoRamp}
                     capabilities={capabilities}
                     frameLuminance={frame.info?.analysis?.luminance ?? null}
                     onShoot={() => void shoot()}

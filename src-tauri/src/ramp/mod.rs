@@ -18,10 +18,12 @@
 //! The frontend holds a rendering copy and writes through. Every mutating command returns
 //! the stored settings, so the UI never has to guess what was actually kept.
 
+pub mod plan;
+
 use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
-use crate::camera::Luminance;
+use crate::camera::{Dial, Luminance};
 
 /// Which way the light is going.
 ///
@@ -107,6 +109,19 @@ impl Default for RampSettings {
                 enabled: true,
                 limit: None,
             },
+        }
+    }
+}
+
+impl RampSettings {
+    /// The per-dial configuration, addressed the way [`crate::camera::ExposureCapabilities`]
+    /// and [`crate::camera::ExposureSettings`] are, so the planner can walk the dials in
+    /// order rather than naming each field.
+    pub fn dial(&self, dial: Dial) -> &DialRamp {
+        match dial {
+            Dial::Shutter => &self.shutter,
+            Dial::Aperture => &self.aperture,
+            Dial::Iso => &self.iso,
         }
     }
 }

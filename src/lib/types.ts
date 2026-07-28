@@ -156,6 +156,49 @@ export function dialLimitLabel(dial: Dial, mode: RampMode): string {
     }
 }
 
+/** One dial move the ramp made, or tried to. */
+export interface AppliedChange {
+    dial: Dial;
+    from: string;
+    to: string;
+    gainedStops: number;
+    applied: boolean;
+}
+
+/** Why a dial could not be moved. Mirrors the Rust `Blocked`. */
+export type Blocked =
+    /** Its toggle is off. */
+    | { kind: "disabled" }
+    /** Already sitting on the limit that was set for it. */
+    | { kind: "atLimit"; limit: string }
+    /** The camera offers nothing further in this direction. */
+    | { kind: "endOfRange" }
+    /** On bulb or auto, which has no stop position. */
+    | { kind: "noStopPosition" }
+    /** The limit that was set is no longer in the camera's list. */
+    | { kind: "limitUnavailable"; limit: string };
+
+export interface BlockedDial {
+    dial: Dial;
+    reason: Blocked;
+}
+
+/** What the ramp did about one frame. */
+export interface RampOutcome {
+    deviationStops: number;
+    /**
+     * The move that was made, if any.
+     *
+     * At most one per frame: the ramp steps rather than jumping, because a dial moving several
+     * stops between two frames is a visible flash in the finished sequence.
+     */
+    change: AppliedChange | null;
+    /** Why each dial could not be used, when none of them could. */
+    blocked: BlockedDial[];
+    /** Set when the camera refused the move. */
+    failed: string | null;
+}
+
 /** Everything a frame is measured for. Present together or not at all. */
 export interface FrameAnalysis {
     histogram: Histogram;
