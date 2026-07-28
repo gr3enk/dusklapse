@@ -8,11 +8,16 @@ use tauri_plugin_log::{Target, TargetKind};
 pub fn run() {
     tauri::Builder::default()
         .plugin(
-            // Without this, Rust-side logs are lost on iOS - there is no stdout
-            // to attach to. The plugin routes them into the platform logger, so
-            // they turn up in the Xcode console and in logcat.
+            // Without this, Rust-side logs are lost on iOS - there is no stdout to
+            // attach to. The plugin routes them into the platform logger, so they turn
+            // up in the Xcode console and in logcat.
+            //
+            // `targets` replaces the default list; `target` would have appended to it.
+            // The defaults are Stdout *and* LogDir, so appending left the app also
+            // writing a rotating log file inside its container - never asked for, and
+            // the source of a startup crash after the app was renamed.
             tauri_plugin_log::Builder::new()
-                .target(Target::new(TargetKind::Stdout))
+                .targets([Target::new(TargetKind::Stdout)])
                 .level(log::LevelFilter::Info)
                 .build(),
         )

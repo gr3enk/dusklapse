@@ -10,6 +10,16 @@
 <plist version="1.0">
 <dict>
 	<!--
+	  The name shown under the icon and in the app switcher.
+	  iOS falls back to CFBundleName when this is absent, which productName already
+	  sets correctly - this is here so the user-facing name is stated outright rather
+	  than inherited, and so it survives a future rename past CFBundleName's 15
+	  character convention.
+	-->
+	<key>CFBundleDisplayName</key>
+	<string>Dusklapse</string>
+
+	<!--
 	  Required since iOS 14 for *any* traffic to the local network. Without it,
 	  connections to a camera fail silently: no error, no prompt, just timeouts.
 	  iOS shows this string in the permission dialog, so it has to explain the

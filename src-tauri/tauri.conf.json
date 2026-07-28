@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "dusklapse",
+  "productName": "Dusklapse",
   "version": "0.1.0",
   "identifier": "dev.greenk.dusklapse",
   "build": {

@@ -40,6 +40,8 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>CFBundleDisplayName</key>
+	<string>Dusklapse</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Dusklapse needs access to your local network to find and control your camera over Wi-Fi.</string>
 	<key>NSBonjourServices</key>

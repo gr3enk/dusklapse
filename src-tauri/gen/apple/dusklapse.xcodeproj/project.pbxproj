@@ -25,15 +25,28 @@
 		155D5F8BC0F4C52D5592C15C /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
 		16B2AE847F3F8F3E15DB0BA2 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		2505C9B191F3A0F8B3B7D464 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		317DE9E08D354DB6A36A5F4C /* mock.rs */ = {isa = PBXFileReference; path = mock.rs; sourceTree = "<group>"; };
 		381A704FADBEDF588E43DB8F /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		4013F425ED074F47A20BC938 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		468BCE0B2254D74D7914F81C /* exposure.rs */ = {isa = PBXFileReference; path = exposure.rs; sourceTree = "<group>"; };
 		49BA5B32628D8CFC0029A659 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		4BD40D69BFC37ADD5FD8118E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		528421B88CFAD654A158202E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		58DFCC53596A553E7FCA7D06 /* sony.rs */ = {isa = PBXFileReference; path = sony.rs; sourceTree = "<group>"; };
+		5BCC66CD29F890703086A910 /* model.rs */ = {isa = PBXFileReference; path = model.rs; sourceTree = "<group>"; };
+		5E8850B1FE00B1F468981C60 /* canon.rs */ = {isa = PBXFileReference; path = canon.rs; sourceTree = "<group>"; };
+		6B36A2F2F6D84078C0AE20BC /* histogram.rs */ = {isa = PBXFileReference; path = histogram.rs; sourceTree = "<group>"; };
+		7201FA502EDAA8B2BC1FF492 /* error.rs */ = {isa = PBXFileReference; path = error.rs; sourceTree = "<group>"; };
 		77032458AE684012BB1208F1 /* dusklapse_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = dusklapse_iOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7707E39F78967432477C4EA3 /* luminance.rs */ = {isa = PBXFileReference; path = luminance.rs; sourceTree = "<group>"; };
 		865DF07CC4EFFDA7CB2BA14A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8D0F89CC7286C7A52B20556B /* dusklapse_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = dusklapse_iOS.entitlements; sourceTree = "<group>"; };
+		913BB3D703C7D351B54FC3BE /* nikon.rs */ = {isa = PBXFileReference; path = nikon.rs; sourceTree = "<group>"; };
+		B1A6AD42B95008D6A52DDC97 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
+		B5A3F62980E8A4DF8329A02F /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
+		BA05BEBD1A31EEAB61BE939F /* session.rs */ = {isa = PBXFileReference; path = session.rs; sourceTree = "<group>"; };
 		C997A27740A6BC21EDBA8C1C /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		D0F5D02FABACE2F7E962AC47 /* ptpip.rs */ = {isa = PBXFileReference; path = ptpip.rs; sourceTree = "<group>"; };
 		DD26F2E3297789E8B34D6F64 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		E7CB1C9EC6F8D0208218E881 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		E911F6B174B95886F8FEAF2A /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
@@ -105,8 +118,11 @@
 		9CDF3D98B41E5BA0828160E7 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				B5A3F62980E8A4DF8329A02F /* commands.rs */,
 				DD26F2E3297789E8B34D6F64 /* lib.rs */,
 				E911F6B174B95886F8FEAF2A /* main.rs */,
+				BA05BEBD1A31EEAB61BE939F /* session.rs */,
+				D96906D5266BBFE98FB73930 /* camera */,
 			);
 			name = src;
 			path = ../../src;
@@ -125,6 +141,24 @@
 				C997A27740A6BC21EDBA8C1C /* WebKit.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		D96906D5266BBFE98FB73930 /* camera */ = {
+			isa = PBXGroup;
+			children = (
+				5E8850B1FE00B1F468981C60 /* canon.rs */,
+				7201FA502EDAA8B2BC1FF492 /* error.rs */,
+				468BCE0B2254D74D7914F81C /* exposure.rs */,
+				6B36A2F2F6D84078C0AE20BC /* histogram.rs */,
+				7707E39F78967432477C4EA3 /* luminance.rs */,
+				317DE9E08D354DB6A36A5F4C /* mock.rs */,
+				B1A6AD42B95008D6A52DDC97 /* mod.rs */,
+				5BCC66CD29F890703086A910 /* model.rs */,
+				913BB3D703C7D351B54FC3BE /* nikon.rs */,
+				D0F5D02FABACE2F7E962AC47 /* ptpip.rs */,
+				58DFCC53596A553E7FCA7D06 /* sony.rs */,
+			);
+			path = camera;
 			sourceTree = "<group>";
 		};
 		F12BB33058688D40F0E7F690 = {
@@ -276,7 +310,7 @@
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.greenk.dusklapse;
-				PRODUCT_NAME = "dusklapse";
+				PRODUCT_NAME = "Dusklapse";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -307,7 +341,7 @@
 				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.greenk.dusklapse;
-				PRODUCT_NAME = "dusklapse";
+				PRODUCT_NAME = "Dusklapse";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
@@ -359,7 +393,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -421,7 +455,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;

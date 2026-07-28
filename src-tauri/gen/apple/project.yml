@@ -2,7 +2,7 @@ name: dusklapse
 options:
   bundleIdPrefix: dev.greenk.dusklapse
   deploymentTarget:
-    iOS: 14.0
+    iOS: 16.4
 fileGroups: [../../src]
 configs:
   debug: debug
@@ -10,7 +10,7 @@ configs:
 settingGroups:
   app:
     base:
-      PRODUCT_NAME: dusklapse
+      PRODUCT_NAME: Dusklapse
       PRODUCT_BUNDLE_IDENTIFIER: dev.greenk.dusklapse
 targetTemplates:
   app:
