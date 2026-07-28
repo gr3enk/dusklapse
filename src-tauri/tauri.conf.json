@@ -28,7 +28,8 @@
     "active": true,
     "targets": "all",
     "iOS": {
-      "minimumSystemVersion": "16.4"
+      "minimumSystemVersion": "16.4",
+      "developmentTeam": "VB4YTUPT3S"
     },
     "icon": [
       "icons/32x32.png",
