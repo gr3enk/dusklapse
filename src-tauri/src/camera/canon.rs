@@ -26,7 +26,7 @@ use serde::Deserialize;
 use super::error::{CameraError, CameraResult};
 use super::model::{
     BatteryStatus, CameraInfo, CameraTarget, Dial, ExposureCapabilities, ExposureSettings,
-    ExposureValue, Vendor,
+    ExposureValue, Vendor, VendorProfile,
 };
 use super::Camera;
 
@@ -44,6 +44,20 @@ fn dial_endpoint(dial: Dial) -> &'static str {
         Dial::Shutter => "shooting/settings/tv",
         Dial::Aperture => "shooting/settings/av",
         Dial::Iso => "shooting/settings/iso",
+    }
+}
+
+pub fn profile() -> VendorProfile {
+    VendorProfile {
+        vendor: Vendor::Canon,
+        label: Vendor::Canon.label().to_string(),
+        summary: "CCAPI over HTTP - must be unlocked per body".into(),
+        default_port: Vendor::Canon.default_port(),
+        // Canon's access point address differs between bodies, so there is nothing
+        // honest to prefill.
+        access_point_host: None,
+        needs_address: true,
+        implemented: true,
     }
 }
 

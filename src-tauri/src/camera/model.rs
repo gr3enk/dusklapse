@@ -92,6 +92,35 @@ pub struct CameraInfo {
     pub pushes_events: bool,
 }
 
+/// What a vendor is, before anything is connected to.
+///
+/// The other half of a camera backend. [`super::Camera`] describes a *live* camera;
+/// this describes the vendor itself, so the UI can offer it, prefill its address and
+/// grey it out when there is no backend behind it yet - all without the UI knowing
+/// which vendors exist.
+///
+/// Each vendor module builds its own, which is what keeps facts like "Nikon answers at
+/// 192.168.1.1 in access point mode" next to the code that acts on them instead of
+/// scattered across the frontend.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VendorProfile {
+    pub vendor: Vendor,
+    pub label: String,
+    /// One line, shown under the vendor picker.
+    pub summary: String,
+    pub default_port: u16,
+    /// Address the body takes when it hosts its own network, where it has a fixed one.
+    /// Prefilled so nobody has to type it.
+    pub access_point_host: Option<String>,
+    /// Whether an address has to be supplied at all. False for the simulator, which is
+    /// not on a network.
+    pub needs_address: bool,
+    /// Whether a backend exists. False is not a bug - it is a vendor whose protocol has
+    /// not been implemented, and the UI should say so rather than let someone try.
+    pub implemented: bool,
+}
+
 /// The three exposure dials a ramp can move.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

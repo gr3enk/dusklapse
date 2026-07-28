@@ -30,6 +30,7 @@ pub fn run() {
             commands::camera_battery,
             commands::camera_preview,
             commands::camera_preview_image,
+            commands::camera_vendors,
             commands::camera_default_port,
         ])
         .run(tauri::generate_context!())

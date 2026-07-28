@@ -155,6 +155,16 @@ pub struct PreviewInfo {
     pub analysis: Option<crate::camera::FrameAnalysis>,
 }
 
+/// Every vendor the app supports, described by the vendor modules themselves.
+///
+/// Replaces the per-vendor tables the frontend used to carry. Labels, hints, default
+/// ports and access point addresses are facts about a camera protocol, so they belong
+/// next to the code that speaks it - not duplicated in TypeScript where they drift.
+#[tauri::command]
+pub fn camera_vendors() -> Vec<crate::camera::VendorProfile> {
+    crate::camera::vendors()
+}
+
 /// Default port per vendor, so the connect screen does not have to keep its own
 /// copy of these numbers.
 #[tauri::command]

@@ -50,7 +50,7 @@ use super::error::{CameraError, CameraResult};
 use super::exposure;
 use super::model::{
     BatteryStatus, CameraEvent, CameraInfo, CameraTarget, Dial, ExposureCapabilities,
-    ExposureSettings, ExposureValue, Preview, Vendor,
+    ExposureSettings, ExposureValue, Preview, Vendor, VendorProfile,
 };
 use super::ptpip::{
     is_jpeg, EventMapper, Form, PropDesc, PtpEvent, PtpIp, EVENT_CAPTURE_COMPLETE,
@@ -138,6 +138,20 @@ fn make_mapper(recent: Arc<Mutex<VecDeque<u32>>>) -> EventMapper {
 /// rest of the session would be the worse outcome.
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+pub fn profile() -> VendorProfile {
+    VendorProfile {
+        vendor: Vendor::Nikon,
+        label: Vendor::Nikon.label().to_string(),
+        summary: "PTP-IP - use 'connect to smart device' and join the camera's own Wi-Fi".into(),
+        default_port: Vendor::Nikon.default_port(),
+        // Measured on a Z 6 in access point mode. See the module documentation for why
+        // this is the only path that works.
+        access_point_host: Some("192.168.1.1".into()),
+        needs_address: true,
+        implemented: true,
+    }
 }
 
 pub struct NikonPtpIp {

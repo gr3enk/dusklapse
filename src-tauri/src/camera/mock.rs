@@ -11,7 +11,7 @@ use tokio::sync::{broadcast, Mutex};
 use super::error::CameraResult;
 use super::model::{
     BatteryStatus, CameraEvent, CameraInfo, CameraTarget, Dial, ExposureCapabilities,
-    ExposureSettings, ExposureValue, Preview, Vendor,
+    ExposureSettings, ExposureValue, Preview, Vendor, VendorProfile,
 };
 use super::Camera;
 
@@ -43,6 +43,19 @@ const ISO: &[&str] = &[
 /// hundreds of milliseconds, and a UI that assumes instant is a UI that breaks
 /// the first time it meets hardware.
 const SHOT_LATENCY: std::time::Duration = std::time::Duration::from_millis(180);
+
+pub fn profile() -> VendorProfile {
+    VendorProfile {
+        vendor: Vendor::Mock,
+        label: Vendor::Mock.label().to_string(),
+        summary: "Fake camera running in-process".into(),
+        default_port: Vendor::Mock.default_port(),
+        access_point_host: None,
+        // Not on a network at all, so asking for an address would be theatre.
+        needs_address: false,
+        implemented: true,
+    }
+}
 
 pub struct MockCamera {
     target: CameraTarget,
