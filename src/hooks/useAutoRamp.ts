@@ -21,9 +21,13 @@ export interface AutoRamp {
  * its own trigger, and the interval and keyframe controls still to come will each want the
  * same treatment.
  */
-export function useAutoRamp(frame: PreviewInfo | null, active: boolean): AutoRamp {
+export function useAutoRamp(frame: PreviewInfo | null, active: boolean, onApplied?: () => void): AutoRamp {
     const [outcome, setOutcome] = useState<RampOutcome | null>(null);
     const [error, setError] = useState<string | null>(null);
+    // Held in a ref so a caller passing an inline function does not re-run the effect and
+    // correct the same frame twice.
+    const applied = useRef(onApplied);
+    applied.current = onApplied;
     // Guards against a second pass over the same frame, which a re-render would otherwise
     // cause - and a duplicate correction would double the exposure change.
     const corrected = useRef<PreviewInfo | null>(null);
@@ -38,7 +42,13 @@ export function useAutoRamp(frame: PreviewInfo | null, active: boolean): AutoRam
             .then((next) => {
                 // Null means there was nothing to decide. Keeping the previous outcome on
                 // screen is better than blanking it on every frame that needed no change.
-                if (current && next) setOutcome(next);
+                if (!current || !next) return;
+                setOutcome(next);
+
+                // The camera has just been written to from the Rust side, so nothing else knows
+                // its dials moved. Without this the status bar keeps showing the old aperture
+                // until the next poll - twenty seconds on a body with a push channel.
+                if (next.change?.applied) applied.current?.();
             })
             .catch((cause) => {
                 if (current) setError(errorMessage(cause));

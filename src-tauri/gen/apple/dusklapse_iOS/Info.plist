@@ -49,6 +49,8 @@
 		<string>_http._tcp</string>
 		<string>_ptp._tcp</string>
 	</array>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Dusklapse uses your location to work out when sunset, twilight and night begin, so it can darken the timelapse as the sky does.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

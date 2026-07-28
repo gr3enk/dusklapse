@@ -43,6 +43,17 @@
 	</array>
 
 	<!--
+	  Required before iOS will show a location prompt at all - CoreLocation refuses the
+	  request outright when this key is missing. "WhenInUse" and not "Always": the
+	  position is only read while someone is setting up a shot, never in the background.
+
+	  The string says what it is for, because a location prompt in a camera app looks
+	  like tracking unless it explains itself.
+	-->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Dusklapse uses your location to work out when sunset, twilight and night begin, so it can darken the timelapse as the sky does.</string>
+
+	<!--
 	  Camera APIs are plaintext HTTP on a private network and always will be.
 	  All camera I/O goes through reqwest in Rust, which has its own stack and is
 	  not subject to App Transport Security - this exemption is only so the

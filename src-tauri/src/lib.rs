@@ -23,6 +23,10 @@ pub fn run() {
                 .build(),
         )
         .plugin(tauri_plugin_opener::init())
+        // Position for the daylight curve. Registered on every platform because the plugin
+        // compiles everywhere, but only CoreLocation and Android answer honestly - see
+        // `platform_has_geolocation`, which keeps the desktop stub out of the UI.
+        .plugin(tauri_plugin_geolocation::init())
         .manage(session::CameraSession::default())
         .manage(commands::PreviewCache::default())
         .manage(ramp::RampState::default())
@@ -42,6 +46,8 @@ pub fn run() {
             commands::ramp_configure,
             commands::ramp_reference_from_latest_frame,
             commands::ramp_apply,
+            commands::ramp_sky,
+            commands::platform_has_geolocation,
             commands::camera_default_port,
         ])
         .run(tauri::generate_context!())

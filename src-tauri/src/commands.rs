@@ -13,7 +13,7 @@ use crate::camera::{
     ExposureSettings, Vendor,
 };
 use crate::ramp::plan::{plan, BlockedDial};
-use crate::ramp::{RampSettings, RampState};
+use crate::ramp::{now_unix_seconds, RampSettings, RampState, SkyState};
 use crate::session::{CameraSession, EventSink};
 
 /// Channel the frontend listens on for anything the camera reports unprompted.
@@ -181,9 +181,34 @@ pub async fn ramp_reference_from_latest_frame(
         .map(|analysis| analysis.luminance);
 
     match luminance {
-        Some(luminance) => Ok(Some(ramp.set_reference(luminance).await)),
+        Some(luminance) => Ok(Some(
+            ramp.set_reference(luminance, now_unix_seconds()).await,
+        )),
         None => Ok(None),
     }
+}
+
+/// Where the sun is and what the daylight curve is doing about the reference.
+///
+/// `None` when the curve is switched off or has no position yet, which is also the signal the UI
+/// uses to leave the readout out entirely rather than showing zeroes.
+///
+/// Separate from [`ramp_settings`] because this answer changes on its own: the settings only move
+/// when someone moves them, the sky moves whether or not anyone is watching.
+#[tauri::command]
+pub async fn ramp_sky(ramp: State<'_, RampState>) -> CameraResult<Option<SkyState>> {
+    Ok(ramp.get().await.sky(now_unix_seconds()))
+}
+
+/// Whether this build can ask the device where it is.
+///
+/// Only mobile carries the geolocation plugin, and a "use my location" button that is certain
+/// to fail is worse than no button - the desktop UI hides it and asks for typed coordinates
+/// instead. Answered here rather than sniffed in the WebView because this is a fact about how
+/// the binary was compiled, which only the binary knows.
+#[tauri::command]
+pub fn platform_has_geolocation() -> bool {
+    cfg!(mobile)
 }
 
 /// One dial move the ramp made, or tried to.
@@ -246,7 +271,15 @@ pub async fn ramp_apply(
     let capabilities = camera.capabilities().await?;
     let exposure = camera.exposure().await?;
 
-    let Some(correction) = plan(&settings, &capabilities, &exposure, frame) else {
+    // The target the ramp is actually holding, which the daylight curve may have walked below
+    // the stored reference.
+    let reference = settings.effective_reference(
+        settings
+            .daylight_now(now_unix_seconds())
+            .map(|(_, daylight)| daylight),
+    );
+
+    let Some(correction) = plan(&settings, &capabilities, &exposure, frame, reference) else {
         return Ok(None);
     };
 

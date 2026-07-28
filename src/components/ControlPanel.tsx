@@ -2,7 +2,9 @@ import { CrosshairIcon, SunriseIcon, SunsetIcon } from "lucide-react";
 
 import type { AutoRamp } from "../hooks/useAutoRamp";
 import type { Ramp } from "../hooks/useRamp";
+import type { Sky } from "../hooks/useSky";
 import { DIALS, dialLimitLabel, stopsBetween, type CameraInfo, type Dial, type DialRamp, type ExposureCapabilities, type Luminance, type RampMode, type RampOutcome, type Blocked } from "../lib/types";
+import { DaylightCurveRow } from "./DaylightCurveRow";
 import { DialRampRow } from "./DialRampRow";
 import { Button } from "./ui/Button";
 import { Label } from "./ui/Label";
@@ -10,7 +12,6 @@ import { Notice } from "./ui/Notice";
 import NumberSelector from "./ui/NumberSelector";
 import { Panel } from "./ui/Panel";
 import Toggle from "./ui/Toggle";
-import { cn } from "../lib/utils";
 
 /** The reported brightness scale, matching `SCALE` in the Rust luminance module. */
 const LUMINANCE_MIN = 0;
@@ -34,6 +35,8 @@ interface Props {
     ramp: Ramp;
     /** What the ramp last did, for the readout at the bottom. */
     autoRamp: AutoRamp;
+    /** Where the sun is, for the daylight curve and the deviation readout. */
+    sky: Sky;
     /** What the camera currently offers on each dial, for the limit dropdowns. */
     capabilities: ExposureCapabilities | null;
     /** Brightness of the frame on screen, or `null` before the first one. */
@@ -54,7 +57,7 @@ interface Props {
  * which is what lets it survive a WebView reload and lets the engine read the same values
  * the controls here are showing.
  */
-export function ControlPanel({ info, busy, ramp, autoRamp, capabilities, frameLuminance, onShoot, onRefresh }: Props) {
+export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, frameLuminance, onShoot, onRefresh }: Props) {
     const { settings, update, useCurrentFrame, saving, error } = ramp;
 
     // Everything below needs a loaded configuration; disabling rather than hiding keeps the
@@ -62,7 +65,11 @@ export function ControlPanel({ info, busy, ramp, autoRamp, capabilities, frameLu
     const ready = settings !== null;
     const active = settings?.active ?? false;
 
-    const deviation = settings && frameLuminance ? stopsBetween(frameLuminance, settings.reference) : null;
+    // The target the engine is actually holding: the daylight curve may have walked it below
+    // the stored reference. Measuring against the stored one instead would have the readout
+    // saying "on target" while the ramp went on correcting.
+    const target = sky.state?.effectiveReference ?? settings?.reference ?? null;
+    const deviation = target && frameLuminance ? stopsBetween(frameLuminance, target) : null;
 
     // `Dial` and the settings share field names, which is what lets one handler serve all
     // three rows instead of three near-identical ones.
@@ -155,14 +162,29 @@ export function ControlPanel({ info, busy, ramp, autoRamp, capabilities, frameLu
                                 : deviation === null
                                   ? `Frame at ${frameLuminance.value}, deviation unavailable.`
                                   : `Frame at ${frameLuminance.value}, ${describeDeviation(deviation)}`}
+                            {/* Named outright when the curve has moved the goalposts, so the
+                            deviation above is measured against a number that is on screen. */}
+                            {sky.state && sky.state.offsetStops < -0.005 && <span className="block">Aiming at {sky.state.effectiveReference.value} while the sky is this dark.</span>}
                         </p>
                     </div>
 
                     {/* One row per dial. The label flips with the mode because the stored number
                     does not: the limit is always the far end of the ramp's travel, and which
                     end that is depends on which way the light is going. */}
-                    {DIALS.map(({ id }, index) => (
-                        <div className={cn("portrait:col-2", `portrait:row-${index + 1}`)}>
+                    {/* Placed after the reference and before the dials: it changes what the
+                    reference means, which is the thing directly above it. */}
+                    <div className="portrait:col-1 portrait:row-span-4">
+                        <DaylightCurveRow
+                            config={settings?.daylight ?? { enabled: false, factor: 2, location: null }}
+                            sky={sky}
+                            rampActive={active}
+                            busy={saving}
+                            onChange={(daylight) => update({ daylight })}
+                        />
+                    </div>
+
+                    <div className="portrait:col-2 portrait:row-start-1 portrait:row-span-4">
+                        {DIALS.map(({ id }) => (
                             <DialRampRow
                                 key={id}
                                 dial={id}
@@ -173,16 +195,18 @@ export function ControlPanel({ info, busy, ramp, autoRamp, capabilities, frameLu
                                 busy={saving}
                                 onChange={(next) => updateDial(id, next)}
                             />
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
 
-                {/* What the ramp actually did, and the one thing that has to be visible before
+                <div className="py-4">
+                    {/* What the ramp actually did, and the one thing that has to be visible before
                     it is too late: running out of headroom. */}
-                {autoRamp.outcome && <RampReadout outcome={autoRamp.outcome} capabilities={capabilities} />}
+                    {autoRamp.outcome && <RampReadout outcome={autoRamp.outcome} capabilities={capabilities} />}
 
-                {error && <Notice variant="error">{error}</Notice>}
-                {autoRamp.error && <Notice variant="error">{autoRamp.error}</Notice>}
+                    {error && <Notice variant="error">{error}</Notice>}
+                    {autoRamp.error && <Notice variant="error">{autoRamp.error}</Notice>}
+                </div>
             </div>
         </Panel>
     );
@@ -212,8 +236,12 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
     // the label the dial displays.
     const labelFor = (dial: Dial, raw: string) => capabilities?.[dial].find((value) => value.raw === raw)?.label ?? raw;
 
-    const stuck = outcome.blocked.filter((entry) => entry.reason.kind !== "disabled");
+    // Three kinds, and only one of them is bad news. A dial waiting for the light to move far
+    // enough to be worth a notch is the normal state of a ramp between corrections; a dial that
+    // is switched off was switched off on purpose. Neither means the ramp is out of room.
+    const waiting = outcome.blocked.filter((entry) => entry.reason.kind === "waitingForNotch");
     const off = outcome.blocked.filter((entry) => entry.reason.kind === "disabled");
+    const stuck = outcome.blocked.filter((entry) => entry.reason.kind !== "disabled" && entry.reason.kind !== "waitingForNotch");
 
     return (
         <div className="space-y-2">
@@ -225,7 +253,9 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
                 </p>
             )}
 
-            {outcome.blocked.length > 0 && (
+            {/* Only a genuinely stuck dial is worth an alarm. Announcing one on every frame that
+            drifted less than half a notch trained the eye to ignore the one time it mattered. */}
+            {stuck.length > 0 && (
                 <Notice variant="error">
                     <span className="block">Nothing left to adjust, so the sequence will keep drifting from here.</span>
                     {stuck.map((entry) => (
@@ -235,6 +265,13 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
                     ))}
                     {off.length > 0 && <span className="block">Ramping is switched off for {off.map((entry) => DIAL_LABELS[entry.dial]).join(" and ")}.</span>}
                 </Notice>
+            )}
+
+            {/* Said plainly and quietly, because it is what the ramp does most of the time. */}
+            {stuck.length === 0 && waiting.length > 0 && (
+                <p className="m-0 tabular-nums opacity-60">
+                    Holding: {waiting.map((entry) => DIAL_LABELS[entry.dial]).join(" and ")} would overshoot by more than the {Math.abs(outcome.deviationStops).toFixed(2)} EV it would correct. Waiting for the light.
+                </p>
             )}
 
             {outcome.failed && <Notice variant="error">The camera refused the change: {outcome.failed}</Notice>}
@@ -250,6 +287,8 @@ function describeBlocked(reason: Blocked, label: (raw: string) => string): strin
             return `already at its limit of ${label(reason.limit)}.`;
         case "endOfRange":
             return "the camera offers nothing further in this direction.";
+        case "waitingForNotch":
+            return `its next step of ${reason.notchStops.toFixed(2)} EV is larger than the correction needed.`;
         case "noStopPosition":
             return "it is on bulb or auto, which the ramp cannot reason about.";
         case "limitUnavailable":

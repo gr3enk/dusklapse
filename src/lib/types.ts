@@ -128,6 +128,42 @@ export interface DialRamp {
     limit: string | null;
 }
 
+/** Where the camera is, in WGS84 degrees. Mirrors the Rust `Location`. */
+export interface Location {
+    latitude: number;
+    longitude: number;
+}
+
+/**
+ * Darkens the reference as the sky darkens. Mirrors the Rust `DaylightCurve`.
+ *
+ * Without it a sunset ramp holds one brightness into the night, and the result looks like an
+ * evenly lit day that happens to contain stars. Optional because over a lit city the sky stops
+ * setting the exposure long before astronomical night.
+ */
+export interface DaylightCurve {
+    enabled: boolean;
+    /** How much darker night should look than day, as a brightness ratio. 2.0 is one stop. */
+    factor: number;
+    /** `null` until a position is known, which leaves the curve inert however it is set. */
+    location: Location | null;
+}
+
+/** What the sky is doing, in the vocabulary photographers use. Mirrors the Rust `SkyPhase`. */
+export type SkyPhase = "day" | "goldenHour" | "blueHour" | "nauticalTwilight" | "astronomicalTwilight" | "night";
+
+/** What the sky is doing now and what the curve is doing about it. Mirrors `SkyState`. */
+export interface SkyState {
+    elevationDegrees: number;
+    phase: SkyPhase;
+    /** 1.0 in daylight, 0.0 at astronomical night. */
+    daylight: number;
+    /** The reference the ramp is actually aiming at, after the curve. */
+    effectiveReference: Luminance;
+    /** Stops the curve has taken off the stored reference. Zero or negative. */
+    offsetStops: number;
+}
+
 export interface RampSettings {
     /** Whether the ramp may move the camera at all. Separate from having a reference. */
     active: boolean;
@@ -136,7 +172,18 @@ export interface RampSettings {
     shutter: DialRamp;
     aperture: DialRamp;
     iso: DialRamp;
+    daylight: DaylightCurve;
 }
+
+/** What each sky phase is called on screen. */
+export const SKY_PHASE_LABELS: Record<SkyPhase, string> = {
+    day: "Day",
+    goldenHour: "Golden hour",
+    blueHour: "Blue hour",
+    nauticalTwilight: "Nautical twilight",
+    astronomicalTwilight: "Astronomical twilight",
+    night: "Night",
+};
 
 /**
  * What the limit on a dial is called, given which way the light is going.
@@ -173,6 +220,13 @@ export type Blocked =
     | { kind: "atLimit"; limit: string }
     /** The camera offers nothing further in this direction. */
     | { kind: "endOfRange" }
+    /**
+     * The next notch is a bigger change than the correction called for.
+     *
+     * Not a limit and not a problem: the dial has travel left, going there now would just
+     * overshoot by more than staying put undershoots. Resolves itself as the light keeps moving.
+     */
+    | { kind: "waitingForNotch"; notchStops: number }
     /** On bulb or auto, which has no stop position. */
     | { kind: "noStopPosition" }
     /** The limit that was set is no longer in the camera's list. */

@@ -8,7 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampOutcome, type RampSettings, type VendorProfile } from "./types";
+import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampOutcome, type RampSettings, type SkyState, type VendorProfile } from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
@@ -100,6 +100,23 @@ export const api = {
      * frame yet, or the ramp disarmed.
      */
     rampApply: () => invoke<RampOutcome | null>("ramp_apply"),
+
+    /**
+     * Where the sun is and what the daylight curve is doing about the reference.
+     *
+     * `null` when the curve is off or has no position yet. Separate from `rampSettings`
+     * because this answer changes on its own: settings move only when someone moves them,
+     * the sky moves whether or not anyone is watching.
+     */
+    rampSky: () => invoke<SkyState | null>("ramp_sky"),
+
+    /**
+     * Whether this build can ask the device for its position.
+     *
+     * False on desktop, where the geolocation plugin is not compiled in. The UI hides the
+     * "use my location" button rather than offering one that is certain to fail.
+     */
+    hasGeolocation: () => invoke<boolean>("platform_has_geolocation"),
 
     /**
      * Subscribe to what the camera reports on its own.

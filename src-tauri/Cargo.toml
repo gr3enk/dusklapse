@@ -14,6 +14,17 @@ edition = "2021"
 name = "dusklapse_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+# Serves the frontend from inside the binary instead of fetching it from a dev server.
+#
+# Do not remove. `tauri`'s own build script computes `dev = !custom-protocol`, so with this
+# feature undeclared *every* build is a dev build - including release - and the app on the device
+# goes looking for Vite on the developer's Mac. Which is unreachable the moment the device joins
+# a camera's access point, so the app that matters most is the one that cannot start.
+#
+# `tauri build` and `tauri ios build` enable it; `tauri dev` deliberately does not.
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
@@ -40,3 +51,17 @@ thiserror = "2"
 # inside an async task, and handing the work to a second thread pool would only add
 # contention on a phone.
 jpeg-decoder = { version = "0.3", default-features = false }
+
+# Position for the daylight curve.
+#
+# Not gated to iOS and Android even though they are the only platforms that can answer. The
+# crate compiles everywhere, and gating it would mean the `geolocation:default` permission does
+# not exist in a desktop build - which needs a second, platform-scoped capability file to work
+# around. One dependency and one capability is the simpler arrangement.
+#
+# The Swift and Kotlin halves are built and linked by this crate's own build script when the
+# target is mobile, so nothing has to be added to the generated Xcode project.
+#
+# Its desktop backend is a stub that reports 0°/0° instead of failing, which is what
+# `platform_has_geolocation` exists to keep out of the UI.
+tauri-plugin-geolocation = "2.3.2"

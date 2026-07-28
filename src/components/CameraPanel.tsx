@@ -10,6 +10,7 @@ import { ControlPanel } from "./ControlPanel";
 import { useLatestFrame } from "../hooks/useLatestFrame";
 import { useRamp } from "../hooks/useRamp";
 import { useAutoRamp } from "../hooks/useAutoRamp";
+import { useSky } from "../hooks/useSky";
 
 /**
  * How often to re-read a camera that has to be asked.
@@ -56,8 +57,9 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     // controls need the brightness - so they cannot live inside the pane that shows them.
     const frame = useLatestFrame(frames);
     const ramp = useRamp();
-    // Corrects the exposure once per measured frame. Only runs while the ramp is armed.
-    const autoRamp = useAutoRamp(frame.info, ramp.settings?.active ?? false);
+    // Where the sun is. Read here rather than inside the controls because the deviation readout
+    // has to measure against the target the engine is actually holding, not the stored one.
+    const sky = useSky(ramp.settings);
 
     // Read by the poll timer, which must not restart every time `busy` flips.
     const busyRef = useRef(false);
@@ -71,6 +73,11 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         setExposure(nextExposure);
         setBattery(nextBattery);
     }, []);
+
+    // Corrects the exposure once per measured frame. Only runs while the ramp is armed. Declared
+    // after `readAll` because it takes it: the ramp writes to the camera from Rust, so the status
+    // bar has no other way of learning that a dial moved.
+    const autoRamp = useAutoRamp(frame.info, ramp.settings?.active ?? false, readAll);
 
     const refresh = useCallback(async () => {
         setError(null);
@@ -183,6 +190,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     busy={busy}
                     ramp={ramp}
                     autoRamp={autoRamp}
+                    sky={sky}
                     capabilities={capabilities}
                     frameLuminance={frame.info?.analysis?.luminance ?? null}
                     onShoot={() => void shoot()}
