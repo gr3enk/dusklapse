@@ -1,6 +1,8 @@
 import { MinusIcon, PlusIcon } from "lucide-react";
 
 import { Button } from "./Button";
+import { ClassValue } from "clsx";
+import { cn } from "../../lib/utils";
 
 interface Props {
     value: number;
@@ -11,6 +13,7 @@ interface Props {
     max?: number;
     /** Announced to screen readers, which otherwise hear only "minus" and "plus". */
     label?: string;
+    className?: ClassValue;
 }
 
 /**
@@ -24,16 +27,16 @@ interface Props {
  * without a limit the buttons walk the reference off the end of it into a value the backend
  * has to reject.
  */
-export default function NumberSelector({ value, onChange, disabled = false, step = 100, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, label }: Props) {
+export default function NumberSelector({ value, onChange, disabled = false, step = 100, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, label, className }: Props) {
     const clamp = (next: number) => Math.min(max, Math.max(min, next));
 
     return (
-        <div className="flex items-center gap-2" role="group" aria-label={label}>
+        <div className={cn("flex items-center gap-2", className)} role="group" aria-label={label}>
             <Button variant="secondary" onClick={() => onChange(clamp(value - step))} disabled={disabled || value <= min} aria-label={label ? `Decrease ${label}` : "Decrease"}>
                 <MinusIcon className="size-4" />
             </Button>
 
-            <output className="w-22 text-center tabular-nums text-text">{value}</output>
+            <output className="flex-1 text-center tabular-nums text-text">{value}</output>
 
             <Button variant="secondary" onClick={() => onChange(clamp(value + step))} disabled={disabled || value >= max} aria-label={label ? `Increase ${label}` : "Increase"}>
                 <PlusIcon className="size-4" />

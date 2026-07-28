@@ -90,85 +90,88 @@ export function ControlPanel({ info, busy, ramp, capabilities, frameLuminance, o
                 </Button>
             </div>
 
-            <div className="space-y-4 pl-4 text-[0.9rem] text-text-muted">
+            <div className="pl-4 text-[0.9rem] text-text-muted">
                 <h3 className="m-0 mb-4 font-semibold uppercase tracking-[0.06em]">Holy Grail</h3>
 
                 <div className="flex items-center gap-2">
                     <Toggle checked={active} onChange={(next) => update({ active: next })} />
                     <span>Holy Grail active</span>
                 </div>
-
-                <div className="flex items-center gap-2">
-                    {MODES.map(({ mode, label, Icon }) => (
-                        <Button
-                            key={mode}
-                            variant={settings?.mode === mode ? "primary" : "secondary"}
-                            onClick={() => update({ mode })}
-                            className="w-32"
-                            disabled={!active}
-                            aria-pressed={settings?.mode === mode}
-                        >
-                            <Icon className="size-4" />
-                            <span className="mr-1">{label}</span>
-                        </Button>
-                    ))}
-                </div>
-
-                <div className="flex flex-col gap-2">
-                    <Label>Luminance reference</Label>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <NumberSelector
-                            label="luminance reference"
-                            disabled={!active || saving}
-                            value={settings?.reference.value ?? 0}
-                            // Only `value` is edited here; the backend rebuilds the matching
-                            // `linear` when it stores the reference, so the two halves cannot
-                            // drift apart.
-                            onChange={(value) => settings && update({ reference: { ...settings.reference, value } })}
-                            step={LUMINANCE_STEP}
-                            min={LUMINANCE_MIN}
-                            max={LUMINANCE_MAX}
-                        />
-                        {/* Needs no value passed to it: the backend reads the brightness from
-                            the frame it already measured, so what gets stored is provably
-                            what was measured. Disabled until a frame exists to point at. */}
-                        <Button
-                            variant="secondary"
-                            onClick={useCurrentFrame}
-                            disabled={!ready || saving || frameLuminance === null}
-                            title={frameLuminance === null ? "No frame measured yet" : "Set the reference to the frame on screen"}
-                        >
-                            <CrosshairIcon className="size-4" />
-                            Use current
-                        </Button>
+                <div className="grid portrait:grid-cols-2 landscape:grid-cols-1 portrait:gap-x-8 gap-y-4 pt-4">
+                    <div className="flex items-center gap-2 portrait:col-1">
+                        {MODES.map(({ mode, label, Icon }) => (
+                            <Button
+                                key={mode}
+                                variant={settings?.mode === mode ? "primary" : "secondary"}
+                                onClick={() => update({ mode })}
+                                className="w-full"
+                                disabled={!active}
+                                aria-pressed={settings?.mode === mode}
+                            >
+                                <Icon className="size-4" />
+                                <span className="mr-1">{label}</span>
+                            </Button>
+                        ))}
                     </div>
 
-                    {/* The reference is only meaningful next to where the sequence actually
-                        is, and this is the number the engine will act on. */}
-                    <p className="m-0 tabular-nums">
-                        {frameLuminance === null
-                            ? "No frame measured yet."
-                            : deviation === null
-                              ? `Frame at ${frameLuminance.value}, deviation unavailable.`
-                              : `Frame at ${frameLuminance.value}, ${describeDeviation(deviation)}`}
-                    </p>
-                </div>
+                    <div className="flex flex-col gap-2 portrait:col-1 portrait:row-span-2">
+                        <Label>Luminance reference</Label>
+                        <div className="grid grid-cols-2 flex-wrap items-center gap-2 w-full">
+                            <NumberSelector
+                                label="luminance reference"
+                                className="w-full"
+                                disabled={!active || saving}
+                                value={settings?.reference.value ?? 0}
+                                // Only `value` is edited here; the backend rebuilds the matching
+                                // `linear` when it stores the reference, so the two halves cannot
+                                // drift apart.
+                                onChange={(value) => settings && update({ reference: { ...settings.reference, value } })}
+                                step={LUMINANCE_STEP}
+                                min={LUMINANCE_MIN}
+                                max={LUMINANCE_MAX}
+                            />
+                            {/* Needs no value passed to it: the backend reads the brightness from
+                            the frame it already measured, so what gets stored is provably
+                            what was measured. Disabled until a frame exists to point at. */}
+                            <Button
+                                variant="secondary"
+                                onClick={useCurrentFrame}
+                                disabled={!ready || saving || frameLuminance === null}
+                                className="w-full"
+                                title={frameLuminance === null ? "No frame measured yet" : "Set the reference to the frame on screen"}
+                            >
+                                <CrosshairIcon className="size-4" />
+                                Use current
+                            </Button>
+                        </div>
 
-                {/* One row per dial. The label flips with the mode because the stored number
+                        {/* The reference is only meaningful next to where the sequence actually
+                        is, and this is the number the engine will act on. */}
+                        <p className="m-0 tabular-nums opacity-60 text-sm">
+                            {frameLuminance === null
+                                ? "No frame measured yet."
+                                : deviation === null
+                                  ? `Frame at ${frameLuminance.value}, deviation unavailable.`
+                                  : `Frame at ${frameLuminance.value}, ${describeDeviation(deviation)}`}
+                        </p>
+                    </div>
+
+                    {/* One row per dial. The label flips with the mode because the stored number
                     does not: the limit is always the far end of the ramp's travel, and which
                     end that is depends on which way the light is going. */}
-                <div className="space-y-4">
-                    {DIALS.map(({ id }) => (
-                        <DialRampRow
-                            key={id}
-                            dial={id}
-                            label={settings ? dialLimitLabel(id, settings.mode) : ""}
-                            config={settings?.[id] ?? { enabled: false, limit: null }}
-                            values={capabilities?.[id] ?? []}
-                            rampActive={active}
-                            busy={saving}
-                            onChange={(next) => updateDial(id, next)}
-                        />
+                    {DIALS.map(({ id }, index) => (
+                        <div className={`portrait:col-2 portrait:row-${index + 1}`}>
+                            <DialRampRow
+                                key={id}
+                                dial={id}
+                                label={settings ? dialLimitLabel(id, settings.mode) : ""}
+                                config={settings?.[id] ?? { enabled: false, limit: null }}
+                                values={capabilities?.[id] ?? []}
+                                rampActive={active}
+                                busy={saving}
+                                onChange={(next) => updateDial(id, next)}
+                            />
+                        </div>
                     ))}
                 </div>
 

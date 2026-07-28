@@ -34,9 +34,9 @@ export default function App() {
     return (
         <main
             className={cn(
-                "flex min-h-dvh flex-col",
+                "flex min-h-lvh flex-col",
                 filling
-                    ? "h-dvh max-h-dvh items-stretch justify-stretch overflow-hidden pt-[calc(var(--spacing-safe-t)+1.5rem)] pr-[calc(var(--spacing-safe-r)+1.25rem)] pb-[calc(var(--spacing-safe-b)+1.5rem)] pl-[calc(var(--spacing-safe-l)+1.25rem)]"
+                    ? "h-lvh max-h-lvh items-stretch justify-stretch overflow-hidden pt-[calc(var(--spacing-safe-t)+1.5rem)] pr-[calc(var(--spacing-safe-r)+1.25rem)] pb-[calc(var(--spacing-safe-b)+0.5rem)] pl-[calc(var(--spacing-safe-l)+1.25rem)]"
                     : "items-center justify-center",
             )}
         >

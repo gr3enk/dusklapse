@@ -30,23 +30,24 @@ export function DialRampRow({ label, config, values, rampActive, busy, onChange 
 
     return (
         <div className="flex flex-col gap-2">
+            <span>{label}</span>
             <div className="flex items-center gap-2">
                 <Toggle disabled={!rampActive} checked={config.enabled} onChange={(enabled) => onChange({ ...config, enabled })} />
-                <span>{label}</span>
-            </div>
 
-            <Select
-                label={label}
-                // The label is already above the toggle; repeating it over the select would
-                // say the same thing twice.
-                hideLabel
-                value={config.limit ?? undefined}
-                emptyLabel="Not set"
-                allowEmpty
-                disabled={disabled || usable.length === 0}
-                onChange={(event) => onChange({ ...config, limit: event.currentTarget.value || null })}
-                options={usable.map((value) => ({ value: value.raw, label: value.label }))}
-            />
+                <Select
+                    label={label}
+                    // The label is already above the toggle; repeating it over the select would
+                    // say the same thing twice.
+                    hideLabel
+                    value={config.limit ?? undefined}
+                    emptyLabel="Not set"
+                    allowEmpty
+                    className="flex-1"
+                    disabled={disabled || usable.length === 0}
+                    onChange={(event) => onChange({ ...config, limit: event.currentTarget.value || null })}
+                    options={usable.map((value) => ({ value: value.raw, label: value.label }))}
+                />
+            </div>
         </div>
     );
 }
