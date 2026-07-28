@@ -1,8 +1,10 @@
+import { ImageIcon } from "lucide-react";
 import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings } from "../lib/types";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { Panel } from "./ui/Panel";
 import { Select } from "./ui/Select";
+import DynamicBatteryIcon from "./ui/DynamicBatteryIcon";
 
 interface Props {
     info: CameraInfo;
@@ -53,11 +55,19 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                 reads as a mistake rather than as a layout. */}
             <div className="flex min-w-0 flex-auto flex-wrap items-center justify-end gap-x-3 gap-y-2">
                 <div className="flex min-w-0 items-center gap-2">
-                    <span className="tabular-nums text-text-muted" title="Total brightness of the current settings">
+                    {/* <span className="tabular-nums text-text-muted" title="Total brightness of the current settings">
                         {totalStops === null ? "-- EV" : `${totalStops > 0 ? "+" : ""}${totalStops.toFixed(2)} EV`}
-                    </span>
-                    {info.pushesEvents && <Badge>{frames} frames</Badge>}
-                    {battery && <Badge>{battery.percent === null ? battery.label : `${battery.percent}%`}</Badge>}
+                    </span> */}
+                    {info.pushesEvents && (
+                        <Badge className="flex items-center gap-1">
+                            {frames} <ImageIcon className="size-5" />
+                        </Badge>
+                    )}
+                    {battery && (
+                        <Badge className="flex items-center gap-1">
+                            {battery.percent === null ? battery.label : `${battery.percent}%`} <DynamicBatteryIcon value={battery.percent ?? -1} />
+                        </Badge>
+                    )}
                 </div>
 
                 <div className="flex min-w-0 items-center gap-2">
