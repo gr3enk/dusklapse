@@ -1,5 +1,6 @@
 pub mod camera;
 mod commands;
+mod ramp;
 mod session;
 
 use tauri_plugin_log::{Target, TargetKind};
@@ -24,6 +25,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(session::CameraSession::default())
         .manage(commands::PreviewCache::default())
+        .manage(ramp::RampState::default())
         .invoke_handler(tauri::generate_handler![
             commands::camera_connect,
             commands::camera_disconnect,
@@ -36,6 +38,9 @@ pub fn run() {
             commands::camera_preview,
             commands::camera_preview_image,
             commands::camera_vendors,
+            commands::ramp_settings,
+            commands::ramp_configure,
+            commands::ramp_reference_from_latest_frame,
             commands::camera_default_port,
         ])
         .run(tauri::generate_context!())

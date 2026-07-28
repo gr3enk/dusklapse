@@ -26,8 +26,6 @@ interface Props {
  * a detour through another screen for it would be silly.
  */
 export function CameraStatusBar({ info, capabilities, exposure, battery, frames, busy, onChangeDial, onDisconnect }: Props) {
-    const totalStops = brightnessStops(exposure);
-
     return (
         <Panel className="flex flex-wrap items-end gap-x-4 gap-y-2 px-3 py-[0.6rem]" aria-label="Camera status">
             {/* Takes the width its content needs and no more, so what is left over goes to
@@ -55,9 +53,6 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                 reads as a mistake rather than as a layout. */}
             <div className="flex min-w-0 flex-auto flex-wrap items-center justify-end gap-x-3 gap-y-2">
                 <div className="flex min-w-0 items-center gap-2">
-                    {/* <span className="tabular-nums text-text-muted" title="Total brightness of the current settings">
-                        {totalStops === null ? "-- EV" : `${totalStops > 0 ? "+" : ""}${totalStops.toFixed(2)} EV`}
-                    </span> */}
                     {info.pushesEvents && (
                         <Badge className="flex items-center gap-1">
                             {frames} <ImageIcon className="size-5" />
@@ -81,21 +76,4 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
             </div>
         </Panel>
     );
-}
-
-/**
- * Total brightness of the current settings, in stops.
- *
- * `null` when any dial has no fixed brightness - the same rule the Rust side applies.
- * Better to show nothing than a number that is quietly wrong.
- */
-function brightnessStops(exposure: ExposureSettings | null): number | null {
-    if (!exposure) return null;
-    const parts = [exposure.shutter, exposure.aperture, exposure.iso];
-    let total = 0;
-    for (const part of parts) {
-        if (part?.stops == null) return null;
-        total += part.stops;
-    }
-    return total;
 }

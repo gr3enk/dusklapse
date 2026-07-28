@@ -8,7 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type VendorProfile } from "./types";
+import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampSettings, type VendorProfile } from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
@@ -71,6 +71,26 @@ export const api = {
         const bytes = await invoke<ArrayBuffer>("camera_preview_image");
         return bytes.byteLength > 0 ? bytes : null;
     },
+
+    /** What the ramp is currently aiming for. */
+    rampSettings: () => invoke<RampSettings>("ramp_settings"),
+
+    /**
+     * Replace the whole ramp configuration.
+     *
+     * Returns what was stored, so a caller never has to assume its write landed - and a
+     * value the backend clamped comes straight back rather than drifting out of sync.
+     */
+    rampConfigure: (settings: RampSettings) => invoke<RampSettings>("ramp_configure", { settings }),
+
+    /**
+     * Point the reference at the brightness of the frame on screen.
+     *
+     * Takes no argument on purpose: the backend reads the value from the frame it already
+     * cached, so the reference is provably the number that was measured rather than one
+     * that made a round trip through the UI. `null` when nothing has been analysed yet.
+     */
+    rampReferenceFromLatestFrame: () => invoke<RampSettings | null>("ramp_reference_from_latest_frame"),
 
     /**
      * Subscribe to what the camera reports on its own.

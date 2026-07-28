@@ -14,6 +14,22 @@ interface Props extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"
     /** Shown as a stable placeholder when the current value is unknown. */
     emptyLabel?: string;
     fieldClassName?: string;
+    /**
+     * Keep the label for assistive technology but not on screen.
+     *
+     * For the cases where a visible caption already sits next to the control; two copies of
+     * the same words is noise, and dropping the label entirely would leave the select
+     * unnamed for a screen reader.
+     */
+    hideLabel?: boolean;
+    /**
+     * Offer the empty option even when a value is set, so the choice can be cleared.
+     *
+     * Off by default and deliberately so: on the exposure dials an empty selection would be
+     * a value sent to the camera that it never offered. Only settings that are genuinely
+     * optional - a ramp limit that has not been chosen - want this.
+     */
+    allowEmpty?: boolean;
 }
 
 /**
@@ -22,10 +38,10 @@ interface Props extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"
  * Native on purpose: on iOS this becomes the system picker, which is far better on a
  * touch screen than any custom dropdown, and it needs no code to be accessible.
  */
-export function Select({ label, options, emptyLabel = "-", value, fieldClassName, className, ...rest }: Props) {
+export function Select({ label, options, emptyLabel = "-", value, fieldClassName, className, hideLabel, allowEmpty, ...rest }: Props) {
     return (
         <label className={cn("flex min-w-0 flex-1 flex-col gap-1", fieldClassName)}>
-            <Label>{label}</Label>
+            {hideLabel ? <span className="sr-only">{label}</span> : <Label>{label}</Label>}
             <select
                 value={value ?? ""}
                 className={cn(
@@ -35,9 +51,9 @@ export function Select({ label, options, emptyLabel = "-", value, fieldClassName
                 )}
                 {...rest}
             >
-                {/* A control whose value we cannot read still needs one stable option, or
-                    the browser shows the first real one and misreports the camera. */}
-                {value === undefined && <option value="">{emptyLabel}</option>}
+                {/* A control whose value we cannot read still needs one stable option, or the
+                    browser shows the first real one and misreports the camera. */}
+                {(allowEmpty || value === undefined) && <option value="">{emptyLabel}</option>}
                 {options.map((option) => (
                     <option key={option.value} value={option.value}>
                         {option.label}

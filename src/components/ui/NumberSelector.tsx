@@ -1,0 +1,43 @@
+import { MinusIcon, PlusIcon } from "lucide-react";
+
+import { Button } from "./Button";
+
+interface Props {
+    value: number;
+    onChange: (value: number) => void;
+    disabled?: boolean;
+    step?: number;
+    min?: number;
+    max?: number;
+    /** Announced to screen readers, which otherwise hear only "minus" and "plus". */
+    label?: string;
+}
+
+/**
+ * Nudge a number up or down by a fixed step.
+ *
+ * The value in the middle is a readout, not a control. It was a `Button` whose click
+ * handler set the value it already held - focusable, pressable, and doing nothing, which
+ * is the kind of thing people press twice before deciding the app is broken.
+ *
+ * Clamping is the other reason this takes bounds: the luminance scale runs 0 to 10000, and
+ * without a limit the buttons walk the reference off the end of it into a value the backend
+ * has to reject.
+ */
+export default function NumberSelector({ value, onChange, disabled = false, step = 100, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, label }: Props) {
+    const clamp = (next: number) => Math.min(max, Math.max(min, next));
+
+    return (
+        <div className="flex items-center gap-2" role="group" aria-label={label}>
+            <Button variant="secondary" onClick={() => onChange(clamp(value - step))} disabled={disabled || value <= min} aria-label={label ? `Decrease ${label}` : "Decrease"}>
+                <MinusIcon className="size-4" />
+            </Button>
+
+            <output className="w-22 text-center tabular-nums text-text">{value}</output>
+
+            <Button variant="secondary" onClick={() => onChange(clamp(value + step))} disabled={disabled || value >= max} aria-label={label ? `Increase ${label}` : "Increase"}>
+                <PlusIcon className="size-4" />
+            </Button>
+        </div>
+    );
+}

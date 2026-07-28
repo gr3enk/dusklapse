@@ -12,6 +12,7 @@ use crate::camera::{
     BatteryStatus, CameraInfo, CameraResult, CameraTarget, Dial, ExposureCapabilities,
     ExposureSettings, Vendor,
 };
+use crate::ramp::{RampSettings, RampState};
 use crate::session::{CameraSession, EventSink};
 
 /// Channel the frontend listens on for anything the camera reports unprompted.
@@ -134,6 +135,54 @@ pub async fn camera_preview_image(
         .map(|preview| preview.bytes.clone())
         .unwrap_or_default();
     Ok(tauri::ipc::Response::new(bytes))
+}
+
+/// What the ramp is aiming for.
+#[tauri::command]
+pub async fn ramp_settings(ramp: State<'_, RampState>) -> CameraResult<RampSettings> {
+    Ok(ramp.get().await)
+}
+
+/// Replace the ramp configuration.
+///
+/// Takes and returns the whole struct rather than offering a setter per field. Three
+/// reasons: the UI already holds the whole thing, a half-applied configuration is never
+/// something anyone wants, and returning what was stored means the frontend never has to
+/// assume its write landed.
+#[tauri::command]
+pub async fn ramp_configure(
+    settings: RampSettings,
+    ramp: State<'_, RampState>,
+) -> CameraResult<RampSettings> {
+    Ok(ramp.set(settings).await)
+}
+
+/// Point the reference at the brightness of the frame currently on screen.
+///
+/// Reads the value out of the cached frame rather than accepting one from the frontend.
+/// That is the point: the number the ramp holds is then provably the number that was
+/// measured, with no chance of a stale or rounded value making the round trip. It also
+/// means the button needs no argument.
+///
+/// `None` when no frame has been analysed yet - there is nothing to point at, which is a
+/// normal state before the first exposure rather than an error.
+#[tauri::command]
+pub async fn ramp_reference_from_latest_frame(
+    cache: State<'_, PreviewCache>,
+    ramp: State<'_, RampState>,
+) -> CameraResult<Option<RampSettings>> {
+    let luminance = cache
+        .0
+        .lock()
+        .await
+        .as_ref()
+        .and_then(|preview| preview.analysis.as_ref())
+        .map(|analysis| analysis.luminance);
+
+    match luminance {
+        Some(luminance) => Ok(Some(ramp.set_reference(luminance).await)),
+        None => Ok(None),
+    }
 }
 
 /// The most recently fetched frame, waiting to be collected by the WebView.

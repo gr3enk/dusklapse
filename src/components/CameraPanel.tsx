@@ -4,9 +4,11 @@ import { api, errorMessage } from "../lib/api";
 import type { BatteryStatus, CameraInfo, Dial, ExposureCapabilities, ExposureSettings } from "../lib/types";
 import { CameraStatusBar } from "./CameraStatusBar";
 import { PreviewPane } from "./PreviewPane";
-import { RampingPanel } from "./RampingPanel";
 import { Notice } from "./ui/Notice";
 import { cn } from "../lib/utils";
+import { ControlPanel } from "./ControlPanel";
+import { useLatestFrame } from "../hooks/useLatestFrame";
+import { useRamp } from "../hooks/useRamp";
 
 /**
  * How often to re-read a camera that has to be asked.
@@ -47,6 +49,12 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     const [busy, setBusy] = useState(false);
     // Counted from CaptureComplete, so one per exposure rather than one per file.
     const [frames, setFrames] = useState(0);
+
+    // Two concerns, two hooks, composed here rather than unpacked into this component.
+    // The frame's measurements have several readers - the preview draws them, the ramp
+    // controls need the brightness - so they cannot live inside the pane that shows them.
+    const frame = useLatestFrame(frames);
+    const ramp = useRamp();
 
     // Read by the poll timer, which must not restart every time `busy` flips.
     const busyRef = useRef(false);
@@ -158,7 +166,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             )}
         >
             <div className="min-h-0 landscape:col-start-2 landscape:row-start-1">
-                <PreviewPane frame={frames} supported={info.pushesEvents} />
+                <PreviewPane frame={frame} count={frames} supported={info.pushesEvents} />
             </div>
 
             <div className="flex flex-col gap-2 landscape:col-start-2 landscape:row-start-2">
@@ -167,7 +175,15 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             </div>
 
             <div className="min-h-0 landscape:col-start-1 landscape:row-start-1 landscape:row-span-2">
-                <RampingPanel info={info} busy={busy} onShoot={() => void shoot()} onRefresh={() => void refresh()} />
+                <ControlPanel
+                    info={info}
+                    busy={busy}
+                    ramp={ramp}
+                    capabilities={capabilities}
+                    frameLuminance={frame.info?.analysis?.luminance ?? null}
+                    onShoot={() => void shoot()}
+                    onRefresh={() => void refresh()}
+                />
             </div>
         </div>
     );

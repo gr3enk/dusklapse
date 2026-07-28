@@ -103,6 +103,59 @@ export interface Luminance {
     value: number;
 }
 
+/** Which way the light is going. Mirrors the Rust `RampMode`. */
+export type RampMode = "sunset" | "sunrise";
+
+/**
+ * What the ramp is aiming for. Mirrors the Rust `RampSettings`.
+ *
+ * Owned by Rust, not by React: a WebView reload must not lose the reference mid-sequence,
+ * and the engine that will consume it runs on that side. The frontend keeps a rendering
+ * copy and writes through.
+ */
+/**
+ * How far the ramp may take one dial, and whether it may touch it at all.
+ *
+ * One limit rather than two, because there is only ever one: the ramp travels in the
+ * direction the light is going, and the limit is the far end of that travel. At sunset the
+ * scene darkens and exposure opens up, so it reads as the longest shutter, highest ISO,
+ * widest aperture; at sunrise everything runs the other way and the same field is the
+ * shortest, lowest, smallest. Naming it is this layer's job - see `dialLimitLabel`.
+ */
+export interface DialRamp {
+    enabled: boolean;
+    /** A `raw` token the camera itself reported, or `null` until one is chosen. */
+    limit: string | null;
+}
+
+export interface RampSettings {
+    /** Whether the ramp may move the camera at all. Separate from having a reference. */
+    active: boolean;
+    mode: RampMode;
+    reference: Luminance;
+    shutter: DialRamp;
+    aperture: DialRamp;
+    iso: DialRamp;
+}
+
+/**
+ * What the limit on a dial is called, given which way the light is going.
+ *
+ * The stored value is one number; only its name changes with the mode. Deriving the name
+ * here rather than storing both readings is what keeps them from ever disagreeing.
+ */
+export function dialLimitLabel(dial: Dial, mode: RampMode): string {
+    const sunset = mode === "sunset";
+    switch (dial) {
+        case "shutter":
+            return sunset ? "Longest exposure" : "Shortest exposure";
+        case "iso":
+            return sunset ? "Max ISO" : "Min ISO";
+        case "aperture":
+            return sunset ? "Widest aperture" : "Smallest aperture";
+    }
+}
+
 /** Everything a frame is measured for. Present together or not at all. */
 export interface FrameAnalysis {
     histogram: Histogram;
