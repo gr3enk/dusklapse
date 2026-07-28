@@ -71,7 +71,7 @@ export function ControlPanel({ info, busy, ramp, capabilities, frameLuminance, o
             className="flex h-full flex-col gap-4 overflow-y-auto overscroll-contain p-[0.9rem]"
             aria-label="Timelapse ramping"
         >
-            <h2 className="m-0 text-[1.1rem] font-[650]">Ramping</h2>
+            <h2 className="m-0 text-[1.1rem] font-[650]">Controls</h2>
 
             <div className="flex flex-wrap gap-[0.6rem]">
                 {info.supportsRelease ? (
@@ -91,11 +91,9 @@ export function ControlPanel({ info, busy, ramp, capabilities, frameLuminance, o
             </div>
 
             <div className="pl-4 text-[0.9rem] text-text-muted">
-                <h3 className="m-0 mb-4 font-semibold uppercase tracking-[0.06em]">Holy Grail</h3>
-
                 <div className="flex items-center gap-2">
+                    <h3 className="m-0 mb-1 font-semibold uppercase tracking-[0.06em]">Holy Grail</h3>
                     <Toggle checked={active} onChange={(next) => update({ active: next })} />
-                    <span>Holy Grail active</span>
                 </div>
                 <div className="grid portrait:grid-cols-2 landscape:grid-cols-1 portrait:gap-x-8 gap-y-4 pt-4">
                     <div className="flex items-center gap-2 portrait:col-1">
@@ -136,7 +134,7 @@ export function ControlPanel({ info, busy, ramp, capabilities, frameLuminance, o
                             <Button
                                 variant="secondary"
                                 onClick={useCurrentFrame}
-                                disabled={!ready || saving || frameLuminance === null}
+                                disabled={!active || !ready || saving || frameLuminance === null}
                                 className="w-full"
                                 title={frameLuminance === null ? "No frame measured yet" : "Set the reference to the frame on screen"}
                             >

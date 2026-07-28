@@ -5,6 +5,7 @@ import { Button } from "./ui/Button";
 import { Panel } from "./ui/Panel";
 import { Select } from "./ui/Select";
 import DynamicBatteryIcon from "./ui/DynamicBatteryIcon";
+import { cn } from "../lib/utils";
 
 interface Props {
     info: CameraInfo;
@@ -59,7 +60,7 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                         </Badge>
                     )}
                     {battery && (
-                        <Badge className="flex items-center gap-1">
+                        <Badge className={cn("flex items-center gap-1", battery.percent && battery.percent <= 15 && "text-danger")}>
                             {battery.percent === null ? battery.label : `${battery.percent}%`} <DynamicBatteryIcon value={battery.percent ?? -1} />
                         </Badge>
                     )}
