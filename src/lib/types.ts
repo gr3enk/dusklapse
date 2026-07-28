@@ -220,13 +220,6 @@ export type Blocked =
     | { kind: "atLimit"; limit: string }
     /** The camera offers nothing further in this direction. */
     | { kind: "endOfRange" }
-    /**
-     * The next notch is a bigger change than the correction called for.
-     *
-     * Not a limit and not a problem: the dial has travel left, going there now would just
-     * overshoot by more than staying put undershoots. Resolves itself as the light keeps moving.
-     */
-    | { kind: "waitingForNotch"; notchStops: number }
     /** On bulb or auto, which has no stop position. */
     | { kind: "noStopPosition" }
     /** The limit that was set is no longer in the camera's list. */

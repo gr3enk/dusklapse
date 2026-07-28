@@ -62,12 +62,6 @@ pub enum Blocked {
     AtLimit { limit: String },
     /// The camera offers nothing further in this direction.
     EndOfRange,
-    /// The next notch is a bigger change than the correction called for.
-    ///
-    /// Not a problem and not a limit: the dial has somewhere to go, it is just that going there
-    /// now would overshoot by more than staying put undershoots. It resolves itself as the light
-    /// keeps moving, usually within a frame or two.
-    WaitingForNotch { notch_stops: f32 },
     /// On bulb or auto, which has no stop position to move relative to.
     NoStopPosition,
     /// The limit that was set is not in the camera's current list - a lens or mode change.
@@ -161,7 +155,7 @@ pub fn plan(
     let mut blocked = Vec::new();
 
     for dial in dial_order(settings.mode) {
-        match step(settings, capabilities, exposure, dial, dir, needed) {
+        match step(settings, capabilities, exposure, dial, dir) {
             Ok(change) => {
                 return Some(Correction {
                     deviation_stops: deviation,
@@ -181,13 +175,16 @@ pub fn plan(
 }
 
 /// The next notch of one dial, or why there is not one.
+///
+/// Takes the direction but not the size of the correction: how far off the frame is decides
+/// *whether* to act and is settled by the caller. Which dial and how far it may go is a matter of
+/// the configured order and the limits, and nothing else.
 fn step(
     settings: &RampSettings,
     capabilities: &ExposureCapabilities,
     exposure: &ExposureSettings,
     dial: Dial,
     dir: f32,
-    needed: f32,
 ) -> Result<DialChange, Blocked> {
     let config = settings.dial(dial);
     if !config.enabled {
@@ -246,19 +243,22 @@ fn step(
         });
     };
 
-    let gained = stops - current_stops;
-    // Take the notch only if it lands closer to the target than staying put does. Otherwise a
-    // deviation of a tenth of a stop would be answered with a third of a stop and leave the
-    // sequence further out than it started.
+    // No check on whether this notch is "worth" the correction. The order is the contract: the
+    // first dial with room takes the step, however coarse its grid is.
     //
-    // Its own reason, not `EndOfRange`: this dial has plenty of travel left, and reporting it as
-    // exhausted made the UI announce that the ramp had run out of headroom every time the light
-    // dropped by less than half a notch - which on a body with third-stop dials is most frames.
-    if needed.abs() * 2.0 < gained.abs() {
-        return Err(Blocked::WaitingForNotch {
-            notch_stops: gained.abs(),
-        });
-    }
+    // There used to be a guard here that refused a notch larger than twice the shortfall, on the
+    // grounds that it lands further from the reference than staying put. It centred the error, and
+    // it broke the thing that actually matters. Two ways, both seen in the field on a Z 6:
+    //
+    //  - Every dial refusing at once, which the UI reported as the ramp having run out of headroom.
+    //  - Worse: the shutter refusing while ISO accepted, because the shutter grid is uneven
+    //    (1/40 -> 1/30 is 0.415 EV) and ISO's is not (1000 -> 1250 is 0.322 EV). ISO climbed while
+    //    the shutter still had three notches to its configured limit.
+    //
+    // The cost of dropping it is a brightness offset: a 0.06 EV shortfall answered with a 0.4 EV
+    // notch sits ~0.35 EV bright until the light catches up. That is a level, not a flicker, and
+    // it is the cheaper of the two errors.
+    let gained = stops - current_stops;
 
     Ok(DialChange {
         dial,
@@ -312,15 +312,126 @@ mod tests {
         }
     }
 
-    /// A small shortfall must not be reported as the camera running out of range.
+    /// The dial list around 1/40s and ISO 1000, with the real third-stop values.
     ///
-    /// The field report this comes from: f/2.5 and ISO 250 with limits of f/1.8 and ISO 5000, and
-    /// the UI announcing "nothing left to adjust" on both dials. Nothing was at a limit - the
-    /// correction was simply smaller than half a third-stop notch.
+    /// The shutter row matters: 1/40 -> 1/30 is 0.415 EV, not 0.333. The nominal third-stop
+    /// shutter sequence is uneven, and that unevenness is what broke the priority order.
+    fn dusk_capabilities() -> ExposureCapabilities {
+        ExposureCapabilities {
+            shutter: vec![
+                shutter("250", 1.0 / 40.0),
+                shutter("333", 1.0 / 30.0),
+                shutter("400", 1.0 / 25.0),
+                shutter("500", 1.0 / 20.0),
+            ],
+            aperture: vec![aperture("250", 2.5)],
+            iso: vec![iso("1000", 1000.0), iso("1250", 1250.0), iso("1600", 1600.0)],
+        }
+    }
+
+    fn dusk_exposure(s: &str, i: &str) -> ExposureSettings {
+        let caps = dusk_capabilities();
+        let find = |values: &[ExposureValue], raw: &str| values.iter().find(|v| v.raw == raw).cloned();
+        ExposureSettings {
+            shutter: find(&caps.shutter, s),
+            aperture: find(&caps.aperture, "250"),
+            iso: find(&caps.iso, i),
+        }
+    }
+
+    /// ISO must not move while the shutter still has room, whatever the notch sizes are.
+    ///
+    /// The field report: 1/40s with a limit of 1/20s, and ISO climbing anyway. A 0.18 EV shortfall
+    /// is under half the shutter's 0.415 EV notch but over half ISO's 0.322 EV one, so the old
+    /// per-dial guard refused the shutter, accepted ISO, and quietly broke the configured order.
     #[test]
-    fn a_shortfall_below_half_a_notch_is_not_reported_as_the_end_of_the_range() {
+    fn the_shutter_is_used_before_iso_however_coarse_its_grid_is() {
+        let settings = armed(RampMode::Sunset, on(Some("500")), off(), on(Some("1600")));
+        let frame = frame_below(&settings, 0.18);
+
+        let correction = plan(
+            &settings,
+            &dusk_capabilities(),
+            &dusk_exposure("250", "1000"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
+
+        let change = correction.change.expect("the shutter has three notches of headroom");
+        assert_eq!(change.dial, Dial::Shutter, "ISO moved while the shutter had room");
+        assert_eq!(change.to, "333");
+        assert!(correction.blocked.is_empty());
+    }
+
+    /// The shutter is walked all the way to its limit before anything else is touched.
+    ///
+    /// One notch per frame, so this steps 1/40 -> 1/30 -> 1/25 -> 1/20 and only then hands over.
+    /// The whole point of the order, tested as a sequence rather than a single decision.
+    #[test]
+    fn the_shutter_is_walked_to_its_limit_before_iso_is_touched() {
+        let settings = armed(RampMode::Sunset, on(Some("500")), off(), on(Some("1600")));
+        let capabilities = dusk_capabilities();
+        let frame = frame_below(&settings, 1.5);
+
+        let mut shutter = "250".to_string();
+        let mut steps = Vec::new();
+        for _ in 0..3 {
+            let correction = plan(
+                &settings,
+                &capabilities,
+                &dusk_exposure(&shutter, "1000"),
+                frame,
+                settings.reference,
+            )
+            .unwrap();
+            let change = correction.change.expect("shutter should keep stepping");
+            assert_eq!(change.dial, Dial::Shutter);
+            shutter = change.to.clone();
+            steps.push(change.to);
+        }
+        assert_eq!(steps, vec!["333", "400", "500"]);
+
+        // Now on the limit, and only now does ISO get a turn.
+        let correction = plan(
+            &settings,
+            &capabilities,
+            &dusk_exposure("500", "1000"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
+        assert_eq!(correction.change.expect("iso takes over").dial, Dial::Iso);
+    }
+
+    /// A dial genuinely out of play still hands over, which is the behaviour the order relies on.
+    /// Only *waiting* stops the search.
+    #[test]
+    fn a_shutter_at_its_limit_still_hands_over_to_iso() {
+        let settings = armed(RampMode::Sunset, on(Some("500")), off(), on(Some("1600")));
+        let frame = frame_below(&settings, 0.5);
+
+        let correction = plan(
+            &settings,
+            &dusk_capabilities(),
+            // Already sitting on the 1/20s limit.
+            &dusk_exposure("500", "1000"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
+
+        let change = correction.change.expect("iso should take over");
+        assert_eq!(change.dial, Dial::Iso);
+    }
+
+    /// A small shortfall on a third-stop body corrects rather than reporting a limit.
+    ///
+    /// The first field report this comes from: f/2.5 and ISO 250 with limits of f/1.8 and ISO 5000,
+    /// and the UI announcing "nothing left to adjust" on both dials. Nothing was at a limit.
+    #[test]
+    fn a_small_shortfall_corrects_instead_of_reporting_a_limit() {
         let settings = armed(RampMode::Sunset, off(), on(Some("180")), on(Some("500")));
-        // A tenth of a stop under: real, but less than half of the 0.33 EV notch either dial has.
         let frame = frame_below(&settings, 0.1);
 
         let correction = plan(
@@ -332,45 +443,11 @@ mod tests {
         )
         .unwrap();
 
-        assert!(correction.change.is_none(), "should wait, not move");
-        for entry in &correction.blocked {
-            assert_ne!(
-                entry.reason,
-                Blocked::EndOfRange,
-                "{:?} was reported as out of range while it still had travel left",
-                entry.dial
-            );
-        }
-
-        let waiting: Vec<Dial> = correction
-            .blocked
-            .iter()
-            .filter(|entry| matches!(entry.reason, Blocked::WaitingForNotch { .. }))
-            .map(|entry| entry.dial)
-            .collect();
-        assert_eq!(waiting, vec![Dial::Aperture, Dial::Iso]);
-    }
-
-    /// Once the light has moved far enough, the same setup does correct - so the guard delays a
-    /// change rather than preventing one.
-    #[test]
-    fn the_same_dials_move_once_the_shortfall_exceeds_half_a_notch() {
-        let settings = armed(RampMode::Sunset, off(), on(Some("180")), on(Some("500")));
-        let frame = frame_below(&settings, 0.25);
-
-        let correction = plan(
-            &settings,
-            &third_stop_capabilities(),
-            &third_stop_exposure("250", "250"),
-            frame,
-            settings.reference,
-        )
-        .unwrap();
-
-        let change = correction.change.expect("a quarter stop down should move something");
+        // Aperture, because it comes before ISO in sunset order and had room.
+        let change = correction.change.expect("aperture had three notches left");
         assert_eq!(change.dial, Dial::Aperture);
         assert_eq!(change.to, "220");
-        assert!(correction.blocked.is_empty());
+        assert!(correction.blocked.is_empty(), "{:?}", correction.blocked);
     }
 
     /// Whole-stop ranges, so a "one notch" expectation is exactly one stop and easy to read.
@@ -591,16 +668,19 @@ mod tests {
         assert!(correction.change.is_none());
     }
 
-    /// A notch bigger than twice the deviation would leave the sequence further out than it
-    /// started, so it is not taken.
+    /// A notch coarser than the shortfall is taken anyway.
+    ///
+    /// The inverse of what this used to assert. Refusing it kept the error centred on the
+    /// reference, at the price of the configured dial order - so the order won.
     #[test]
-    fn a_notch_that_would_overshoot_more_than_it_corrects_is_not_taken() {
+    fn a_notch_coarser_than_the_shortfall_is_still_taken() {
         let settings = armed(RampMode::Sunset, on(None), off(), off());
-        // A tenth of a stop out, against a one-stop grid.
+        // A tenth of a stop out, against a one-stop grid: the step overshoots ninefold.
         let frame = frame_below(&settings, 0.1);
 
         let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
-        assert!(correction.change.is_none(), "{:?}", correction.change);
+        let change = correction.change.expect("the shutter should still step");
+        assert_eq!(change.dial, Dial::Shutter);
     }
 
     /// The whole chain against a real [`crate::camera::Camera`], not a fixture: read the value

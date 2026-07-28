@@ -236,12 +236,10 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
     // the label the dial displays.
     const labelFor = (dial: Dial, raw: string) => capabilities?.[dial].find((value) => value.raw === raw)?.label ?? raw;
 
-    // Three kinds, and only one of them is bad news. A dial waiting for the light to move far
-    // enough to be worth a notch is the normal state of a ramp between corrections; a dial that
-    // is switched off was switched off on purpose. Neither means the ramp is out of room.
-    const waiting = outcome.blocked.filter((entry) => entry.reason.kind === "waitingForNotch");
+    // A dial that was switched off was switched off on purpose, so it is not news. Everything
+    // else in this list means the ramp could not do what was asked.
     const off = outcome.blocked.filter((entry) => entry.reason.kind === "disabled");
-    const stuck = outcome.blocked.filter((entry) => entry.reason.kind !== "disabled" && entry.reason.kind !== "waitingForNotch");
+    const stuck = outcome.blocked.filter((entry) => entry.reason.kind !== "disabled");
 
     return (
         <div className="space-y-2">
@@ -253,8 +251,7 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
                 </p>
             )}
 
-            {/* Only a genuinely stuck dial is worth an alarm. Announcing one on every frame that
-            drifted less than half a notch trained the eye to ignore the one time it mattered. */}
+            {/* Only a genuinely stuck dial is worth an alarm. */}
             {stuck.length > 0 && (
                 <Notice variant="error">
                     <span className="block">Nothing left to adjust, so the sequence will keep drifting from here.</span>
@@ -265,13 +262,6 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
                     ))}
                     {off.length > 0 && <span className="block">Ramping is switched off for {off.map((entry) => DIAL_LABELS[entry.dial]).join(" and ")}.</span>}
                 </Notice>
-            )}
-
-            {/* Said plainly and quietly, because it is what the ramp does most of the time. */}
-            {stuck.length === 0 && waiting.length > 0 && (
-                <p className="m-0 tabular-nums opacity-60">
-                    Holding: {waiting.map((entry) => DIAL_LABELS[entry.dial]).join(" and ")} would overshoot by more than the {Math.abs(outcome.deviationStops).toFixed(2)} EV it would correct. Waiting for the light.
-                </p>
             )}
 
             {outcome.failed && <Notice variant="error">The camera refused the change: {outcome.failed}</Notice>}
@@ -287,8 +277,6 @@ function describeBlocked(reason: Blocked, label: (raw: string) => string): strin
             return `already at its limit of ${label(reason.limit)}.`;
         case "endOfRange":
             return "the camera offers nothing further in this direction.";
-        case "waitingForNotch":
-            return `its next step of ${reason.notchStops.toFixed(2)} EV is larger than the correction needed.`;
         case "noStopPosition":
             return "it is on bulb or auto, which the ramp cannot reason about.";
         case "limitUnavailable":
