@@ -1,4 +1,8 @@
 import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings } from "../lib/types";
+import { Badge } from "./ui/Badge";
+import { Button } from "./ui/Button";
+import { Panel } from "./ui/Panel";
+import { Select } from "./ui/Select";
 
 interface Props {
     info: CameraInfo;
@@ -14,67 +18,66 @@ interface Props {
 /**
  * What the camera is set to right now, in one strip.
  *
- * Deliberately dense and short: in landscape it sits under the preview with only
- * the height its content needs, so everything here has to read at a glance. The
- * dials stay editable rather than read-only - changing exposure is the whole point
- * of the app, and forcing a detour through another screen for it would be silly.
+ * Deliberately dense and short: in landscape it sits under the preview with only the
+ * height its content needs, so everything here has to read at a glance. The dials stay
+ * editable rather than read-only - changing exposure is the whole point of the app, and
+ * a detour through another screen for it would be silly.
  */
 export function CameraStatusBar({ info, capabilities, exposure, battery, frames, busy, onChangeDial, onDisconnect }: Props) {
     const totalStops = brightnessStops(exposure);
 
     return (
-        <section className="status" aria-label="Camera status">
-            <div className="status__dials">
+        <Panel className="flex flex-wrap items-end gap-x-4 gap-y-2 px-3 py-[0.6rem]" aria-label="Camera status">
+            {/* Takes the width its content needs and no more, so what is left over goes to
+                the meta group beside it. Given room to grow, the dials would claim all of
+                it and force the meta group onto a line of its own. */}
+            <div className="flex min-w-0 max-w-[26rem] flex-auto gap-2">
                 {DIALS.map(({ id, label }) => {
                     const values = capabilities?.[id] ?? [];
                     const current = exposure?.[id];
                     return (
-                        <label className="dial" key={id}>
-                            <span className="dial__label">{label}</span>
-                            <select className="dial__select" value={current?.raw ?? ""} disabled={busy || values.length === 0} onChange={(event) => onChangeDial(id, event.currentTarget.value)}>
-                                {/* A dial we cannot read still needs a stable option to show. */}
-                                {!current && <option value="">-</option>}
-                                {values.map((value) => (
-                                    <option key={value.raw} value={value.raw}>
-                                        {value.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </label>
+                        <Select
+                            key={id}
+                            label={label}
+                            value={current?.raw}
+                            disabled={busy || values.length === 0}
+                            onChange={(event) => onChangeDial(id, event.currentTarget.value)}
+                            options={values.map((value) => ({ value: value.raw, label: value.label }))}
+                        />
                     );
                 })}
             </div>
 
-            {/* One wrapper so these two wrap together. Left to themselves the readouts
-                stay beside the dials and the identity drops alone onto a second line,
-                which reads as a mistake rather than as a layout. */}
-            <div className="status__meta">
-                <div className="status__readouts">
-                    <span className="status__ev" title="Total brightness of the current settings">
+            {/* One wrapper so these two wrap together. Left to themselves the readouts stay
+                beside the dials and the identity drops alone onto a second line, which
+                reads as a mistake rather than as a layout. */}
+            <div className="flex min-w-0 flex-auto flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className="tabular-nums text-text-muted" title="Total brightness of the current settings">
                         {totalStops === null ? "-- EV" : `${totalStops > 0 ? "+" : ""}${totalStops.toFixed(2)} EV`}
                     </span>
-                    {info.pushesEvents && <span className="badge">{frames} frames</span>}
-                    {battery && <span className="badge">{battery.percent === null ? battery.label : `${battery.percent}%`}</span>}
+                    {info.pushesEvents && <Badge>{frames} frames</Badge>}
+                    {battery && <Badge>{battery.percent === null ? battery.label : `${battery.percent}%`}</Badge>}
                 </div>
 
-                <div className="status__identity">
-                    <span className="status__model" title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`].filter(Boolean).join(" · ")}>
+                <div className="flex min-w-0 items-center gap-2">
+                    <span className="truncate font-semibold" title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`].filter(Boolean).join(" · ")}>
                         {info.model}
                     </span>
-                    <button className="button button--compact" type="button" onClick={onDisconnect}>
+                    <Button size="compact" onClick={onDisconnect}>
                         Disconnect
-                    </button>
+                    </Button>
                 </div>
             </div>
-        </section>
+        </Panel>
     );
 }
 
 /**
  * Total brightness of the current settings, in stops.
  *
- * `null` when any dial has no fixed brightness - the same rule the Rust side
- * applies. Better to show nothing than a number that is quietly wrong.
+ * `null` when any dial has no fixed brightness - the same rule the Rust side applies.
+ * Better to show nothing than a number that is quietly wrong.
  */
 function brightnessStops(exposure: ExposureSettings | null): number | null {
     if (!exposure) return null;

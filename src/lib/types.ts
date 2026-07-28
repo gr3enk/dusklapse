@@ -131,34 +131,27 @@ export interface BatteryStatus {
     label: string;
 }
 
-export const VENDORS: { id: Vendor; label: string; hint: string }[] = [
-    { id: "canon", label: "Canon", hint: "CCAPI over HTTP - must be unlocked per body" },
-    {
-        id: "nikon",
-        // Measured on a Z 6: the "connect to computer" path demands pairing with
-        // Nikon's Wireless Transmitter Utility and tears the session down the
-        // moment the camera leaves its pairing screen. The smart-device path in
-        // access point mode has no such gate, and the camera stays fully usable.
-        label: "Nikon",
-        hint: "PTP-IP - use 'connect to smart device' and join the camera's own Wi-Fi",
-    },
-    { id: "sony", label: "Sony", hint: "PTP-IP - not implemented yet" },
-    { id: "mock", label: "Simulator", hint: "Fake camera running in-process" },
-];
+/**
+ * What a vendor is, before anything is connected to it. Mirrors the Rust
+ * `VendorProfile`.
+ *
+ * Loaded from the backend rather than declared here. Labels, hints, default ports and
+ * access point addresses are facts about a camera protocol, so they live next to the
+ * code that speaks it; a copy in TypeScript would be a second source of truth that
+ * drifts. Adding a vendor therefore touches no frontend file at all.
+ */
+export interface VendorProfile {
+    vendor: Vendor;
+    label: string;
+    summary: string;
+    defaultPort: number;
+    accessPointHost: string | null;
+    needsAddress: boolean;
+    implemented: boolean;
+}
 
 export const DIALS: { id: Dial; label: string }[] = [
     { id: "shutter", label: "Shutter" },
     { id: "aperture", label: "Aperture" },
     { id: "iso", label: "ISO" },
 ];
-
-/**
- * Address a camera takes when it hosts its own network.
- *
- * Offered as a preset because access point mode is the mode that works in the
- * field, and there is exactly one device on that network - typing an address is
- * pure friction. Nikon bodies answer here; Canon's differs, hence per vendor.
- */
-export const ACCESS_POINT_HOST: Partial<Record<Vendor, string>> = {
-    nikon: "192.168.1.1",
-};

@@ -72,7 +72,7 @@ export function HistogramChart({ histogram }: Props) {
         });
     }, [histogram]);
 
-    return <canvas className="histogram" ref={canvas} role="img" aria-label="Tone distribution of the latest frame as four plots: red, green, blue and luminance" />;
+    return <canvas className="block min-h-0 w-full flex-1" ref={canvas} role="img" aria-label="Tone distribution of the latest frame as four plots: red, green, blue and luminance" />;
 }
 
 /**

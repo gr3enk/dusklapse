@@ -8,7 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type Vendor } from "./types";
+import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type VendorProfile } from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
@@ -48,7 +48,8 @@ export const api = {
 
     battery: () => invoke<BatteryStatus | null>("camera_battery"),
 
-    defaultPort: (vendor: Vendor) => invoke<number>("camera_default_port", { vendor }),
+    /** Every vendor the backend supports, each describing itself. */
+    vendors: () => invoke<VendorProfile[]>("camera_vendors"),
 
     /**
      * Ask the camera for the newest frame's metadata and histogram.

@@ -5,6 +5,8 @@ import type { BatteryStatus, CameraInfo, Dial, ExposureCapabilities, ExposureSet
 import { CameraStatusBar } from "./CameraStatusBar";
 import { PreviewPane } from "./PreviewPane";
 import { RampingPanel } from "./RampingPanel";
+import { Notice } from "./ui/Notice";
+import { cn } from "../lib/utils";
 
 /**
  * How often to re-read a camera that has to be asked.
@@ -32,11 +34,10 @@ interface Props {
 /**
  * Owns the camera session state and arranges the three working panes.
  *
- * The arrangement itself is CSS, not JavaScript: `.workspace` is a grid whose named
- * areas are reshuffled by an `(orientation: landscape)` media query. Rotating the
- * device therefore relayouts without a re-render and without a resize listener to
- * get wrong - and none of the three components below has to know which orientation
- * it is in.
+ * The arrangement itself is CSS, not JavaScript: one grid whose placement is reshuffled
+ * by a `landscape:` variant, which is a media query. Rotating the device therefore
+ * relayouts without a re-render and without a resize listener to get wrong - and none of
+ * the three components below has to know which orientation it is in.
  */
 export function CameraPanel({ info, onDisconnected }: Props) {
     const [capabilities, setCapabilities] = useState<ExposureCapabilities | null>(null);
@@ -143,21 +144,29 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     }
 
     return (
-        <div className="workspace">
-            <div className="workspace__preview">
+        // Portrait stacks preview, status, ramping in DOM order; landscape places them
+        // explicitly, with ramping as a full-height column beside the other two.
+        //
+        // `minmax(0,...)` on every flexible track is load-bearing: grid tracks default to a
+        // minimum of auto, so a long ramping list or a wide image would push its track past
+        // the viewport instead of scrolling inside it.
+        <div
+            className={cn(
+                "mx-auto grid min-h-0 w-full max-w-[80rem] flex-1 gap-3",
+                "grid-cols-[minmax(0,1fr)] grid-rows-[minmax(0,0.9fr)_auto_minmax(0,1.1fr)]",
+                "landscape:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] landscape:grid-rows-[minmax(0,1fr)_auto]",
+            )}
+        >
+            <div className="min-h-0 landscape:col-start-2 landscape:row-start-1">
                 <PreviewPane frame={frames} supported={info.pushesEvents} />
             </div>
 
-            <div className="workspace__status">
+            <div className="flex flex-col gap-2 landscape:col-start-2 landscape:row-start-2">
                 <CameraStatusBar info={info} capabilities={capabilities} exposure={exposure} battery={battery} frames={frames} busy={busy} onChangeDial={changeDial} onDisconnect={disconnect} />
-                {error && (
-                    <p className="notice notice--error" role="alert">
-                        {error}
-                    </p>
-                )}
+                {error && <Notice variant="error">{error}</Notice>}
             </div>
 
-            <div className="workspace__ramping">
+            <div className="min-h-0 landscape:col-start-1 landscape:row-start-1 landscape:row-span-2">
                 <RampingPanel info={info} busy={busy} onShoot={() => void shoot()} onRefresh={() => void refresh()} />
             </div>
         </div>
