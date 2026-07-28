@@ -1,6 +1,9 @@
+import { MinusIcon, PlusIcon } from "lucide-react";
 import type { DialRamp, Dial, ExposureValue } from "../lib/types";
+import { Button } from "./ui/Button";
 import { Select } from "./ui/Select";
 import Toggle from "./ui/Toggle";
+import { useCallback } from "react";
 
 interface Props {
     dial: Dial;
@@ -28,12 +31,30 @@ export function DialRampRow({ label, config, values, rampActive, busy, onChange 
     const usable = values.filter((value) => value.stops !== null);
     const disabled = !rampActive || !config.enabled || busy;
 
+    const handleChangeLimit = useCallback(
+        (direction: "up" | "down") => {
+            if (config.limit) {
+                const currentIndex = values.findIndex((value) => value.raw === config.limit);
+                const newIndex = direction === "up" ? currentIndex + 1 : currentIndex - 1;
+                const newLimit = values[newIndex]?.raw;
+                onChange({ ...config, limit: newLimit });
+            } else {
+                const newLimit = values[0]?.raw;
+                onChange({ ...config, limit: newLimit });
+            }
+        },
+        [config.limit, values, onChange],
+    );
+
     return (
         <div className="flex flex-col gap-2">
             <span>{label}</span>
             <div className="flex items-center gap-2">
                 <Toggle disabled={!rampActive} checked={config.enabled} onChange={(enabled) => onChange({ ...config, enabled })} />
 
+                <Button disabled={disabled} onClick={() => handleChangeLimit("down")} variant="secondary" size="compact">
+                    <MinusIcon className="size-4" />
+                </Button>
                 <Select
                     label={label}
                     // The label is already above the toggle; repeating it over the select would
@@ -47,6 +68,9 @@ export function DialRampRow({ label, config, values, rampActive, busy, onChange 
                     onChange={(event) => onChange({ ...config, limit: event.currentTarget.value || null })}
                     options={usable.map((value) => ({ value: value.raw, label: value.label }))}
                 />
+                <Button disabled={disabled} onClick={() => handleChangeLimit("up")} variant="secondary" size="compact">
+                    <PlusIcon className="size-4" />
+                </Button>
             </div>
         </div>
     );
