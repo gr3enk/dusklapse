@@ -4,6 +4,14 @@ import type { Histogram } from "../lib/types";
 
 interface Props {
     histogram: Histogram;
+    /**
+     * Draw the three channels alongside the weighted luma, or luma on its own.
+     *
+     * Off is not a lesser view: with one band taking the full height, a shift of a few tones is
+     * far easier to see than in a quarter-height strip. The channels are for judging a colour
+     * cast, and there are long stretches of a sequence where that is not the question.
+     */
+    showChannels: boolean;
 }
 
 /** One band per curve, drawn top to bottom in this order. */
@@ -16,6 +24,14 @@ const BANDS = [
 
 /** Vertical space between bands, in CSS pixels. */
 const BAND_GAP = 3;
+
+/**
+ * The histogram fields that hold bin counts.
+ *
+ * Derived from `BANDS` rather than written as `keyof Histogram`, which would also admit `pixels` -
+ * a plain number, not a series, and not something any of this can plot.
+ */
+type BandKey = (typeof BANDS)[number]["key"];
 
 /**
  * Four separate plots - red, green, blue and weighted luma - over 256 tonal bins.
@@ -31,7 +47,7 @@ const BAND_GAP = 3;
  * reconcile several times a minute. One canvas rather than four also means the bands
  * cannot drift out of horizontal alignment with each other.
  */
-export function HistogramChart({ histogram }: Props) {
+export function HistogramChart({ histogram, showChannels }: Props) {
     const canvas = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
@@ -52,27 +68,39 @@ export function HistogramChart({ histogram }: Props) {
         context.setTransform(ratio, 0, 0, ratio, 0, 0);
         context.clearRect(0, 0, width, height);
 
-        // One shared divisor across all four bands. Normalising each band to its own
-        // maximum would draw every channel at full height and throw away the
+        const bands = showChannels ? BANDS : BANDS.filter((band) => band.key === "luma");
+
+        // One shared divisor across the bands on screen. Normalising each band to its
+        // own maximum would draw every channel at full height and throw away the
         // comparison the separate plots exist for - you could no longer see which
         // channel actually has the most pixels at its peak.
-        const ceiling = scaleCeiling(histogram);
+        //
+        // Taken from the drawn bands only: measuring against channels that are hidden
+        // would leave luma alone looking flatter than it is, for a reason not on screen.
+        const ceiling = scaleCeiling(histogram, bands);
         if (ceiling === 0) return;
 
-        const bandHeight = (height - BAND_GAP * (BANDS.length - 1)) / BANDS.length;
+        const bandHeight = (height - BAND_GAP * (bands.length - 1)) / bands.length;
         if (bandHeight <= 0) return;
 
         // Full-height, behind the bands: the guides are what tie the four x axes
         // together visually.
         drawGuides(context, width, height);
 
-        BANDS.forEach(({ key, label, stroke }, index) => {
+        bands.forEach(({ key, label, stroke }, index) => {
             const top = index * (bandHeight + BAND_GAP);
             drawBand(context, histogram[key], ceiling, { top, width, height: bandHeight }, stroke, label);
         });
-    }, [histogram]);
+    }, [histogram, showChannels]);
 
-    return <canvas className="block min-h-0 w-full flex-1" ref={canvas} role="img" aria-label="Tone distribution of the latest frame as four plots: red, green, blue and luminance" />;
+    return (
+        <canvas
+            className="block min-h-0 w-full flex-1"
+            ref={canvas}
+            role="img"
+            aria-label={showChannels ? "Tone distribution of the latest frame as four plots: red, green, blue and luminance" : "Tone distribution of the latest frame, weighted luminance only"}
+        />
+    );
 }
 
 /**
@@ -84,8 +112,11 @@ export function HistogramChart({ histogram }: Props) {
  * which reads correctly as "lots of pixels here" - while the rest of the distribution
  * stays readable.
  */
-function scaleCeiling(histogram: Histogram): number {
-    const counts = [...histogram.red, ...histogram.green, ...histogram.blue, ...histogram.luma].filter((count) => count > 0).sort((a, b) => a - b);
+function scaleCeiling(histogram: Histogram, bands: readonly { key: BandKey }[]): number {
+    const counts = bands
+        .flatMap((band) => histogram[band.key])
+        .filter((count) => count > 0)
+        .sort((a, b) => a - b);
     if (counts.length === 0) return 0;
 
     const index = Math.floor(counts.length * 0.99);

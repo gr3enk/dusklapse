@@ -38,7 +38,8 @@ export function PreviewPane({ frame, count, supported, history }: Props) {
     // View state, so it lives here rather than in the backend: which overlay someone wants to see
     // says nothing about the sequence and should not survive into it.
     const [showHistogram, setShowHistogram] = useState(true);
-    const [showHistory, setShowHistory] = useState(true);
+    const [showHistory, setShowHistory] = useState(false);
+    const [showChannels, setShowChannels] = useState(true);
     const [historyMode, setHistoryMode] = useState<HistoryMode>("exposure");
     const reading = HISTORY_MODES[historyMode];
 
@@ -87,16 +88,29 @@ export function PreviewPane({ frame, count, supported, history }: Props) {
                 {/* Overlaid rather than placed beside the image: the two are read together,
                     and giving the histogram its own row would take height from the frame it
                     describes. Bottom-left, where a photograph carries least of its subject. */}
+                {/* Interactive for the same reason as the history panel: the whole surface is the
+                    button, so nothing has to sit on top of the curves. */}
                 {showHistogram && info?.analysis && (
-                    <div className="pointer-events-none absolute bottom-[0.6rem] left-[0.6rem] flex h-[min(11.5rem,42%)] w-[min(18rem,50%)] flex-col gap-[0.3rem] rounded-lg border border-white/15 bg-black/55 p-[0.35rem] backdrop-blur-sm">
+                    <button
+                        type="button"
+                        onClick={() => setShowChannels((shown) => !shown)}
+                        aria-label={showChannels ? "Showing colour channels. Tap for luminance only." : "Showing luminance only. Tap for colour channels."}
+                        className={cn(
+                            "absolute bottom-[0.6rem] left-[0.6rem] flex h-[min(11.5rem,42%)] w-[min(18rem,50%)] flex-col gap-[0.3rem]",
+                            "rounded-lg border border-white/15 bg-black/55 p-[0.35rem] text-left backdrop-blur-sm",
+                            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                        )}
+                    >
                         <div className="flex items-baseline justify-between gap-2">
-                            <Label className="text-[0.6rem] tracking-[0.08em]">Luminance</Label>
+                            {/* The suffix is the only thing on screen that says there is another
+                                reading behind this one. */}
+                            <Label className="text-[0.6rem] tracking-[0.08em]">Luminance {showChannels ? "· RGB" : "· L"}</Label>
                             {/* The number the ramp is regulated against, so it is the one you
                                 glance at. Tabular figures keep it from jittering sideways. */}
                             <span className="text-base font-[650] leading-none tabular-nums text-text">{info.analysis.luminance.value}</span>
                         </div>
-                        <HistogramChart histogram={info.analysis.histogram} />
-                    </div>
+                        <HistogramChart histogram={info.analysis.histogram} showChannels={showChannels} />
+                    </button>
                 )}
 
                 {/* Beside the filename because that corner is already the pane's own furniture
