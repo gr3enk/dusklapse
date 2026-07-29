@@ -1,5 +1,5 @@
 import { ImageIcon } from "lucide-react";
-import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings } from "../lib/types";
+import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings, type RampSettings } from "../lib/types";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { Panel } from "./ui/Panel";
@@ -14,6 +14,10 @@ interface Props {
     battery: BatteryStatus | null;
     frames: number;
     busy: boolean;
+    /** The ramp configuration, for the per-dial markers. `null` until it has loaded. */
+    ramp: RampSettings | null;
+    /** The dial the ramp moved most recently, or `null` if it has not moved one. */
+    lastRamped: Dial | null;
     onChangeDial: (dial: Dial, raw: string) => void;
     onDisconnect: () => void;
 }
@@ -26,7 +30,7 @@ interface Props {
  * editable rather than read-only - changing exposure is the whole point of the app, and
  * a detour through another screen for it would be silly.
  */
-export function CameraStatusBar({ info, capabilities, exposure, battery, frames, busy, onChangeDial, onDisconnect }: Props) {
+export function CameraStatusBar({ info, capabilities, exposure, battery, frames, busy, ramp, lastRamped, onChangeDial, onDisconnect }: Props) {
     return (
         <Panel className="flex flex-wrap items-end gap-x-4 gap-y-2 px-3 py-[0.6rem]" aria-label="Camera status">
             {/* Takes the width its content needs and no more, so what is left over goes to
@@ -40,6 +44,7 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                         <Select
                             key={id}
                             label={label}
+                            labelAdornment={<RampDot state={rampState(id, ramp, lastRamped)} />}
                             value={current?.raw}
                             disabled={busy || values.length === 0}
                             onChange={(event) => onChangeDial(id, event.currentTarget.value)}
@@ -61,7 +66,7 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                     )}
                     {battery && (
                         <Badge className={cn("flex items-center gap-1", battery.percent && battery.percent <= 15 && "text-danger")}>
-                            {battery.percent === null ? battery.label : `${battery.percent}%`} <DynamicBatteryIcon value={battery.percent ?? -1} />
+                            {battery.percent === null ? battery.label : `${battery.percent}%`} <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
                         </Badge>
                     )}
                 </div>
@@ -77,4 +82,41 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
             </div>
         </Panel>
     );
+}
+
+/** What the ramp is doing to one dial, as far as this strip is concerned. */
+type RampState = "off" | "armed" | "justMoved";
+
+/**
+ * Which of the three states a dial is in.
+ *
+ * A disarmed ramp reads as off on every dial rather than as armed-but-idle: nothing is being
+ * ramped, and a marker saying otherwise would be a promise the engine is not keeping.
+ */
+function rampState(dial: Dial, ramp: RampSettings | null, lastRamped: Dial | null): RampState {
+    if (!ramp?.active || !ramp[dial].enabled) return "off";
+    return lastRamped === dial ? "justMoved" : "armed";
+}
+
+const DOT_COLOURS: Record<RampState, string> = {
+    off: "bg-border",
+    armed: "bg-text",
+    justMoved: "bg-alert-info",
+};
+
+const DOT_LABELS: Record<RampState, string> = {
+    off: "ramping off",
+    armed: "ramping on",
+    justMoved: "ramped most recently",
+};
+
+/**
+ * A dot next to a dial's caption saying whether the ramp may touch it, and which one it moved last.
+ *
+ * Carries its own text equivalent: the whole message here is a colour, which is exactly the kind
+ * of thing that reaches nobody using a screen reader and nobody who cannot separate the three
+ * shades. `role="img"` with a name is enough - there is nothing inside it to read.
+ */
+function RampDot({ state }: { state: RampState }) {
+    return <span role="img" aria-label={DOT_LABELS[state]} title={DOT_LABELS[state]} className={cn("size-1.5 shrink-0 rounded-full", DOT_COLOURS[state])} />;
 }

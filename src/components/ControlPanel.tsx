@@ -134,6 +134,7 @@ export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, fr
                                 // Only `value` is edited here; the backend rebuilds the matching
                                 // `linear` when it stores the reference, so the two halves cannot
                                 // drift apart.
+                                secondaryValue={sky.state ? sky.state.effectiveReference.value : undefined}
                                 onChange={(value) => settings && update({ reference: { ...settings.reference, value } })}
                                 step={LUMINANCE_STEP}
                                 min={LUMINANCE_MIN}
@@ -244,7 +245,7 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
     return (
         <div className="space-y-2">
             {outcome.change?.applied && (
-                <p className="m-0 tabular-nums">
+                <p className="m-0 tabular-nums text-alert-info">
                     {DIAL_LABELS[outcome.change.dial]} {labelFor(outcome.change.dial, outcome.change.from)} → {labelFor(outcome.change.dial, outcome.change.to)} (
                     {outcome.change.gainedStops > 0 ? "+" : ""}
                     {outcome.change.gainedStops.toFixed(2)} EV)

@@ -95,30 +95,30 @@ export function DaylightCurveRow({ config, sky, rampActive, busy, onChange }: Pr
                             if (Number.isFinite(longitude)) setLocation({ longitude });
                         }}
                     />
-                    <label className={"flex min-w-0 flex-1 flex-col gap-1"}>
-                        <Label>Factor</Label>
-                        <NumberSelector
-                            label="night darkening factor"
-                            className="flex-1"
-                            disabled={disabled}
-                            value={config.factor}
-                            // Rounded because repeatedly adding 0.25 in binary floating point drifts, and
-                            // a factor of 2.2500000000000004 would be shown as it is stored.
-                            onChange={(factor) => onChange({ ...config, factor: Math.round(factor * 100) / 100 })}
-                            step={FACTOR_STEP}
-                            min={FACTOR_MIN}
-                            max={FACTOR_MAX}
-                        />
-                    </label>
-                </div>
-                {/* Hidden rather than disabled where there is no plugin to call: a button that
+                    {/* Hidden rather than disabled where there is no plugin to call: a button that
                 cannot ever work is worse than no button. */}
-                {sky.canLocate && (
-                    <Button variant="secondary" onClick={useMyLocation} disabled={disabled || sky.locating}>
-                        <LocateFixedIcon className="size-4" />
-                        {sky.locating ? "Locating…" : "Use my location"}
-                    </Button>
-                )}
+                    {sky.canLocate && (
+                        <Button variant="secondary" onClick={useMyLocation} disabled={disabled || sky.locating}>
+                            <LocateFixedIcon className="size-4" />
+                            {/* {sky.locating ? "Locating…" : "Use my location"} */}
+                        </Button>
+                    )}
+                </div>
+                <label className={"flex min-w-0 max-w-44 flex-col gap-1"}>
+                    <Label>Factor</Label>
+                    <NumberSelector
+                        label="night darkening factor"
+                        className=""
+                        disabled={disabled}
+                        value={config.factor}
+                        // Rounded because repeatedly adding 0.25 in binary floating point drifts, and
+                        // a factor of 2.2500000000000004 would be shown as it is stored.
+                        onChange={(factor) => onChange({ ...config, factor: Math.round(factor * 100) / 100 })}
+                        step={FACTOR_STEP}
+                        min={FACTOR_MIN}
+                        max={FACTOR_MAX}
+                    />
+                </label>
             </div>
 
             <div className="flex flex-col gap-2 pt-1">

@@ -180,7 +180,20 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             </div>
 
             <div className="flex flex-col gap-2 landscape:col-start-2 landscape:row-start-2">
-                <CameraStatusBar info={info} capabilities={capabilities} exposure={exposure} battery={battery} frames={frames} busy={busy} onChangeDial={changeDial} onDisconnect={disconnect} />
+                <CameraStatusBar
+                    info={info}
+                    capabilities={capabilities}
+                    exposure={exposure}
+                    battery={battery}
+                    frames={frames}
+                    busy={busy}
+                    ramp={ramp.settings}
+                    // Only a change that actually reached the camera counts. A planned move the
+                    // body refused would otherwise mark a dial the ramp never managed to turn.
+                    lastRamped={autoRamp.outcome?.change?.applied ? autoRamp.outcome.change.dial : null}
+                    onChangeDial={changeDial}
+                    onDisconnect={disconnect}
+                />
                 {error && <Notice variant="error">{error}</Notice>}
             </div>
 

@@ -6,6 +6,7 @@ import { cn } from "../../lib/utils";
 
 interface Props {
     value: number;
+    secondaryValue?: number;
     onChange: (value: number) => void;
     disabled?: boolean;
     step?: number;
@@ -27,7 +28,7 @@ interface Props {
  * without a limit the buttons walk the reference off the end of it into a value the backend
  * has to reject.
  */
-export default function NumberSelector({ value, onChange, disabled = false, step = 100, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, label, className }: Props) {
+export default function NumberSelector({ value, secondaryValue, onChange, disabled = false, step = 100, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, label, className }: Props) {
     const clamp = (next: number) => Math.min(max, Math.max(min, next));
 
     return (
@@ -35,9 +36,10 @@ export default function NumberSelector({ value, onChange, disabled = false, step
             <Button variant="secondary" onClick={() => onChange(clamp(value - step))} disabled={disabled || value <= min} aria-label={label ? `Decrease ${label}` : "Decrease"}>
                 <MinusIcon className="size-4" />
             </Button>
-
-            <output className="flex-1 text-center tabular-nums text-text">{value}</output>
-
+            <div className="flex flex-col flex-1">
+                <output className="text-center tabular-nums text-text">{value}</output>
+                {secondaryValue && <output className="text-alert-info text-center tabular-nums">{secondaryValue}</output>}
+            </div>
             <Button variant="secondary" onClick={() => onChange(clamp(value + step))} disabled={disabled || value >= max} aria-label={label ? `Increase ${label}` : "Increase"}>
                 <PlusIcon className="size-4" />
             </Button>

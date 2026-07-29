@@ -36,6 +36,11 @@
     --accent-text: #17130d;
     --danger: #ff6b6b;
 
+    --alert-info: #60acf3;
+    --alert-warning: #f48947;
+    --alert-success: #60f371;
+    --alert-error: var(--danger);
+
     --radius: 12px;
 }
 
@@ -56,6 +61,10 @@
     --color-accent: var(--accent);
     --color-accent-text: var(--accent-text);
     --color-danger: var(--danger);
+    --color-alert-info: var(--alert-info);
+    --color-alert-warning: var(--alert-warning);
+    --color-alert-success: var(--alert-success);
+    --color-alert-error: var(--alert-error);
 
     --radius-card: var(--radius);
 }

@@ -1,4 +1,4 @@
-import type { SelectHTMLAttributes } from "react";
+import type { ReactNode, SelectHTMLAttributes } from "react";
 
 import { cn } from "../../lib/utils";
 import { Label } from "./Label";
@@ -30,6 +30,13 @@ interface Props extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"
      * optional - a ramp limit that has not been chosen - want this.
      */
     allowEmpty?: boolean;
+    /**
+     * Rendered beside the caption, for a status marker that belongs to this control.
+     *
+     * Separate from `label` so that stays a plain string: it is also the accessible name and
+     * the `sr-only` fallback, and a node there would put markup in both.
+     */
+    labelAdornment?: ReactNode;
 }
 
 /**
@@ -38,10 +45,17 @@ interface Props extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"
  * Native on purpose: on iOS this becomes the system picker, which is far better on a
  * touch screen than any custom dropdown, and it needs no code to be accessible.
  */
-export function Select({ label, options, emptyLabel = "-", value, fieldClassName, className, hideLabel, allowEmpty, ...rest }: Props) {
+export function Select({ label, options, emptyLabel = "-", value, fieldClassName, className, hideLabel, allowEmpty, labelAdornment, ...rest }: Props) {
     return (
         <label className={cn("flex min-w-0 flex-1 flex-col gap-1", fieldClassName)}>
-            {hideLabel ? <span className="sr-only">{label}</span> : <Label>{label}</Label>}
+            {hideLabel ? (
+                <span className="sr-only">{label}</span>
+            ) : (
+                <Label className="flex items-center gap-1.5">
+                    {label}
+                    {labelAdornment}
+                </Label>
+            )}
             <select
                 value={value ?? ""}
                 className={cn(
