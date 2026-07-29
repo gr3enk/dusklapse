@@ -1,22 +1,30 @@
-name: Backend
+name: Backend Lint
 
+# Both triggers on purpose: the pull_request run is the gate, and the push run keeps main's own
+# history of green and red so a bad merge is attributable to a commit.
+#
+# The path lists are written out twice rather than shared through a YAML anchor. Anchors are not
+# dependably supported by the workflow parser, and a workflow that silently fails to load is worse
+# than a few duplicated lines.
 on:
   push:
     branches: [main]
     paths:
       - "src-tauri/**"
-      - ".github/workflows/backend.yml"
+      - ".github/workflows/backend-lint.yml"
   pull_request:
     paths:
       - "src-tauri/**"
-      - ".github/workflows/backend.yml"
+      - ".github/workflows/backend-lint.yml"
 
+# A second push to the same branch makes the first run pointless, so it is cancelled. Not on main,
+# where each commit's result is worth keeping.
 concurrency:
-  group: backend-${{ github.ref }}
+  group: backend-lint-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  check:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,18 +45,17 @@ jobs:
         with:
           components: clippy
 
-      # Pointed at the crate rather than the repository root: there is no workspace here, the
-      # manifest lives in src-tauri.
+      # `shared-key` on purpose: this and the sibling backend workflow compile almost the same
+      # dependency graph, and without it each would keep its own copy of a cold build. Pointed at
+      # the crate rather than the repository root - there is no workspace here, the manifest lives
+      # in src-tauri.
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          shared-key: backend
 
       # `--all-targets` so the tests are linted too. They are where most of this crate's tricky
       # arithmetic is written down, and a lint finding there is as real as anywhere else.
       - name: Clippy
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
-
-      - name: Unit tests
-        working-directory: src-tauri
-        run: cargo test

@@ -1,0 +1,58 @@
+name: Frontend Test
+
+# Both triggers on purpose: the pull_request run is the gate, and the push run keeps main's own
+# history of green and red so a bad merge is attributable to a commit.
+#
+# The path lists are written out twice rather than shared through a YAML anchor. Anchors are not
+# dependably supported by the workflow parser, and a workflow that silently fails to load is worse
+# than a few duplicated lines.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "index.html"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig*.json"
+      - "vite.config.ts"
+      - "eslint.config.js"
+      - ".github/workflows/frontend-test.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "index.html"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig*.json"
+      - "vite.config.ts"
+      - "eslint.config.js"
+      - ".github/workflows/frontend-test.yml"
+
+# A second push to the same branch makes the first run pointless, so it is cancelled. Not on main,
+# where each commit's result is worth keeping.
+concurrency:
+  group: frontend-test-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Before setup-node, which needs pnpm to exist in order to cache its store. Reads the version
+      # from the `packageManager` field, so CI runs the same pnpm as a developer machine.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # `--frozen-lockfile` fails rather than resolving anew, so a package.json changed without its
+      # lockfile is caught here instead of drifting.
+      - run: pnpm install --frozen-lockfile
+
+      - name: Unit tests
+        run: pnpm test
