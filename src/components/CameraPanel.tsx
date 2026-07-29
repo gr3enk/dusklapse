@@ -16,6 +16,7 @@ import { useShotHistory } from "../hooks/useShotHistory";
 import { useShotClock } from "../hooks/useShotClock";
 import { SettingsDialog } from "./SettingsDialog";
 import { measuredInterval } from "../lib/interval";
+import { transferShot } from "../lib/transfer";
 import { useSettings } from "../hooks/useSettings";
 
 /**
@@ -78,11 +79,9 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     // Two concerns, two hooks, composed here rather than unpacked into this component.
     // The frame's measurements have several readers - the preview draws them, the ramp
     // controls need the brightness - so they cannot live inside the pane that shows them.
-    // The newest shot that is due a transfer: 1, 1+n, 1+2n… Passing this rather than the raw count
-    // is what skips the fetch entirely for the frames in between - the image never leaves the
-    // camera, which is the whole point of the setting.
-    const transferShot = frames === 0 ? 0 : frames - ((frames - 1) % transferEvery);
-    const frame = useLatestFrame(transferShot);
+    // Changes only when a frame is due a transfer, so the fetch effect does not even run for the
+    // ones in between.
+    const frame = useLatestFrame(transferShot(frames, transferEvery));
     const ramp = useRamp();
     // Where the sun is. Read here rather than inside the controls because the deviation readout
     // has to measure against the target the engine is actually holding, not the stored one.

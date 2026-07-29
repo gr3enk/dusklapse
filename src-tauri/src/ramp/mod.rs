@@ -478,9 +478,7 @@ mod tests {
         }
         let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
         let lengths = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        for m in 0..(month as usize - 1) {
-            days += lengths[m];
-        }
+        days += lengths[..month as usize - 1].iter().sum::<i64>();
         days += day as i64 - 1;
         days as f64 * 86_400.0 + hour * 3_600.0
     }

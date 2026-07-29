@@ -125,8 +125,8 @@ function extent(points: (number | null)[][]): Extent | null {
     const values = points.flat().filter((value): value is number => value !== null);
     if (values.length === 0) return null;
 
-    let min = Math.min(...values);
-    let max = Math.max(...values);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
 
     // A flat sequence has no range at all, and dividing by it would put every point on one edge
     // or produce NaN. Open it out so the line lands in the middle instead.

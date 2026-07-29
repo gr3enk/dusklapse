@@ -8,6 +8,7 @@ import { ShotHistoryChart, type HistoryMode } from "./ShotHistoryChart";
 import { Button } from "./ui/Button";
 import { Label } from "./ui/Label";
 import { Notice } from "./ui/Notice";
+import { cyclePosition } from "../lib/transfer";
 import { cn } from "../lib/utils";
 
 /** What each history reading is called, and what the numbers under it mean. */
@@ -45,9 +46,7 @@ export function PreviewPane({ frame, count, supported, history, transferEvery }:
     const [historyMode, setHistoryMode] = useState<HistoryMode>("exposure");
     const reading = HISTORY_MODES[historyMode];
 
-    // Where this shot sits in the transfer cycle. 1 is the one that transfers, so it counts up to
-    // the setting and the next frame after that starts over.
-    const positionInCycle = count === 0 ? 0 : ((count - 1) % transferEvery) + 1;
+    const positionInCycle = cyclePosition(count, transferEvery);
 
     return (
         <section className="flex h-full min-h-0 flex-col gap-2" aria-label="Latest frame">

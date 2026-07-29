@@ -127,9 +127,7 @@ mod tests {
             days += if leap(y) { 366 } else { 365 };
         }
         let lengths = [31, if leap(year) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        for m in 0..(month as usize - 1) {
-            days += lengths[m];
-        }
+        days += lengths[..month as usize - 1].iter().sum::<i64>();
         days += day as i64 - 1;
         days as f64 * 86_400.0 + hour * 3_600.0 + minute * 60.0
     }
