@@ -1,5 +1,19 @@
-# pnpm settings. Not an actual workspace - this is just where pnpm reads configuration from now,
-# and putting it here rather than in .npmrc keeps npm from warning about a key it does not know.
+# pnpm settings. Not an actual workspace - this is simply where pnpm reads configuration from now,
+# and putting it here rather than in .npmrc keeps npm from warning about keys it does not know.
+
+# Dependencies whose install scripts may run.
+#
+# pnpm refuses to run them unless named, and since version 11 that refusal is an error rather than
+# a warning - so a fresh install fails outright with ERR_PNPM_IGNORED_BUILDS. It only surfaces where
+# node_modules is built from nothing, which means CI and not a developer machine.
+#
+# Named one by one rather than switching the check off with `strictDepBuilds: false`: that would
+# quietly skip the build script of every future dependency too, and a skipped build script fails at
+# runtime rather than at install time.
+#
+# esbuild arrives through vite.
+allowBuilds:
+  esbuild: true
 
 # Do not run the dependency check before a script.
 #

@@ -23,6 +23,15 @@ export default tseslint.config(
     js.configs.recommended,
     tseslint.configs.recommended,
     {
+        // The release script runs under Node, not in the browser, so the browser-shaped default
+        // globals do not cover it. Declared rather than pulled from a `globals` package: two names
+        // are not worth a dependency.
+        files: ["scripts/**/*.{js,mjs}"],
+        languageOptions: {
+            globals: { process: "readonly", console: "readonly" },
+        },
+    },
+    {
         files: ["**/*.{ts,tsx}"],
         plugins: { "react-hooks": reactHooks },
         rules: {
