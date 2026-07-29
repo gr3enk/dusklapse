@@ -17,7 +17,7 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.1.0</string>
 	<key>CFBundleVersion</key>
-	<string>42</string>
+	<string>0.1.0</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -40,21 +40,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>CFBundleDisplayName</key>
-	<string>Dusklapse</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Dusklapse needs access to your local network to find and control your camera over Wi-Fi.</string>
-	<key>NSBonjourServices</key>
-	<array>
-		<string>_http._tcp</string>
-		<string>_ptp._tcp</string>
-	</array>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Dusklapse uses your location to work out when sunset, twilight and night begin, so it can darken the timelapse as the sky does.</string>
-	<key>NSAppTransportSecurity</key>
-	<dict>
-		<key>NSAllowsLocalNetworking</key>
-		<true/>
-	</dict>
 </dict>
 </plist>

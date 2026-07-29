@@ -34,16 +34,31 @@ jobs:
           # Tags, so a bump can see what already exists.
           fetch-depth: 0
 
-      # The generated Xcode project must keep the patch that stops `libapp.a` being copied into the
-      # bundle. Without it the build succeeds, the upload succeeds, and App Store validation
-      # rejects it - a 398 MB static library inside the .app. `tauri ios init` overwrites
-      # project.yml, so this is checked rather than assumed.
-      - name: Check the Xcode project patch is intact
+      # Two hand-applied patches live in the generated Xcode project, and `tauri ios init` overwrites
+      # it. Both fail in ways that are hard to trace back, so they are checked rather than assumed -
+      # in project.yml because that is the source, and in project.pbxproj because that is the file
+      # xcodebuild actually reads. They part company if someone edits one and forgets xcodegen.
+      - name: Check the Xcode project patches are intact
         run: |
-          if ! grep -q "buildPhase: none" src-tauri/gen/apple/project.yml; then
-            echo "::error file=src-tauri/gen/apple/project.yml::The 'Externals' source entry has lost 'buildPhase: none'. libapp.a would be bundled and App Store validation would reject the build. Re-add it and run 'xcodegen generate' in src-tauri/gen/apple."
-            exit 1
-          fi
+          fail() { echo "::error file=src-tauri/gen/apple/project.yml::$1"; exit 1; }
+          YML=src-tauri/gen/apple/project.yml
+          PBX=src-tauri/gen/apple/dusklapse.xcodeproj/project.pbxproj
+
+          # Without this, Xcode cannot compile the static library so it copies it as a resource -
+          # a 398 MB libapp.a inside the .app, which App Store validation rejects outright.
+          grep -q "buildPhase: none" "$YML" ||
+            fail "The 'Externals' source entry has lost 'buildPhase: none'. libapp.a would be bundled and App Store validation would reject the build."
+
+          # Without this the release build is signed manually with no profile named, because the CLI
+          # sets CODE_SIGN_STYLE=Manual from the certificate alone and swallows the error when it
+          # cannot read a UUID out of IOS_MOBILE_PROVISION.
+          grep -q "PROVISIONING_PROFILE_SPECIFIER" "$YML" ||
+            fail "The release configuration has lost PROVISIONING_PROFILE_SPECIFIER. Signing would fail with 'requires a provisioning profile'."
+
+          grep -q "PROVISIONING_PROFILE_SPECIFIER" "$PBX" ||
+            fail "project.yml carries the signing patch but project.pbxproj does not. Run 'xcodegen generate' in src-tauri/gen/apple and commit the result."
+
+          echo "Both patches present in project.yml and project.pbxproj."
 
       # The CLI reads the profile with `provisioning_profile.and_then(|p| p.uuid().ok())` - the `.ok()`
       # turns an unreadable profile into None, signing silently stays automatic, and xcodebuild then

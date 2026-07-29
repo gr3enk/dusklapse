@@ -76,6 +76,21 @@ targets:
         LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+      # Release only, so `tauri ios dev` keeps the automatic signing that works well against a
+      # connected device. A release build is the only one that has to be signed for distribution.
+      #
+      # Why this is here rather than left to the CLI: with a certificate in the environment, Tauri
+      # switches CODE_SIGN_STYLE to Manual - but it only sets the profile when it managed to read a
+      # UUID out of IOS_MOBILE_PROVISION, and that failure is swallowed by an `.ok()`. The result is
+      # a half-configured project: manual signing with no profile, and xcodebuild failing with
+      # "requires a provisioning profile" and no mention of the actual cause.
+      #
+      # Named rather than given as a UUID: a regenerated profile keeps its name and loses its UUID.
+      # The export step picks the same setting up as its fallback, so this covers both halves.
+      configs:
+        release:
+          CODE_SIGN_STYLE: Manual
+          PROVISIONING_PROFILE_SPECIFIER: GH Release Action
       groups: [app]
     dependencies:
       - framework: libapp.a
