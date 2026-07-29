@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 import { cn } from "../../lib/utils";
 
-export type ButtonVariant = "primary" | "secondary" | "icon";
+export type ButtonVariant = "primary" | "secondary" | "icon" | "danger";
 export type ButtonSize = "default" | "compact";
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -20,6 +20,7 @@ const BASE =
 const VARIANTS: Record<ButtonVariant, string> = {
     primary: "border-transparent bg-accent text-accent-text font-[650]",
     secondary: "border-border bg-surface-raised text-text",
+    danger: "border-danger bg-danger/10 text-danger",
     /**
      * Square, and coloured like `primary`.
      *

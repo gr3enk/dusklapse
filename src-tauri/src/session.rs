@@ -70,6 +70,19 @@ impl CameraSession {
         }
     }
 
+    /// Where the current session points, whether or not it is still alive.
+    ///
+    /// A dead session keeps its camera in the slot - only an explicit disconnect takes it out - so
+    /// this is what lets a reconnect reuse the address without the UI having to remember it, and
+    /// without it being lost to a WebView reload.
+    pub async fn target(&self) -> Option<CameraTarget> {
+        self.slot
+            .read()
+            .await
+            .as_ref()
+            .map(|camera| camera.target().clone())
+    }
+
     pub async fn info(&self) -> Option<CameraInfo> {
         self.slot
             .read()

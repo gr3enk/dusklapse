@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tauri::{AppHandle, Emitter, State};
 
 use crate::camera::{
-    BatteryStatus, CameraInfo, CameraResult, CameraTarget, Dial, ExposureCapabilities,
+    BatteryStatus, CameraError, CameraInfo, CameraResult, CameraTarget, Dial, ExposureCapabilities,
     ExposureSettings, Vendor,
 };
 use crate::ramp::plan::{plan, BlockedDial};
@@ -26,14 +26,36 @@ pub async fn camera_connect(
     app: AppHandle,
     session: State<'_, CameraSession>,
 ) -> CameraResult<CameraInfo> {
-    let sink: EventSink = Arc::new(move |event| {
+    session.connect(target, event_sink(app)).await
+}
+
+/// Attach again to the camera the session already points at.
+///
+/// Takes no address: it reuses the one that was connected to, so the UI does not have to hold onto
+/// it and a WebView reload cannot lose it. `NotConnected` when there was never a session to resume
+/// - after an explicit disconnect there is deliberately nothing to reconnect to.
+///
+/// Nothing here is automatic. When a camera drops its access point, no amount of retrying reaches
+/// it, and the person holding the tablet is the one who knows when the network is back.
+#[tauri::command]
+pub async fn camera_reconnect(
+    app: AppHandle,
+    session: State<'_, CameraSession>,
+) -> CameraResult<CameraInfo> {
+    let target = session.target().await.ok_or(CameraError::NotConnected)?;
+    log::info!("reconnecting to {}:{}", target.host, target.port);
+    session.connect(target, event_sink(app)).await
+}
+
+/// Where camera events go: straight out over IPC.
+fn event_sink(app: AppHandle) -> EventSink {
+    Arc::new(move |event| {
         // A delivery failure means the WebView is gone, which is not something the
         // camera session should die over.
         if let Err(err) = app.emit(CAMERA_EVENT, event) {
             log::warn!("could not deliver a camera event to the UI: {err}");
         }
-    });
-    session.connect(target, sink).await
+    })
 }
 
 #[tauri::command]

@@ -20,6 +20,18 @@ export function isCameraError(error: unknown): error is CameraError {
     return typeof error === "object" && error !== null && "kind" in error && "message" in error && typeof (error as CameraError).message === "string";
 }
 
+/**
+ * Whether this failure means the camera is no longer reachable.
+ *
+ * The two kinds that a lost link produces: `transport` when a socket died under an operation,
+ * `notConnected` when the session had already gone. Everything else - a value the body refused, a
+ * protocol surprise - leaves the connection intact and would only be confused by an offer to
+ * reconnect.
+ */
+export function isConnectionLost(error: unknown): boolean {
+    return isCameraError(error) && (error.kind === "transport" || error.kind === "notConnected");
+}
+
 /** Never surface a raw thrown value to the user; it may not be a string. */
 export function errorMessage(error: unknown): string {
     if (isCameraError(error)) return error.message;
@@ -30,6 +42,15 @@ export function errorMessage(error: unknown): string {
 
 export const api = {
     connect: (target: CameraTarget) => invoke<CameraInfo>("camera_connect", { target }),
+
+    /**
+     * Attach again to the camera already in the session.
+     *
+     * Takes no address - the backend reuses the one it connected to. Deliberately manual: when a
+     * camera drops its access point, retrying reaches nothing, and only the person holding the
+     * tablet knows when the network is back.
+     */
+    reconnect: () => invoke<CameraInfo>("camera_reconnect"),
 
     disconnect: () => invoke<void>("camera_disconnect"),
 

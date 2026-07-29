@@ -34,6 +34,7 @@ pub fn run() {
         .manage(settings::SettingsState::default())
         .invoke_handler(tauri::generate_handler![
             commands::camera_connect,
+            commands::camera_reconnect,
             commands::camera_disconnect,
             commands::camera_status,
             commands::camera_capabilities,

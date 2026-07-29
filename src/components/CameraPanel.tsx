@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { api, errorMessage } from "../lib/api";
+import { api, errorMessage, isConnectionLost } from "../lib/api";
 import type { BatteryStatus, CameraInfo, Dial, ExposureCapabilities, ExposureSettings } from "../lib/types";
 import { CameraStatusBar } from "./CameraStatusBar";
 import { PreviewPane } from "./PreviewPane";
 import { Notice } from "./ui/Notice";
+import { Button } from "./ui/Button";
 import { cn } from "../lib/utils";
 import { ControlPanel } from "./ControlPanel";
 import { useLatestFrame } from "../hooks/useLatestFrame";
@@ -52,7 +53,14 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     const [capabilities, setCapabilities] = useState<ExposureCapabilities | null>(null);
     const [exposure, setExposure] = useState<ExposureSettings | null>(null);
     const [battery, setBattery] = useState<BatteryStatus | null>(null);
-    const [error, setError] = useState<string | null>(null);
+    // The kind is kept alongside the text, not thrown away by `errorMessage`: a lost link is the
+    // one failure with something to offer beyond an apology.
+    const [error, setError] = useState<{ message: string; lost: boolean } | null>(null);
+    const [reconnecting, setReconnecting] = useState(false);
+
+    const report = useCallback((cause: unknown) => {
+        setError({ message: errorMessage(cause), lost: isConnectionLost(cause) });
+    }, []);
     const [busy, setBusy] = useState(false);
     // Counted from CaptureComplete, so one per exposure rather than one per file.
     // Counts and times every shot the camera reports, transferred or not, so the readouts stay
@@ -106,9 +114,9 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         try {
             await readAll();
         } catch (cause) {
-            setError(errorMessage(cause));
+            report(cause);
         }
-    }, [readAll]);
+    }, [readAll, report]);
 
     useEffect(() => {
         void refresh();
@@ -120,10 +128,10 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             // A write is already in flight; queueing reads behind it would only
             // make the UI feel sluggish.
             if (busyRef.current) return;
-            void readAll().catch((cause) => setError(errorMessage(cause)));
+            void readAll().catch((cause) => report(cause));
         }, every);
         return () => clearInterval(timer);
-    }, [readAll, info.pushesEvents]);
+    }, [readAll, report, info.pushesEvents]);
 
     // React to what the camera volunteers. Only the events that change something
     // reach us; the Rust side already dropped the focus chatter.
@@ -132,7 +140,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             switch (event.kind) {
                 case "dialChanged":
                     if (busyRef.current) return;
-                    void readAll().catch((cause) => setError(errorMessage(cause)));
+                    void readAll().catch((cause) => report(cause));
                     break;
                 case "frameRecorded":
                     clock.record();
@@ -142,7 +150,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         // `listen` resolves once registered; dropping the promise would leak the
         // handler across a remount.
         return () => void unlisten.then((stop) => stop());
-    }, [readAll, clock.record]);
+    }, [readAll, report, clock.record]);
 
     async function changeDial(dial: Dial, raw: string) {
         setBusy(true);
@@ -153,7 +161,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             // to a neighbouring value more often than you would like.
             setExposure(await api.exposure());
         } catch (cause) {
-            setError(errorMessage(cause));
+            report(cause);
         } finally {
             setBusy(false);
         }
@@ -166,9 +174,31 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             await api.shoot(false);
             setBattery(await api.battery());
         } catch (cause) {
-            setError(errorMessage(cause));
+            report(cause);
         } finally {
             setBusy(false);
+        }
+    }
+
+    /**
+     * Attach to the same camera again.
+     *
+     * Manual on purpose. A camera that has switched its access point off cannot be reached by
+     * retrying, so the useful moment to try is the one after someone has put the network back -
+     * and only they know when that is.
+     */
+    async function reconnect() {
+        setReconnecting(true);
+        setError(null);
+        try {
+            await api.reconnect();
+            // Read straight away rather than waiting for the poll: the dials may well have been
+            // turned while the link was down.
+            await readAll();
+        } catch (cause) {
+            report(cause);
+        } finally {
+            setReconnecting(false);
         }
     }
 
@@ -217,7 +247,18 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     onOpenSettings={() => setSettingsOpen(true)}
                     onDisconnect={disconnect}
                 />
-                {error && <Notice variant="error">{error}</Notice>}
+                {error && (
+                    <Notice variant="error" className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{error.message}</span>
+                        {/* Only where it can do something. Offering it after a value the body
+                            refused would suggest the connection was the problem. */}
+                        {error.lost && (
+                            <Button variant="danger" size="compact" onClick={() => void reconnect()} disabled={reconnecting}>
+                                {reconnecting ? "Reconnecting…" : "Reconnect"}
+                            </Button>
+                        )}
+                    </Notice>
+                )}
             </div>
 
             <div className="min-h-0 landscape:col-start-1 landscape:row-start-1 landscape:row-span-2">
@@ -234,12 +275,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                 />
             </div>
 
-            <SettingsDialog
-                open={settingsOpen}
-                onClose={() => setSettingsOpen(false)}
-                settings={settings}
-                intervalMs={measuredInterval(clock.recent)}
-            />
+            <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} intervalMs={measuredInterval(clock.recent)} />
         </div>
     );
 }
