@@ -17,7 +17,6 @@
 		873169A682A330AA87C26E45 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 381A704FADBEDF588E43DB8F /* Metal.framework */; };
 		9B6A93A384AF175AD90D700D /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F09A4F91C9210C2BD93E43D0 /* libapp.a */; };
 		A28B06752875B3ABFF8B573D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 16B2AE847F3F8F3E15DB0BA2 /* Security.framework */; };
-		BB8E96E66666B491C64B3F42 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = 9704FEBD9460E1F82E541D10 /* libapp.a */; };
 		E95DB7FD591AF9A1AD19F790 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F69F029F0E98E474B985C7DE /* QuartzCore.framework */; };
 		FF61F7B5C8D81E6D7040D16B /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4BD40D69BFC37ADD5FD8118E /* CoreGraphics.framework */; };
 /* End PBXBuildFile section */
@@ -35,6 +34,7 @@
 		4BD40D69BFC37ADD5FD8118E /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		5180EC680206ECD2EC3A6624 /* plan.rs */ = {isa = PBXFileReference; path = plan.rs; sourceTree = "<group>"; };
 		528421B88CFAD654A158202E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		53B809B05310206522F5DCC0 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		58DFCC53596A553E7FCA7D06 /* sony.rs */ = {isa = PBXFileReference; path = sony.rs; sourceTree = "<group>"; };
 		5BCC66CD29F890703086A910 /* model.rs */ = {isa = PBXFileReference; path = model.rs; sourceTree = "<group>"; };
 		5E8850B1FE00B1F468981C60 /* canon.rs */ = {isa = PBXFileReference; path = canon.rs; sourceTree = "<group>"; };
@@ -52,6 +52,7 @@
 		BA05BEBD1A31EEAB61BE939F /* session.rs */ = {isa = PBXFileReference; path = session.rs; sourceTree = "<group>"; };
 		C997A27740A6BC21EDBA8C1C /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		D0F5D02FABACE2F7E962AC47 /* ptpip.rs */ = {isa = PBXFileReference; path = ptpip.rs; sourceTree = "<group>"; };
+		D20C3C985F45508516495DD8 /* settings.rs */ = {isa = PBXFileReference; path = settings.rs; sourceTree = "<group>"; };
 		DD26F2E3297789E8B34D6F64 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		E7CB1C9EC6F8D0208218E881 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		E911F6B174B95886F8FEAF2A /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
@@ -112,10 +113,19 @@
 			path = Externals;
 			sourceTree = "<group>";
 		};
+		72603E8CAF57D2D2A66CCE30 /* release */ = {
+			isa = PBXGroup;
+			children = (
+				53B809B05310206522F5DCC0 /* libapp.a */,
+			);
+			path = release;
+			sourceTree = "<group>";
+		};
 		77EE68A99D6C3760DFE774EF /* arm64 */ = {
 			isa = PBXGroup;
 			children = (
 				B072BC9F5897F4ED1599D593 /* debug */,
+				72603E8CAF57D2D2A66CCE30 /* release */,
 			);
 			path = arm64;
 			sourceTree = "<group>";
@@ -146,6 +156,7 @@
 				DD26F2E3297789E8B34D6F64 /* lib.rs */,
 				E911F6B174B95886F8FEAF2A /* main.rs */,
 				BA05BEBD1A31EEAB61BE939F /* session.rs */,
+				D20C3C985F45508516495DD8 /* settings.rs */,
 				D96906D5266BBFE98FB73930 /* camera */,
 				8661FD26ED6AB0F84F1BE18E /* ramp */,
 			);
@@ -217,7 +228,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_F1A03434-4D29-4AED-AE69-06D3160E869F" /* x86_64 */ = {
+		"TEMP_8344DABA-27F1-4740-94A4-0EA2A7D20038" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -285,7 +296,6 @@
 				863F91B8739E7CCADB5A8397 /* Assets.xcassets in Resources */,
 				5E768D6611B14F17F93FAA1C /* LaunchScreen.storyboard in Resources */,
 				3335271E0312F966B5DFF60A /* assets in Resources */,
-				BB8E96E66666B491C64B3F42 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

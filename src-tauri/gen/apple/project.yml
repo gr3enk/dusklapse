@@ -30,7 +30,15 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      # `buildPhase: none` keeps the folder visible in the project without putting it in any build
+      # phase. Left as a plain source, Xcode cannot compile a static library so it copies it as a
+      # resource instead - a 398 MB `libapp.a` inside the .app, which App Store validation rejects
+      # outright ("standalone executables or libraries are not permitted").
+      #
+      # The linking is unaffected: that comes from the `libapp.a` entry under `dependencies` plus
+      # the LIBRARY_SEARCH_PATHS below, not from build-phase membership.
       - path: Externals
+        buildPhase: none
       - path: dusklapse_iOS
       - path: assets
         buildPhase: resources
