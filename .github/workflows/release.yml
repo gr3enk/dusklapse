@@ -93,6 +93,23 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      # Before `pnpm install`, not after. The bump rewrites package.json, and pnpm then treats
+      # node_modules as stale - which made it try to reinstall from inside the Xcode build phase,
+      # where there is no TTY to confirm deleting the directory. Installing after the bump means
+      # nothing is stale to begin with. (The .npmrc guards the same failure from the other side.)
+      #
+      # Before the build too, so what is built is what was committed. If a later step fails, re-run
+      # with bump=none rather than raising the version twice.
+      - name: Raise the marketing version
+        if: inputs.bump != 'none'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          VERSION=$(node scripts/bump-version.mjs "${{ inputs.bump }}")
+          git commit -am "Release v$VERSION"
+          git tag "v$VERSION"
+          git push --follow-tags
+
       - run: pnpm install --frozen-lockfile
 
       - uses: dtolnay/rust-toolchain@stable
@@ -106,17 +123,6 @@ jobs:
           workspaces: src-tauri
           shared-key: release
 
-      # Before the build, so what is built is what was committed. If the build then fails, re-run
-      # with bump=none rather than raising the version twice.
-      - name: Raise the marketing version
-        if: inputs.bump != 'none'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          VERSION=$(node scripts/bump-version.mjs "${{ inputs.bump }}")
-          git commit -am "Release v$VERSION"
-          git tag "v$VERSION"
-          git push --follow-tags
 
       - name: Read the version
         id: version

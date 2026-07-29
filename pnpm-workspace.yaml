@@ -1,2 +1,13 @@
-allowBuilds:
-  esbuild: false
+# pnpm settings. Not an actual workspace - this is just where pnpm reads configuration from now,
+# and putting it here rather than in .npmrc keeps npm from warning about a key it does not know.
+
+# Do not run the dependency check before a script.
+#
+# pnpm otherwise verifies node_modules against package.json on every `pnpm <script>` and installs
+# when it disagrees. Helpful at a terminal, harmful inside an Xcode build phase: the release build
+# runs `pnpm tauri ios xcode-script` from there with no TTY, and the implicit install wanted to
+# delete node_modules mid-build. It aborted with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY and took
+# the whole build with it.
+#
+# The trade-off is that `pnpm install` after a pull is now on you rather than automatic.
+verifyDepsBeforeRun: false
