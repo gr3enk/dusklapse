@@ -103,6 +103,21 @@ export interface Luminance {
     value: number;
 }
 
+/**
+ * Settings that shape a session rather than an exposure. Mirrors the Rust `AppSettings`.
+ *
+ * Owned by Rust, like the ramp: a WebView reload must not quietly undo a choice made an hour into
+ * a sequence.
+ */
+export interface AppSettings {
+    /** Transfer one frame in this many. 1 is every frame. */
+    transferEvery: number;
+}
+
+/** Bounds enforced by the backend. Mirrors `TRANSFER_EVERY_MIN`/`MAX`. */
+export const TRANSFER_EVERY_MIN = 1;
+export const TRANSFER_EVERY_MAX = 30;
+
 /** Which way the light is going. Mirrors the Rust `RampMode`. */
 export type RampMode = "sunset" | "sunrise";
 

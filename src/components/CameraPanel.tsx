@@ -12,6 +12,10 @@ import { useRamp } from "../hooks/useRamp";
 import { useAutoRamp } from "../hooks/useAutoRamp";
 import { useSky } from "../hooks/useSky";
 import { useShotHistory } from "../hooks/useShotHistory";
+import { useShotClock } from "../hooks/useShotClock";
+import { SettingsDialog } from "./SettingsDialog";
+import { measuredInterval } from "../lib/interval";
+import { useSettings } from "../hooks/useSettings";
 
 /**
  * How often to re-read a camera that has to be asked.
@@ -51,12 +55,26 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
     // Counted from CaptureComplete, so one per exposure rather than one per file.
-    const [frames, setFrames] = useState(0);
+    // Counts and times every shot the camera reports, transferred or not, so the readouts stay
+    // honest when transfers are thinned.
+    const clock = useShotClock();
+    const frames = clock.count;
+
+    // Secondary settings, stored in Rust so a WebView reload cannot undo them mid-sequence.
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const settings = useSettings();
+    // Every frame until the stored value has loaded: thinning transfers nobody asked to thin would
+    // silently drop measurements for the first seconds of a session.
+    const transferEvery = settings.value?.transferEvery ?? 1;
 
     // Two concerns, two hooks, composed here rather than unpacked into this component.
     // The frame's measurements have several readers - the preview draws them, the ramp
     // controls need the brightness - so they cannot live inside the pane that shows them.
-    const frame = useLatestFrame(frames);
+    // The newest shot that is due a transfer: 1, 1+n, 1+2n… Passing this rather than the raw count
+    // is what skips the fetch entirely for the frames in between - the image never leaves the
+    // camera, which is the whole point of the setting.
+    const transferShot = frames === 0 ? 0 : frames - ((frames - 1) % transferEvery);
+    const frame = useLatestFrame(transferShot);
     const ramp = useRamp();
     // Where the sun is. Read here rather than inside the controls because the deviation readout
     // has to measure against the target the engine is actually holding, not the stored one.
@@ -117,14 +135,14 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     void readAll().catch((cause) => setError(errorMessage(cause)));
                     break;
                 case "frameRecorded":
-                    setFrames((count) => count + 1);
+                    clock.record();
                     break;
             }
         });
         // `listen` resolves once registered; dropping the promise would leak the
         // handler across a remount.
         return () => void unlisten.then((stop) => stop());
-    }, [readAll]);
+    }, [readAll, clock.record]);
 
     async function changeDial(dial: Dial, raw: string) {
         setBusy(true);
@@ -180,7 +198,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             )}
         >
             <div className="min-h-0 landscape:col-start-2 landscape:row-start-1">
-                <PreviewPane frame={frame} count={frames} supported={info.pushesEvents} history={history} />
+                <PreviewPane frame={frame} count={frames} supported={info.pushesEvents} history={history} transferEvery={transferEvery} />
             </div>
 
             <div className="flex flex-col gap-2 landscape:col-start-2 landscape:row-start-2">
@@ -189,14 +207,14 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     capabilities={capabilities}
                     exposure={exposure}
                     battery={battery}
-                    frames={frames}
                     busy={busy}
                     ramp={ramp.settings}
                     // Only a change that actually reached the camera counts. A planned move the
                     // body refused would otherwise mark a dial the ramp never managed to turn.
                     lastRamped={autoRamp.outcome?.change?.applied ? autoRamp.outcome.change.dial : null}
-                    history={history}
+                    clock={clock}
                     onChangeDial={changeDial}
+                    onOpenSettings={() => setSettingsOpen(true)}
                     onDisconnect={disconnect}
                 />
                 {error && <Notice variant="error">{error}</Notice>}
@@ -215,6 +233,13 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     onRefresh={() => void refresh()}
                 />
             </div>
+
+            <SettingsDialog
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                settings={settings}
+                intervalMs={measuredInterval(clock.recent)}
+            />
         </div>
     );
 }

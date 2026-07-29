@@ -24,6 +24,8 @@ interface Props {
     supported: boolean;
     /** Every frame so far, for the history overlay. */
     history: Shot[];
+    /** Transfer one frame in this many, for the countdown to the next transfer. */
+    transferEvery: number;
 }
 
 /**
@@ -32,7 +34,7 @@ interface Props {
  * Purely a view now: the fetching lives in `useLatestFrame`, because the measurements it
  * produces are read by the ramp controls as well as by this pane.
  */
-export function PreviewPane({ frame, count, supported, history }: Props) {
+export function PreviewPane({ frame, count, supported, history, transferEvery }: Props) {
     const { info, imageUrl, loading, error } = frame;
 
     // View state, so it lives here rather than in the backend: which overlay someone wants to see
@@ -42,6 +44,10 @@ export function PreviewPane({ frame, count, supported, history }: Props) {
     const [showChannels, setShowChannels] = useState(true);
     const [historyMode, setHistoryMode] = useState<HistoryMode>("exposure");
     const reading = HISTORY_MODES[historyMode];
+
+    // Where this shot sits in the transfer cycle. 1 is the one that transfers, so it counts up to
+    // the setting and the next frame after that starts over.
+    const positionInCycle = count === 0 ? 0 : ((count - 1) % transferEvery) + 1;
 
     return (
         <section className="flex h-full min-h-0 flex-col gap-2" aria-label="Latest frame">
@@ -58,7 +64,25 @@ export function PreviewPane({ frame, count, supported, history }: Props) {
                     <p className="m-0 p-4 text-center text-[0.9rem] text-text-muted">{placeholder(supported, count)}</p>
                 )}
 
-                {loading && <span className="absolute top-[0.6rem] right-[0.6rem] rounded-full bg-black/60 px-[0.5rem] py-[0.2rem] text-[0.75rem]">Loading…</span>}
+                {/* Both in one row: the countdown is a standing readout and the transfer notice is
+                    momentary, and they answer the same question - is anything coming. */}
+                <div className="pointer-events-none absolute top-[0.6rem] right-[0.6rem] flex items-center gap-[0.4rem]">
+                    {loading && <span className="rounded-full bg-black/60 px-[0.5rem] py-[0.2rem] text-[0.75rem]">Loading…</span>}
+                    {/* Left out at 1 of 1, where it would read "1/1" forever and say nothing. */}
+                    {transferEvery > 1 && positionInCycle > 0 && (
+                        <span
+                            className={cn(
+                                "rounded-full bg-black/60 px-[0.5rem] py-[0.2rem] text-[0.75rem] tabular-nums",
+                                // The frame that actually crossed is worth marking, so the two
+                                // states of the cycle are distinguishable at a glance.
+                                positionInCycle === 1 ? "text-text" : "text-text-muted",
+                            )}
+                            title={`Shot ${positionInCycle} of every ${transferEvery}. Frame 1 of each group is the one transferred.`}
+                        >
+                            {positionInCycle}/{transferEvery}
+                        </span>
+                    )}
+                </div>
 
                 {/* Top-left, opposite the histogram, so the two never overlap however the cell is
                     shaped. Interactive unlike the histogram - the whole panel is the button that

@@ -14,6 +14,7 @@ use crate::camera::{
 };
 use crate::ramp::plan::{plan, BlockedDial};
 use crate::ramp::{now_unix_seconds, RampSettings, RampState, SkyState};
+use crate::settings::{AppSettings, SettingsState};
 use crate::session::{CameraSession, EventSink};
 
 /// Channel the frontend listens on for anything the camera reports unprompted.
@@ -198,6 +199,24 @@ pub async fn ramp_reference_from_latest_frame(
 #[tauri::command]
 pub async fn ramp_sky(ramp: State<'_, RampState>) -> CameraResult<Option<SkyState>> {
     Ok(ramp.get().await.sky(now_unix_seconds()))
+}
+
+/// The secondary settings.
+#[tauri::command]
+pub async fn settings_get(settings: State<'_, SettingsState>) -> CameraResult<AppSettings> {
+    Ok(settings.get().await)
+}
+
+/// Replace the secondary settings.
+///
+/// Returns what was stored, so a value the backend clamped comes straight back rather than leaving
+/// the UI showing a number that is not in force.
+#[tauri::command]
+pub async fn settings_set(
+    settings: State<'_, SettingsState>,
+    value: AppSettings,
+) -> CameraResult<AppSettings> {
+    Ok(settings.set(value).await)
 }
 
 /// Whether this build can ask the device where it is.

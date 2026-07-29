@@ -1,7 +1,8 @@
-import { ClockIcon, ImageIcon, RotateCwFadingClockIcon } from "lucide-react";
+import { ClockIcon, ImageIcon, RotateCwFadingClockIcon, SettingsIcon } from "lucide-react";
 
 import { useElapsed } from "../hooks/useElapsed";
-import type { Shot } from "../hooks/useShotHistory";
+import type { ShotClock } from "../hooks/useShotClock";
+import { measuredInterval } from "../lib/interval";
 import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings, type RampSettings } from "../lib/types";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
@@ -15,15 +16,20 @@ interface Props {
     capabilities: ExposureCapabilities | null;
     exposure: ExposureSettings | null;
     battery: BatteryStatus | null;
-    frames: number;
     busy: boolean;
     /** The ramp configuration, for the per-dial markers. `null` until it has loaded. */
     ramp: RampSettings | null;
     /** The dial the ramp moved most recently, or `null` if it has not moved one. */
     lastRamped: Dial | null;
-    /** Every frame so far, for the measured interval and the running time. */
-    history: Shot[];
+    /**
+     * Every shot the camera has reported, for the count, the interval and the running time.
+     *
+     * Deliberately not the transferred-frame history: with transfers thinned to one in n, that
+     * would report n times the real interval and undercount the sequence.
+     */
+    clock: ShotClock;
     onChangeDial: (dial: Dial, raw: string) => void;
+    onOpenSettings: () => void;
     onDisconnect: () => void;
 }
 
@@ -35,12 +41,12 @@ interface Props {
  * editable rather than read-only - changing exposure is the whole point of the app, and
  * a detour through another screen for it would be silly.
  */
-export function CameraStatusBar({ info, capabilities, exposure, battery, frames, busy, ramp, lastRamped, history, onChangeDial, onDisconnect }: Props) {
+export function CameraStatusBar({ info, capabilities, exposure, battery, busy, ramp, lastRamped, clock, onChangeDial, onOpenSettings, onDisconnect }: Props) {
     // Measured, never configured: the intervalometer owns the timing and this app only watches it.
     // A number typed in here could disagree with what the camera is actually doing, and then it
     // would be worse than no number at all.
-    const interval = measuredInterval(history);
-    const running = useElapsed(history[0]?.at ?? null);
+    const interval = measuredInterval(clock.recent);
+    const running = useElapsed(clock.firstAt);
 
     return (
         <Panel style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr auto" }} className="grid gap-x-4 gap-y-2 px-3 py-[0.6rem]" aria-label="Camera status">
@@ -73,6 +79,9 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                     <span className="truncate font-semibold" title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`].filter(Boolean).join(" · ")}>
                         {info.model}
                     </span>
+                    <Button size="compact" onClick={onOpenSettings} aria-label="Settings" title="Settings">
+                        <SettingsIcon className="size-4" />
+                    </Button>
                     <Button size="compact" onClick={onDisconnect}>
                         Disconnect
                     </Button>
@@ -86,7 +95,7 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                 )}
                 {info.pushesEvents && (
                     <Badge className="flex items-center gap-1">
-                        {frames} <ImageIcon className="size-5" />
+                        {clock.count} <ImageIcon className="size-5" />
                     </Badge>
                 )}
                 {interval !== null && (
@@ -102,28 +111,6 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
             </div>
         </Panel>
     );
-}
-
-/** How many recent gaps to measure the interval over. */
-const INTERVAL_WINDOW = 10;
-
-/**
- * The interval between frames, in milliseconds, or `null` before there are two to compare.
- *
- * The median of the recent gaps rather than the mean. A dropped frame, a reconnect, or a moment
- * where the preview fetch fell behind leaves one gap at twice the length, and a mean carries that
- * outlier for the rest of the session - a 7s interval would read as 8.4s and never settle back.
- * A median ignores it.
- */
-function measuredInterval(history: Shot[]): number | null {
-    if (history.length < 2) return null;
-
-    const recent = history.slice(-(INTERVAL_WINDOW + 1));
-    const gaps = recent.slice(1).map((shot, index) => shot.at - recent[index].at);
-
-    const sorted = [...gaps].sort((a, b) => a - b);
-    const middle = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 
 /** A tenth of a second below ten, whole seconds above - past that the decimal is noise. */

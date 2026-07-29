@@ -8,7 +8,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CAMERA_EVENT, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampOutcome, type RampSettings, type SkyState, type VendorProfile } from "./types";
+import { CAMERA_EVENT, type AppSettings, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampOutcome, type RampSettings, type SkyState, type VendorProfile } from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
@@ -109,6 +109,17 @@ export const api = {
      * the sky moves whether or not anyone is watching.
      */
     rampSky: () => invoke<SkyState | null>("ramp_sky"),
+
+    /** The secondary settings, as stored by the backend. */
+    settings: () => invoke<AppSettings>("settings_get"),
+
+    /**
+     * Replace the secondary settings.
+     *
+     * Returns what was stored, so a clamped value comes straight back rather than leaving the UI
+     * showing a number that is not in force.
+     */
+    setSettings: (value: AppSettings) => invoke<AppSettings>("settings_set", { value }),
 
     /**
      * Whether this build can ask the device for its position.

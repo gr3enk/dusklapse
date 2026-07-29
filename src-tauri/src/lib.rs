@@ -1,6 +1,7 @@
 pub mod camera;
 mod commands;
 mod ramp;
+mod settings;
 mod session;
 
 use tauri_plugin_log::{Target, TargetKind};
@@ -30,6 +31,7 @@ pub fn run() {
         .manage(session::CameraSession::default())
         .manage(commands::PreviewCache::default())
         .manage(ramp::RampState::default())
+        .manage(settings::SettingsState::default())
         .invoke_handler(tauri::generate_handler![
             commands::camera_connect,
             commands::camera_disconnect,
@@ -48,6 +50,8 @@ pub fn run() {
             commands::ramp_apply,
             commands::ramp_sky,
             commands::platform_has_geolocation,
+            commands::settings_get,
+            commands::settings_set,
             commands::camera_default_port,
         ])
         .run(tauri::generate_context!())
