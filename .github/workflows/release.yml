@@ -45,6 +45,32 @@ jobs:
             exit 1
           fi
 
+      # The CLI reads the profile with `provisioning_profile.and_then(|p| p.uuid().ok())` - the `.ok()`
+      # turns an unreadable profile into None, signing silently stays automatic, and xcodebuild then
+      # fails with "requires a provisioning profile" and no hint as to why. Checked here so a bad
+      # secret is named in twenty seconds instead of after a full Rust build.
+      - name: Verify the signing secrets
+        env:
+          CERT: ${{ secrets.IOS_CERTIFICATE }}
+          PROFILE: ${{ secrets.IOS_MOBILE_PROVISION }}
+        run: |
+          if [ -z "$CERT" ]; then echo "::error::IOS_CERTIFICATE is empty."; exit 1; fi
+          # Whitespace stripped before decoding: `base64` ends its output with a newline, and the
+          # Rust decoder the CLI uses rejects it.
+          if ! printf '%s' "$PROFILE" | tr -d '\n\r' | base64 --decode > /tmp/profile.mobileprovision; then
+            echo "::error::IOS_MOBILE_PROVISION is not valid base64."
+            exit 1
+          fi
+          if ! PLIST=$(security cms -D -i /tmp/profile.mobileprovision 2>/dev/null); then
+            echo "::error::IOS_MOBILE_PROVISION decodes but is not a provisioning profile."
+            exit 1
+          fi
+          NAME=$(printf '%s' "$PLIST" | plutil -extract Name raw - 2>/dev/null)
+          UUID=$(printf '%s' "$PLIST" | plutil -extract UUID raw - 2>/dev/null)
+          if [ -z "$UUID" ]; then echo "::error::The profile has no UUID, which is what the CLI needs."; exit 1; fi
+          echo "Profile: $NAME"
+          echo "UUID:    $UUID"
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -104,10 +130,16 @@ jobs:
       # temporary keychain has to be built by hand here.
       - name: Build
         env:
-          IOS_CERTIFICATE: ${{ secrets.IOS_CERTIFICATE }}
+          CERT: ${{ secrets.IOS_CERTIFICATE }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          IOS_MOBILE_PROVISION: ${{ secrets.IOS_MOBILE_PROVISION }}
+          PROFILE: ${{ secrets.IOS_MOBILE_PROVISION }}
         run: |
+          # Re-exported with whitespace removed rather than passed straight through: `base64` ends
+          # its output with a newline, and pasting that into a secret is the easiest mistake to make
+          # here. The certificate survives it, the profile does not.
+          export IOS_CERTIFICATE="$(printf '%s' "$CERT" | tr -d '\n\r')"
+          export IOS_MOBILE_PROVISION="$(printf '%s' "$PROFILE" | tr -d '\n\r')"
+
           pnpm tauri ios build \
             --ci \
             --export-method app-store-connect \
