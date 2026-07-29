@@ -11,6 +11,7 @@ import { useLatestFrame } from "../hooks/useLatestFrame";
 import { useRamp } from "../hooks/useRamp";
 import { useAutoRamp } from "../hooks/useAutoRamp";
 import { useSky } from "../hooks/useSky";
+import { useShotHistory } from "../hooks/useShotHistory";
 
 /**
  * How often to re-read a camera that has to be asked.
@@ -78,6 +79,9 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     // after `readAll` because it takes it: the ramp writes to the camera from Rust, so the status
     // bar has no other way of learning that a dial moved.
     const autoRamp = useAutoRamp(frame.info, ramp.settings?.active ?? false, readAll);
+    // One sample per frame, for the history overlay. Declared after the exposure state it reads so
+    // the value it records is the one the frame was actually taken with.
+    const history = useShotHistory(frame.info, exposure, ramp.settings, sky.state);
 
     const refresh = useCallback(async () => {
         setError(null);
@@ -176,7 +180,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             )}
         >
             <div className="min-h-0 landscape:col-start-2 landscape:row-start-1">
-                <PreviewPane frame={frame} count={frames} supported={info.pushesEvents} />
+                <PreviewPane frame={frame} count={frames} supported={info.pushesEvents} history={history} />
             </div>
 
             <div className="flex flex-col gap-2 landscape:col-start-2 landscape:row-start-2">

@@ -1,7 +1,20 @@
+import { ChartAreaIcon, FileChartLineIcon } from "lucide-react";
+import { useState } from "react";
+
 import type { LatestFrame } from "../hooks/useLatestFrame";
+import type { Shot } from "../hooks/useShotHistory";
 import { HistogramChart } from "./HistogramChart";
+import { ShotHistoryChart, type HistoryMode } from "./ShotHistoryChart";
+import { Button } from "./ui/Button";
 import { Label } from "./ui/Label";
 import { Notice } from "./ui/Notice";
+import { cn } from "../lib/utils";
+
+/** What each history reading is called, and what the numbers under it mean. */
+const HISTORY_MODES: Record<HistoryMode, { title: string; hint: string; next: HistoryMode }> = {
+    exposure: { title: "Dials", hint: "EV from start", next: "luminance" },
+    luminance: { title: "Luminance", hint: "measured vs target", next: "exposure" },
+};
 
 interface Props {
     frame: LatestFrame;
@@ -9,6 +22,8 @@ interface Props {
     count: number;
     /** Whether this camera reports new frames at all. Only changes the wording. */
     supported: boolean;
+    /** Every frame so far, for the history overlay. */
+    history: Shot[];
 }
 
 /**
@@ -17,8 +32,15 @@ interface Props {
  * Purely a view now: the fetching lives in `useLatestFrame`, because the measurements it
  * produces are read by the ramp controls as well as by this pane.
  */
-export function PreviewPane({ frame, count, supported }: Props) {
+export function PreviewPane({ frame, count, supported, history }: Props) {
     const { info, imageUrl, loading, error } = frame;
+
+    // View state, so it lives here rather than in the backend: which overlay someone wants to see
+    // says nothing about the sequence and should not survive into it.
+    const [showHistogram, setShowHistogram] = useState(true);
+    const [showHistory, setShowHistory] = useState(true);
+    const [historyMode, setHistoryMode] = useState<HistoryMode>("exposure");
+    const reading = HISTORY_MODES[historyMode];
 
     return (
         <section className="flex h-full min-h-0 flex-col gap-2" aria-label="Latest frame">
@@ -37,10 +59,35 @@ export function PreviewPane({ frame, count, supported }: Props) {
 
                 {loading && <span className="absolute top-[0.6rem] right-[0.6rem] rounded-full bg-black/60 px-[0.5rem] py-[0.2rem] text-[0.75rem]">Loading…</span>}
 
+                {/* Top-left, opposite the histogram, so the two never overlap however the cell is
+                    shaped. Interactive unlike the histogram - the whole panel is the button that
+                    switches readings, which is a bigger target than any control would be and
+                    needs no icon competing with the curves. */}
+                {showHistory && history.length > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setHistoryMode(reading.next)}
+                        aria-label={`${reading.title} history. Tap to show ${HISTORY_MODES[reading.next].title}.`}
+                        className={cn(
+                            "absolute top-[0.6rem] left-[0.6rem] flex h-[min(11.5rem,42%)] w-[min(18rem,50%)] flex-col gap-[0.3rem]",
+                            "rounded-lg border border-white/15 bg-black/55 p-[0.35rem] text-left backdrop-blur-sm",
+                            "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
+                        )}
+                    >
+                        <div className="flex items-baseline justify-between gap-2">
+                            <Label className="text-[0.6rem] tracking-[0.08em]">{reading.title}</Label>
+                            {/* Says which reading this is without a legend, and doubles as the
+                                hint that there is another one behind it. */}
+                            <span className="text-[0.6rem] leading-none text-text-muted">{reading.hint}</span>
+                        </div>
+                        <ShotHistoryChart shots={history} mode={historyMode} />
+                    </button>
+                )}
+
                 {/* Overlaid rather than placed beside the image: the two are read together,
                     and giving the histogram its own row would take height from the frame it
                     describes. Bottom-left, where a photograph carries least of its subject. */}
-                {info?.analysis && (
+                {showHistogram && info?.analysis && (
                     <div className="pointer-events-none absolute bottom-[0.6rem] left-[0.6rem] flex h-[min(11.5rem,42%)] w-[min(18rem,50%)] flex-col gap-[0.3rem] rounded-lg border border-white/15 bg-black/55 p-[0.35rem] backdrop-blur-sm">
                         <div className="flex items-baseline justify-between gap-2">
                             <Label className="text-[0.6rem] tracking-[0.08em]">Luminance</Label>
@@ -52,11 +99,40 @@ export function PreviewPane({ frame, count, supported }: Props) {
                     </div>
                 )}
 
-                {info && <span className="pointer-events-none absolute bottom-[0.6rem] right-[0.6rem] rounded-full bg-black/55 px-[0.5rem] py-[0.2rem] text-[0.7rem] tabular-nums text-text-muted">{info.filename}</span>}
+                {/* Beside the filename because that corner is already the pane's own furniture
+                    rather than part of the photograph. */}
+                <div className="absolute bottom-[0.6rem] right-[0.6rem] flex items-center gap-[0.4rem]">
+                    {info && <span className="pointer-events-none rounded-full bg-black/55 px-2 py-[0.2rem] text-[0.7rem] tabular-nums text-text-muted">{info.filename}</span>}
+                    <OverlayToggle label="history charts" shown={showHistory} onToggle={() => setShowHistory((shown) => !shown)} Icon={FileChartLineIcon} />
+                    <OverlayToggle label="histogram" shown={showHistogram} onToggle={() => setShowHistogram((shown) => !shown)} Icon={ChartAreaIcon} />
+                </div>
             </div>
 
             {error && <Notice variant="error">{error}</Notice>}
         </section>
+    );
+}
+
+/**
+ * Show or hide one overlay.
+ *
+ * `aria-pressed` rather than a changed label: it is one control with two states, and screen
+ * readers announce the state from that. The dimming is what says the same thing visually.
+ */
+function OverlayToggle({ label, shown, onToggle, Icon }: { label: string; shown: boolean; onToggle: () => void; Icon: typeof ChartAreaIcon }) {
+    return (
+        <Button
+            variant="icon"
+            onClick={onToggle}
+            aria-pressed={shown}
+            aria-label={`${shown ? "Hide" : "Show"} ${label}`}
+            title={`${shown ? "Hide" : "Show"} ${label}`}
+            // Smaller than a full tap target on purpose: this sits over the photograph, and the
+            // 44pt square the variant gives it would cover a corner of the frame.
+            className={cn("min-h-0 p-0 rounded-full bg-accent/10 backdrop-blur-sm text-accent", !shown && "text-text bg-text/10")}
+        >
+            <Icon className="size-4" />
+        </Button>
     );
 }
 
