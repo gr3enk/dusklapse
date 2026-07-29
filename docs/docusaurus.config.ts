@@ -82,7 +82,6 @@ const config: Config = {
                 src: "img/logo.svg",
             },
             items: [
-                { to: "/about/intro", label: "About", position: "left" },
                 { to: "/docs/intro", label: "Docs", position: "left" },
                 {
                     href: "https://github.com/gr3enk/dusklapse",
