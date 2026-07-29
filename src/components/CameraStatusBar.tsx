@@ -1,4 +1,7 @@
-import { ImageIcon } from "lucide-react";
+import { ClockIcon, ImageIcon, RotateCwFadingClockIcon } from "lucide-react";
+
+import { useElapsed } from "../hooks/useElapsed";
+import type { Shot } from "../hooks/useShotHistory";
 import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings, type RampSettings } from "../lib/types";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
@@ -18,6 +21,8 @@ interface Props {
     ramp: RampSettings | null;
     /** The dial the ramp moved most recently, or `null` if it has not moved one. */
     lastRamped: Dial | null;
+    /** Every frame so far, for the measured interval and the running time. */
+    history: Shot[];
     onChangeDial: (dial: Dial, raw: string) => void;
     onDisconnect: () => void;
 }
@@ -30,9 +35,15 @@ interface Props {
  * editable rather than read-only - changing exposure is the whole point of the app, and
  * a detour through another screen for it would be silly.
  */
-export function CameraStatusBar({ info, capabilities, exposure, battery, frames, busy, ramp, lastRamped, onChangeDial, onDisconnect }: Props) {
+export function CameraStatusBar({ info, capabilities, exposure, battery, frames, busy, ramp, lastRamped, history, onChangeDial, onDisconnect }: Props) {
+    // Measured, never configured: the intervalometer owns the timing and this app only watches it.
+    // A number typed in here could disagree with what the camera is actually doing, and then it
+    // would be worse than no number at all.
+    const interval = measuredInterval(history);
+    const running = useElapsed(history[0]?.at ?? null);
+
     return (
-        <Panel className="flex flex-wrap items-end gap-x-4 gap-y-2 px-3 py-[0.6rem]" aria-label="Camera status">
+        <Panel style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr auto" }} className="grid gap-x-4 gap-y-2 px-3 py-[0.6rem]" aria-label="Camera status">
             {/* Takes the width its content needs and no more, so what is left over goes to
                 the meta group beside it. Given room to grow, the dials would claim all of
                 it and force the meta group onto a line of its own. */}
@@ -59,19 +70,6 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                 reads as a mistake rather than as a layout. */}
             <div className="flex min-w-0 flex-auto flex-wrap items-center justify-end gap-x-3 gap-y-2">
                 <div className="flex min-w-0 items-center gap-2">
-                    {info.pushesEvents && (
-                        <Badge className="flex items-center gap-1">
-                            {frames} <ImageIcon className="size-5" />
-                        </Badge>
-                    )}
-                    {battery && (
-                        <Badge className={cn("flex items-center gap-1", battery.percent && battery.percent <= 15 && "text-danger")}>
-                            {battery.percent === null ? battery.label : `${battery.percent}%`} <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
-                        </Badge>
-                    )}
-                </div>
-
-                <div className="flex min-w-0 items-center gap-2">
                     <span className="truncate font-semibold" title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`].filter(Boolean).join(" · ")}>
                         {info.model}
                     </span>
@@ -80,8 +78,70 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, frames,
                     </Button>
                 </div>
             </div>
+            <div className="flex w-full justify-end min-w-0 items-center gap-2 col-span-2">
+                {running !== null && (
+                    <Badge className="flex items-center gap-1" title="Time since the first frame">
+                        {formatDuration(running)} <ClockIcon className="size-5" />
+                    </Badge>
+                )}
+                {info.pushesEvents && (
+                    <Badge className="flex items-center gap-1">
+                        {frames} <ImageIcon className="size-5" />
+                    </Badge>
+                )}
+                {interval !== null && (
+                    <Badge className="flex items-center gap-1" title="Interval measured between the last frames">
+                        {formatInterval(interval)} <RotateCwFadingClockIcon className="size-5" />
+                    </Badge>
+                )}
+                {battery && (
+                    <Badge className={cn("flex items-center gap-1", battery.percent && battery.percent <= 15 && "text-danger")}>
+                        {battery.percent === null ? battery.label : `${battery.percent}%`} <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
+                    </Badge>
+                )}
+            </div>
         </Panel>
     );
+}
+
+/** How many recent gaps to measure the interval over. */
+const INTERVAL_WINDOW = 10;
+
+/**
+ * The interval between frames, in milliseconds, or `null` before there are two to compare.
+ *
+ * The median of the recent gaps rather than the mean. A dropped frame, a reconnect, or a moment
+ * where the preview fetch fell behind leaves one gap at twice the length, and a mean carries that
+ * outlier for the rest of the session - a 7s interval would read as 8.4s and never settle back.
+ * A median ignores it.
+ */
+function measuredInterval(history: Shot[]): number | null {
+    if (history.length < 2) return null;
+
+    const recent = history.slice(-(INTERVAL_WINDOW + 1));
+    const gaps = recent.slice(1).map((shot, index) => shot.at - recent[index].at);
+
+    const sorted = [...gaps].sort((a, b) => a - b);
+    const middle = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
+}
+
+/** A tenth of a second below ten, whole seconds above - past that the decimal is noise. */
+function formatInterval(milliseconds: number): string {
+    if (isNaN(milliseconds)) return "-";
+    const seconds = milliseconds / 1000;
+    return seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`;
+}
+
+/** `m:ss` under an hour, `h:mm:ss` above. */
+function formatDuration(milliseconds: number): string {
+    const total = Math.floor(milliseconds / 1000);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const seconds = total % 60;
+
+    const pad = (value: number) => value.toString().padStart(2, "0");
+    return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
 }
 
 /** What the ramp is doing to one dial, as far as this strip is concerned. */

@@ -15,6 +15,15 @@ const MAX_SHOTS = 2000;
 export interface Shot {
     /** 1-based shot number. The x axis. */
     index: number;
+    /**
+     * When this frame was recorded, as `Date.now()`.
+     *
+     * The moment its preview arrived, not the moment the shutter fired - there is a transfer in
+     * between and the camera reports no capture time. For the interval that does not matter: the
+     * latency is roughly constant, so it cancels out of the gap between two arrivals. It does put
+     * the start of the sequence a second or two late.
+     */
+    at: number;
     /** Stops of each dial, or `null` on bulb or auto where there is no stop position. */
     shutter: number | null;
     aperture: number | null;
@@ -61,6 +70,7 @@ export function useShotHistory(frame: PreviewInfo | null, exposure: ExposureSett
         setShots((previous) => {
             const shot: Shot = {
                 index: previous.length + 1,
+                at: Date.now(),
                 shutter: current?.shutter?.stops ?? null,
                 aperture: current?.aperture?.stops ?? null,
                 iso: current?.iso?.stops ?? null,

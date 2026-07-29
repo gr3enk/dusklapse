@@ -195,6 +195,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     // Only a change that actually reached the camera counts. A planned move the
                     // body refused would otherwise mark a dial the ramp never managed to turn.
                     lastRamped={autoRamp.outcome?.change?.applied ? autoRamp.outcome.change.dial : null}
+                    history={history}
                     onChangeDial={changeDial}
                     onDisconnect={disconnect}
                 />
