@@ -1,6 +1,6 @@
 [package]
 name = "dusklapse"
-version = "0.1.0"
+version = "0.1.1"
 description = "Holy-grail timelapse control for networked cameras"
 authors = ["Jakob"]
 edition = "2021"
