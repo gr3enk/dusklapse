@@ -146,6 +146,28 @@ jobs:
           ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
         run: xcrun altool --upload-app -f "${{ steps.ipa.outputs.path }}" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
 
+      # After the upload, so the existence of a release means the build actually reached App Store
+      # Connect. On bump=none there is no tag to hang one on, hence the condition.
+      #
+      # `--generate-notes` writes the changelog since the previous tag; `--notes` is prepended to
+      # it. The build number goes there because it is the one thing the git history cannot tell you
+      # later - which TestFlight build belongs to which commit, which is exactly what you need when
+      # a crash report turns up in three months.
+      #
+      # No assets. The .ipa is signed for App Store distribution and will not install on any device
+      # outside TestFlight, so offering it as a download would promise something it cannot do. It
+      # stays a build artifact of this run instead.
+      - name: GitHub release
+        if: inputs.bump != 'none'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.version.outputs.value }}" \
+            --verify-tag \
+            --title "v${{ steps.version.outputs.value }}" \
+            --generate-notes \
+            --notes 'TestFlight build `${{ github.run_number }}`.'
+
       - name: Summary
         run: |
           {
