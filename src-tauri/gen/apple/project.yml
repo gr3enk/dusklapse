@@ -76,6 +76,12 @@ targets:
         LIBRARY_SEARCH_PATHS[arch=arm64]: $(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
         ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES: true
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
+        # Stated here rather than left to the CLI, which writes it into project.pbxproj on every
+        # build from `bundle.iOS.developmentTeam`. That works right up to the next
+        # `xcodegen generate`, which rebuilds the pbxproj from this file and drops it - and without
+        # a team, automatic signing cannot resolve a profile, so even a debug build fails with
+        # "requires a provisioning profile".
+        DEVELOPMENT_TEAM: VB4YTUPT3S
       # Release only, so `tauri ios dev` keeps the automatic signing that works well against a
       # connected device. A release build is the only one that has to be signed for distribution.
       #
@@ -88,6 +94,11 @@ targets:
       # Named rather than given as a UUID: a regenerated profile keeps its name and loses its UUID.
       # The export step picks the same setting up as its fallback, so this covers both halves.
       configs:
+        # Spelled out rather than left to the absence of a key: with `configs` present, the
+        # inherited default is not obvious, and a debug build that silently expects a distribution
+        # profile fails in a way that reads like a signing problem on the device.
+        debug:
+          CODE_SIGN_STYLE: Automatic
         release:
           CODE_SIGN_STYLE: Manual
           PROVISIONING_PROFILE_SPECIFIER: GH Release Action

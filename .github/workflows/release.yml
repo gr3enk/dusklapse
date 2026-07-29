@@ -29,7 +29,7 @@ jobs:
   release:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # Tags, so a bump can see what already exists.
           fetch-depth: 0
@@ -86,9 +86,9 @@ jobs:
           echo "Profile: $NAME"
           echo "UUID:    $UUID"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
@@ -180,10 +180,14 @@ jobs:
           echo "path=$FOUND" >> "$GITHUB_OUTPUT"
 
       # Kept whatever happens next, so a failed upload does not mean a lost build.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Dusklapse-${{ steps.version.outputs.value }}-${{ github.run_number }}
           path: ${{ steps.ipa.outputs.path }}
+          # Short on purpose. Artifacts inherit the repository's visibility, so once this repo is
+          # public anyone can download them - and this one is only the fallback for an upload that
+          # failed. After that the build lives in App Store Connect.
+          retention-days: 7
 
       # Validation first. It is the same check the Xcode Organizer runs, and it is what catches a
       # malformed bundle in a minute instead of after an upload and a rejection mail.

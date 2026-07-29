@@ -27,7 +27,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Tauri links against the system WebView even to build a test binary, so these are needed to
       # compile at all, not only to bundle. On macOS they come with the OS, which is why this step

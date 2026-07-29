@@ -54,6 +54,21 @@
 	<string>Dusklapse uses your location to work out when sunset, twilight and night begin, so it can darken the timelapse as the sky does.</string>
 
 	<!--
+	  Answers the export compliance question once here instead of on every upload.
+	
+	  `false` is the accurate answer, not a convenient one: `reqwest` is pulled in with
+	  `default-features = false` and only the `json` feature, so no TLS backend is compiled
+	  in at all - `rustls`, `native-tls` and `openssl` appear zero times in Cargo.lock. The
+	  app speaks plaintext HTTP to cameras on a private network and fetches nothing from the
+	  internet; the frontend is embedded in the binary rather than loaded over the wire.
+	
+	  Encryption that iOS itself provides would be exempt anyway. This key states that there
+	  is none beyond it.
+	-->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
+	<!--
 	  Camera APIs are plaintext HTTP on a private network and always will be.
 	  All camera I/O goes through reqwest in Rust, which has its own stack and is
 	  not subject to App Transport Security - this exemption is only so the
