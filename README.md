@@ -16,6 +16,19 @@ Dusklapse is currently still at a very early stage and is not yet stable. If you
 
 If you would like to contribute to the project, please read [contributing guide](./CONTRIBUTING.md).
 
+## Camera Vendors and Models
+
+Dusklapse supports the following camera manufacturers:
+
+| Vendor    | Status                   |
+| --------- | ------------------------ |
+| Canon     | planned for the future   |
+| Nikon     | under active development |
+| Panasonic | planned for the future   |
+| Sony      | planned for the future   |
+
+A detailed list of supported models can be found [here](./CAMERAS.md)
+
 ## License
 
 Licensed under either of
