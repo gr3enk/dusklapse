@@ -107,7 +107,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           VERSION=$(node scripts/bump-version.mjs "${{ inputs.bump }}")
           git commit -am "Release v$VERSION"
-          git tag "v$VERSION"
+          # Annotated (`-a`), not lightweight: `--follow-tags` pushes annotated tags and silently
+          # skips lightweight ones, so a plain `git tag` left the commit on main with no tag behind
+          # it - and the release step then aborted on --verify-tag after the upload had already
+          # succeeded. An annotated tag also carries who made it and when, which a release wants.
+          git tag -a "v$VERSION" -m "Release v$VERSION"
           git push --follow-tags
 
       - run: pnpm install --frozen-lockfile
