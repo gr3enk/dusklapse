@@ -1,24 +1,24 @@
 {
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Capability for the main window",
-  "windows": ["main"],
-  "permissions": [
-    "core:default",
-    "opener:default",
-    "log:default",
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "default",
+    "description": "Capability for the main window",
+    "windows": ["main"],
+    "permissions": [
+        "core:default",
+        "opener:default",
+        "log:default",
 
-    "geolocation:allow-check-permissions",
-    "geolocation:allow-request-permissions",
-    "geolocation:allow-get-current-position"
-  ],
-  "comment": [
-    "The geolocation commands are listed one by one because that plugin ships no default set:",
-    "`geolocation:default` exists, so it passes build-time validation, but it grants nothing and",
-    "every call is refused at runtime.",
-    "",
-    "Only these three. `watch-position` and `clear-watch` are deliberately absent - the daylight",
-    "curve needs one fix per session and a tripod does not move, so a continuous location",
-    "subscription would be asking for more than the feature uses."
-  ]
+        "geolocation:allow-check-permissions",
+        "geolocation:allow-request-permissions",
+        "geolocation:allow-get-current-position"
+    ],
+    "comment": [
+        "The geolocation commands are listed one by one because that plugin ships no default set:",
+        "`geolocation:default` exists, so it passes build-time validation, but it grants nothing and",
+        "every call is refused at runtime.",
+        "",
+        "Only these three. `watch-position` and `clear-watch` are deliberately absent - the daylight",
+        "curve needs one fix per session and a tripod does not move, so a continuous location",
+        "subscription would be asking for more than the feature uses."
+    ]
 }

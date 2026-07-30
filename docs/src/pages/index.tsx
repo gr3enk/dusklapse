@@ -25,14 +25,18 @@ export default function Home(): ReactNode {
                     </Heading>
                     <p className={styles.tagline}>{siteConfig.tagline}</p>
                     <p className={styles.summary}>
-                        Dusklapse ramps a camera's exposure through a sunrise or a sunset, so the finished sequence does not step from frame to frame as the light changes. It runs on an iPhone or iPad and
-                        talks to the camera over its own Wi-Fi.
+                        Dusklapse ramps a camera's exposure through a sunrise or a sunset, so the finished sequence does
+                        not step from frame to frame as the light changes. It runs on an iPhone or iPad and talks to the
+                        camera over its own Wi-Fi.
                     </p>
                     <div className={styles.actions}>
                         <Link className="button button--primary button--lg" to="/docs/intro">
                             Read the docs
                         </Link>
-                        <Link className="button button--secondary button--lg" href="https://github.com/gr3enk/dusklapse">
+                        <Link
+                            className="button button--secondary button--lg"
+                            href="https://github.com/gr3enk/dusklapse"
+                        >
                             GitHub
                         </Link>
                     </div>

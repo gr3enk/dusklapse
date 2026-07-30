@@ -311,7 +311,9 @@ impl PtpIp {
 
         // Session id must be non-zero.
         session.operation(OP_OPEN_SESSION, &[1], IO_TIMEOUT).await?;
-        let raw = session.operation(OP_GET_DEVICE_INFO, &[], IO_TIMEOUT).await?;
+        let raw = session
+            .operation(OP_GET_DEVICE_INFO, &[], IO_TIMEOUT)
+            .await?;
         session.device_info = parse_device_info(&raw)?;
         log::info!(
             "PTP-IP session open: {} {} ({})",
@@ -403,7 +405,10 @@ impl PtpIp {
     }
 
     pub async fn close(&self) -> CameraResult<()> {
-        let result = self.operation(OP_CLOSE_SESSION, &[], IO_TIMEOUT).await.map(|_| ());
+        let result = self
+            .operation(OP_CLOSE_SESSION, &[], IO_TIMEOUT)
+            .await
+            .map(|_| ());
         self.events.abort();
         result
     }
@@ -618,10 +623,7 @@ async fn write_packet<W: tokio::io::AsyncWrite + Unpin>(
         .map_err(|err| CameraError::Transport(err.to_string()))
 }
 
-async fn read_packet(
-    stream: &mut TcpStream,
-    timeout: Duration,
-) -> CameraResult<(u32, Vec<u8>)> {
+async fn read_packet(stream: &mut TcpStream, timeout: Duration) -> CameraResult<(u32, Vec<u8>)> {
     let mut header = [0u8; 8];
     tokio::time::timeout(timeout, stream.read_exact(&mut header))
         .await
@@ -920,7 +922,7 @@ mod tests {
         data.extend_from_slice(&0u16.to_le_bytes()); // association type
         data.extend_from_slice(&0u32.to_le_bytes()); // association desc
         data.extend_from_slice(&1u32.to_le_bytes()); // sequence number
-        // Filename "A.JPG" as a PTP string: 6 chars including the terminator.
+                                                     // Filename "A.JPG" as a PTP string: 6 chars including the terminator.
         data.push(6);
         for unit in "A.JPG\0".encode_utf16() {
             data.extend_from_slice(&unit.to_le_bytes());

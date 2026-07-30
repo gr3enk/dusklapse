@@ -8,16 +8,44 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { CAMERA_EVENT, type AppSettings, type BatteryStatus, type CameraEvent, type CameraInfo, type CameraTarget, type Dial, type ExposureCapabilities, type ExposureSettings, type PreviewInfo, type RampOutcome, type RampSettings, type SkyState, type VendorProfile } from "./types";
+import {
+    CAMERA_EVENT,
+    type AppSettings,
+    type BatteryStatus,
+    type CameraEvent,
+    type CameraInfo,
+    type CameraTarget,
+    type Dial,
+    type ExposureCapabilities,
+    type ExposureSettings,
+    type PreviewInfo,
+    type RampOutcome,
+    type RampSettings,
+    type SkyState,
+    type VendorProfile,
+} from "./types";
 
 /** Serialized form of `CameraError`. Branch on `kind`, display `message`. */
 export interface CameraError {
-    kind: "notConnected" | "unsupportedVendor" | "transport" | "rejected" | "protocol" | "unavailable" | "valueNotSelectable";
+    kind:
+        | "notConnected"
+        | "unsupportedVendor"
+        | "transport"
+        | "rejected"
+        | "protocol"
+        | "unavailable"
+        | "valueNotSelectable";
     message: string;
 }
 
 export function isCameraError(error: unknown): error is CameraError {
-    return typeof error === "object" && error !== null && "kind" in error && "message" in error && typeof (error as CameraError).message === "string";
+    return (
+        typeof error === "object" &&
+        error !== null &&
+        "kind" in error &&
+        "message" in error &&
+        typeof (error as CameraError).message === "string"
+    );
 }
 
 /**
@@ -165,5 +193,6 @@ export const api = {
      * `listen` resolves after the channel is registered, and discarding the promise
      * leaks the handler.
      */
-    onCameraEvent: (handler: (event: CameraEvent) => void) => listen<CameraEvent>(CAMERA_EVENT, (message) => handler(message.payload)),
+    onCameraEvent: (handler: (event: CameraEvent) => void) =>
+        listen<CameraEvent>(CAMERA_EVENT, (message) => handler(message.payload)),
 };

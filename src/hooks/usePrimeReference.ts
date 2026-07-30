@@ -27,7 +27,10 @@ export interface PrimeReference {
  * without thinking about it - reconnecting to a sequence under way leaves its reference alone.
  * See `RampState::prime_reference`.
  */
-export function usePrimeReference(frame: PreviewInfo | null, onPrimed: (settings: RampSettings) => void): PrimeReference {
+export function usePrimeReference(
+    frame: PreviewInfo | null,
+    onPrimed: (settings: RampSettings) => void,
+): PrimeReference {
     const [settled, setSettled] = useState(false);
     const [error, setError] = useState<string | null>(null);
 

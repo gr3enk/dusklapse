@@ -43,9 +43,7 @@ pub fn iso_stops(iso: f32) -> f32 {
 /// must never treat them as a candidate.
 pub fn parse_shutter_seconds(raw: &str) -> Option<f32> {
     let token = raw.trim();
-    if token.is_empty()
-        || token.eq_ignore_ascii_case("bulb")
-        || token.eq_ignore_ascii_case("auto")
+    if token.is_empty() || token.eq_ignore_ascii_case("bulb") || token.eq_ignore_ascii_case("auto")
     {
         return None;
     }
@@ -181,17 +179,17 @@ pub fn snap_shutter(seconds: f32) -> Option<(f32, &'static str)> {
     }
     let target = seconds.log2();
 
-    let (nominal, label, distance) = NOMINAL_SHUTTER.iter().fold(
-        (0.0f32, "", f32::INFINITY),
-        |best, (candidate, label)| {
-            let distance = (candidate.log2() - target).abs();
-            if distance < best.2 {
-                (*candidate, *label, distance)
-            } else {
-                best
-            }
-        },
-    );
+    let (nominal, label, distance) =
+        NOMINAL_SHUTTER
+            .iter()
+            .fold((0.0f32, "", f32::INFINITY), |best, (candidate, label)| {
+                let distance = (candidate.log2() - target).abs();
+                if distance < best.2 {
+                    (*candidate, *label, distance)
+                } else {
+                    best
+                }
+            });
 
     (distance <= SHUTTER_SNAP_TOLERANCE_STOPS).then_some((nominal, label))
 }

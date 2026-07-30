@@ -88,7 +88,11 @@ mod tests {
     #[tokio::test]
     async fn an_absurd_value_is_capped() {
         let state = SettingsState::default();
-        let stored = state.set(AppSettings { transfer_every: 5000 }).await;
+        let stored = state
+            .set(AppSettings {
+                transfer_every: 5000,
+            })
+            .await;
         assert_eq!(stored.transfer_every, TRANSFER_EVERY_MAX);
     }
 

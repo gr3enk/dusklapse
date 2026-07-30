@@ -46,7 +46,14 @@ const SIZES: Record<ButtonSize, string> = {
  * into a form submits it - a footgun better opted into here than remembered at every
  * call site.
  */
-export function Button({ variant = "secondary", size = "default", type = "button", className, children, ...rest }: Props) {
+export function Button({
+    variant = "secondary",
+    size = "default",
+    type = "button",
+    className,
+    children,
+    ...rest
+}: Props) {
     return (
         <button
             type={type}

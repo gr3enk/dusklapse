@@ -13,7 +13,7 @@
 #
 # esbuild arrives through vite.
 allowBuilds:
-  esbuild: true
+    esbuild: true
 
 # Do not run the dependency check before a script.
 #

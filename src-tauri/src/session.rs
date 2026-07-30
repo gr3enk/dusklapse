@@ -26,11 +26,7 @@ pub struct CameraSession {
 }
 
 impl CameraSession {
-    pub async fn connect(
-        &self,
-        target: CameraTarget,
-        sink: EventSink,
-    ) -> CameraResult<CameraInfo> {
+    pub async fn connect(&self, target: CameraTarget, sink: EventSink) -> CameraResult<CameraInfo> {
         // Connect before taking the lock: a probe against an unreachable host
         // blocks for the full request timeout, and the UI still needs to be able
         // to read the current session while that runs.
@@ -169,7 +165,10 @@ mod tests {
         session.connect(mock(), discard()).await.unwrap();
 
         let error = session
-            .connect(CameraTarget::new(Vendor::Sony, "10.0.0.1", 15740), discard())
+            .connect(
+                CameraTarget::new(Vendor::Sony, "10.0.0.1", 15740),
+                discard(),
+            )
             .await
             .unwrap_err();
         assert_eq!(error.kind(), "unsupportedVendor");

@@ -48,7 +48,12 @@ export interface Shot {
  * decision needs one - each frame is judged against the reference on its own - and inventing a
  * store there would mean a second source of truth for something only a chart reads.
  */
-export function useShotHistory(frame: PreviewInfo | null, exposure: ExposureSettings | null, ramp: RampSettings | null, sky: SkyState | null): Shot[] {
+export function useShotHistory(
+    frame: PreviewInfo | null,
+    exposure: ExposureSettings | null,
+    ramp: RampSettings | null,
+    sky: SkyState | null,
+): Shot[] {
     const [shots, setShots] = useState<Shot[]>([]);
 
     // Read at the moment a frame arrives rather than depended upon: a change of exposure or

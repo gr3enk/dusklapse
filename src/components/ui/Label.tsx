@@ -23,5 +23,9 @@ interface Props {
  */
 export function Label({ className, children, asLegend }: Props) {
     const classes = cn("text-[0.7rem] font-semibold uppercase tracking-[0.06em] text-text-muted", className);
-    return asLegend ? <legend className={cn("p-0", classes)}>{children}</legend> : <span className={classes}>{children}</span>;
+    return asLegend ? (
+        <legend className={cn("p-0", classes)}>{children}</legend>
+    ) : (
+        <span className={classes}>{children}</span>
+    );
 }

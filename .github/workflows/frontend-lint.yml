@@ -7,58 +7,58 @@ name: Frontend Lint
 # dependably supported by the workflow parser, and a workflow that silently fails to load is worse
 # than a few duplicated lines.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "index.html"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "tsconfig*.json"
-      - "vite.config.ts"
-      - "eslint.config.js"
-      - ".github/workflows/frontend-lint.yml"
-  pull_request:
-    paths:
-      - "src/**"
-      - "index.html"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - "tsconfig*.json"
-      - "vite.config.ts"
-      - "eslint.config.js"
-      - ".github/workflows/frontend-lint.yml"
+    push:
+        branches: [main]
+        paths:
+            - "src/**"
+            - "index.html"
+            - "package.json"
+            - "pnpm-lock.yaml"
+            - "tsconfig*.json"
+            - "vite.config.ts"
+            - "eslint.config.js"
+            - ".github/workflows/frontend-lint.yml"
+    pull_request:
+        paths:
+            - "src/**"
+            - "index.html"
+            - "package.json"
+            - "pnpm-lock.yaml"
+            - "tsconfig*.json"
+            - "vite.config.ts"
+            - "eslint.config.js"
+            - ".github/workflows/frontend-lint.yml"
 
 # A second push to the same branch makes the first run pointless, so it is cancelled. Not on main,
 # where each commit's result is worth keeping.
 concurrency:
-  group: frontend-lint-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    group: frontend-lint-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
+    lint:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
 
-      # Before setup-node, which needs pnpm to exist in order to cache its store. Reads the version
-      # from the `packageManager` field, so CI runs the same pnpm as a developer machine.
-      - uses: pnpm/action-setup@v6
+            # Before setup-node, which needs pnpm to exist in order to cache its store. Reads the version
+            # from the `packageManager` field, so CI runs the same pnpm as a developer machine.
+            - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: pnpm
 
-      # `--frozen-lockfile` fails rather than resolving anew, so a package.json changed without its
-      # lockfile is caught here instead of drifting.
-      - run: pnpm install --frozen-lockfile
+            # `--frozen-lockfile` fails rather than resolving anew, so a package.json changed without its
+            # lockfile is caught here instead of drifting.
+            - run: pnpm install --frozen-lockfile
 
-      # Named separately so a red check says which of the two failed without opening the log.
-      - name: ESLint
-        run: pnpm lint
+            # Named separately so a red check says which of the two failed without opening the log.
+            - name: ESLint
+              run: pnpm lint
 
-      # Here rather than in the test workflow: it is a static check on code that never runs, which
-      # is what the rest of this workflow is.
-      - name: Typecheck
-        run: pnpm typecheck
+            # Here rather than in the test workflow: it is a static check on code that never runs, which
+            # is what the rest of this workflow is.
+            - name: Typecheck
+              run: pnpm typecheck

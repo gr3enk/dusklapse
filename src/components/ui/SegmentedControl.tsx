@@ -25,7 +25,14 @@ interface Props<T extends string> {
  */
 export function SegmentedControl<T extends string>({ options, value, onChange, className, ...rest }: Props<T>) {
     return (
-        <div role="group" className={cn("grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-[0.35rem] rounded-card border border-border bg-surface p-[0.3rem]", className)} {...rest}>
+        <div
+            role="group"
+            className={cn(
+                "grid grid-cols-[repeat(auto-fit,minmax(5rem,1fr))] gap-[0.35rem] rounded-card border border-border bg-surface p-[0.3rem]",
+                className,
+            )}
+            {...rest}
+        >
             {options.map((option) => {
                 const active = option.value === value;
                 return (
@@ -37,7 +44,8 @@ export function SegmentedControl<T extends string>({ options, value, onChange, c
                         className={cn(
                             "min-h-9 cursor-pointer rounded-lg border-0 bg-transparent text-[0.95rem] text-text-muted",
                             "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
-                            active && "bg-surface-raised font-semibold text-text shadow-[inset_0_0_0_1px_var(--border)]",
+                            active &&
+                                "bg-surface-raised font-semibold text-text shadow-[inset_0_0_0_1px_var(--border)]",
                         )}
                     >
                         {option.label}

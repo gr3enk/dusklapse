@@ -35,7 +35,9 @@ if (parts.length !== 3 || parts.some((n) => !Number.isInteger(n) || n < 0)) {
 
 const [major, minor, patch] = parts;
 // A minor bump resets the patch and a major resets both, or the numbers stop meaning anything.
-const next = { major: [major + 1, 0, 0], minor: [major, minor + 1, 0], patch: [major, minor, patch + 1] }[level].join(".");
+const next = { major: [major + 1, 0, 0], minor: [major, minor + 1, 0], patch: [major, minor, patch + 1] }[level].join(
+    ".",
+);
 
 for (const file of FILES) {
     const raw = readFileSync(file, "utf8");

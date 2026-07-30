@@ -258,7 +258,12 @@ mod tests {
 
         let histogram = analysis.histogram;
         assert!(histogram.pixels > 0);
-        for channel in [&histogram.red, &histogram.green, &histogram.blue, &histogram.luma] {
+        for channel in [
+            &histogram.red,
+            &histogram.green,
+            &histogram.blue,
+            &histogram.luma,
+        ] {
             assert_eq!(channel.len(), 256);
             assert_eq!(channel.iter().sum::<u32>(), histogram.pixels);
         }
@@ -316,6 +321,9 @@ mod tests {
             .set_exposure(Dial::Shutter, &target.raw)
             .await
             .unwrap();
-        assert_eq!(camera.exposure().await.unwrap().shutter.unwrap().raw, "1/60");
+        assert_eq!(
+            camera.exposure().await.unwrap().shutter.unwrap().raw,
+            "1/60"
+        );
     }
 }

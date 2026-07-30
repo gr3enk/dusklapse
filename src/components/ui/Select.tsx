@@ -45,7 +45,18 @@ interface Props extends Omit<SelectHTMLAttributes<HTMLSelectElement>, "children"
  * Native on purpose: on iOS this becomes the system picker, which is far better on a
  * touch screen than any custom dropdown, and it needs no code to be accessible.
  */
-export function Select({ label, options, emptyLabel = "-", value, fieldClassName, className, hideLabel, allowEmpty, labelAdornment, ...rest }: Props) {
+export function Select({
+    label,
+    options,
+    emptyLabel = "-",
+    value,
+    fieldClassName,
+    className,
+    hideLabel,
+    allowEmpty,
+    labelAdornment,
+    ...rest
+}: Props) {
     return (
         <label className={cn("flex min-w-0 flex-1 flex-col gap-1", fieldClassName)}>
             {hideLabel ? (

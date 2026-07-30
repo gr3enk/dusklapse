@@ -14,8 +14,8 @@ use crate::camera::{
 };
 use crate::ramp::plan::{plan, BlockedDial};
 use crate::ramp::{now_unix_seconds, RampSettings, RampState, SkyState};
-use crate::settings::{AppSettings, SettingsState};
 use crate::session::{CameraSession, EventSink};
+use crate::settings::{AppSettings, SettingsState};
 
 /// Channel the frontend listens on for anything the camera reports unprompted.
 pub const CAMERA_EVENT: &str = "camera://event";
@@ -69,9 +69,7 @@ pub async fn camera_disconnect(session: State<'_, CameraSession>) -> CameraResul
 /// Wrapped in a `Result` it can never fail with: Tauri requires that of any
 /// async command borrowing state.
 #[tauri::command]
-pub async fn camera_status(
-    session: State<'_, CameraSession>,
-) -> CameraResult<Option<CameraInfo>> {
+pub async fn camera_status(session: State<'_, CameraSession>) -> CameraResult<Option<CameraInfo>> {
     Ok(session.info().await)
 }
 
@@ -370,7 +368,11 @@ pub async fn ramp_apply(
                 });
             }
             Err(err) => {
-                log::warn!("ramp could not move {:?} to {}: {err}", change.dial, change.to);
+                log::warn!(
+                    "ramp could not move {:?} to {}: {err}",
+                    change.dial,
+                    change.to
+                );
                 applied = Some(AppliedChange {
                     dial: change.dial,
                     from: change.from.clone(),

@@ -136,8 +136,16 @@ export function ConnectScreen({ onConnected }: Props) {
 
                 <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
                     <Label asLegend>Camera</Label>
-                    <SegmentedControl aria-label="Camera" value={vendor} onChange={setVendor} options={profiles.map((profile) => ({ value: profile.vendor, label: profile.label }))} />
-                    <HintStack active={vendor} items={profiles.map((profile) => ({ key: profile.vendor, content: profile.summary }))} />
+                    <SegmentedControl
+                        aria-label="Camera"
+                        value={vendor}
+                        onChange={setVendor}
+                        options={profiles.map((profile) => ({ value: profile.vendor, label: profile.label }))}
+                    />
+                    <HintStack
+                        active={vendor}
+                        items={profiles.map((profile) => ({ key: profile.vendor, content: profile.summary }))}
+                    />
                 </fieldset>
 
                 {/* Kept in the layout even when it has nothing to show. The content is
@@ -156,7 +164,13 @@ export function ConnectScreen({ onConnected }: Props) {
                         spellCheck={false}
                         enterKeyHint="go"
                     />
-                    <TextField label="Port" fieldClassName="flex-[0_0_6.5rem]" value={port} onChange={(event) => setPort(event.currentTarget.value)} inputMode="numeric" />
+                    <TextField
+                        label="Port"
+                        fieldClassName="flex-[0_0_6.5rem]"
+                        value={port}
+                        onChange={(event) => setPort(event.currentTarget.value)}
+                        inputMode="numeric"
+                    />
                 </div>
 
                 <div className="flex gap-2">
@@ -203,7 +217,9 @@ function ConnectionHelp({ vendor, onClose }: { vendor: Vendor; onClose: () => vo
                 <h2 className="m-0 text-[1.1rem] font-[650]">Connection help</h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{Help ? <Help /> : <Notice>There is nothing to set up for this camera beyond picking it.</Notice>}</div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                {Help ? <Help /> : <Notice>There is nothing to set up for this camera beyond picking it.</Notice>}
+            </div>
         </div>
     );
 }

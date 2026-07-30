@@ -50,9 +50,18 @@ export function DialRampRow({ label, config, values, rampActive, busy, onChange 
         <div className="flex flex-col gap-2">
             <span>{label}</span>
             <div className="flex items-center gap-2">
-                <Toggle disabled={!rampActive} checked={config.enabled} onChange={(enabled) => onChange({ ...config, enabled })} />
+                <Toggle
+                    disabled={!rampActive}
+                    checked={config.enabled}
+                    onChange={(enabled) => onChange({ ...config, enabled })}
+                />
 
-                <Button disabled={disabled} onClick={() => handleChangeLimit("down")} variant="secondary" size="compact">
+                <Button
+                    disabled={disabled}
+                    onClick={() => handleChangeLimit("down")}
+                    variant="secondary"
+                    size="compact"
+                >
                     <MinusIcon className="size-4" />
                 </Button>
                 <Select

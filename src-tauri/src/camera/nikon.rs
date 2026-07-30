@@ -137,7 +137,9 @@ fn make_mapper(recent: Arc<Mutex<VecDeque<u32>>>) -> EventMapper {
 /// contents are still a valid list of handles, and giving up on previews for the
 /// rest of the session would be the worse outcome.
 fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 pub fn profile() -> VendorProfile {
@@ -170,15 +172,18 @@ pub struct NikonPtpIp {
 impl NikonPtpIp {
     pub async fn connect(target: CameraTarget) -> CameraResult<Self> {
         let recent = Arc::new(Mutex::new(VecDeque::with_capacity(RECENT_HANDLES)));
-        let session =
-            PtpIp::connect(&target.host, target.port, CLIENT_NAME, make_mapper(recent.clone()))
-                .await?;
+        let session = PtpIp::connect(
+            &target.host,
+            target.port,
+            CLIENT_NAME,
+            make_mapper(recent.clone()),
+        )
+        .await?;
 
         let device = session.device_info();
         let info = CameraInfo {
             vendor: Vendor::Nikon,
-            manufacturer: non_empty(&device.manufacturer)
-                .unwrap_or_else(|| "Nikon".to_string()),
+            manufacturer: non_empty(&device.manufacturer).unwrap_or_else(|| "Nikon".to_string()),
             model: non_empty(&device.model).unwrap_or_else(|| "Unknown body".to_string()),
             // Nikon pads the serial to 32 characters with leading zeros.
             serial: non_empty(device.serial.trim_start_matches('0')),
@@ -248,12 +253,10 @@ impl Camera for NikonPtpIp {
     }
 
     async fn set_exposure(&self, dial: Dial, value: &str) -> CameraResult<()> {
-        let raw: u32 = value
-            .parse()
-            .map_err(|_| CameraError::ValueNotSelectable {
-                dial: dial.label(),
-                value: value.to_string(),
-            })?;
+        let raw: u32 = value.parse().map_err(|_| CameraError::ValueNotSelectable {
+            dial: dial.label(),
+            value: value.to_string(),
+        })?;
 
         // Read the descriptor first. It costs one round trip and buys two things:
         // the width to encode the write at, and the camera's own answer to
@@ -637,7 +640,10 @@ mod tests {
     fn ignores_the_focus_chatter() {
         for property in [20490u32, 20508] {
             // 0x500A FocusMode, 0x501C FocusMeteringMode
-            assert_eq!(mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[property])), None);
+            assert_eq!(
+                mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[property])),
+                None
+            );
         }
         // And a property-changed with no parameter must not panic.
         assert_eq!(mapper()(&event(EVENT_DEVICE_PROP_CHANGED, &[])), None);

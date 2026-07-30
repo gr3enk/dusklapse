@@ -98,7 +98,11 @@ export function HistogramChart({ histogram, showChannels }: Props) {
             className="block min-h-0 w-full flex-1"
             ref={canvas}
             role="img"
-            aria-label={showChannels ? "Tone distribution of the latest frame as four plots: red, green, blue and luminance" : "Tone distribution of the latest frame, weighted luminance only"}
+            aria-label={
+                showChannels
+                    ? "Tone distribution of the latest frame as four plots: red, green, blue and luminance"
+                    : "Tone distribution of the latest frame, weighted luminance only"
+            }
         />
     );
 }
@@ -143,7 +147,14 @@ interface Band {
     height: number;
 }
 
-function drawBand(context: CanvasRenderingContext2D, bins: number[], ceiling: number, band: Band, stroke: string, label: string) {
+function drawBand(
+    context: CanvasRenderingContext2D,
+    bins: number[],
+    ceiling: number,
+    band: Band,
+    stroke: string,
+    label: string,
+) {
     const baseline = band.top + band.height;
     const step = band.width / (bins.length - 1);
     const y = (index: number) =>

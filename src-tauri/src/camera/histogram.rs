@@ -70,9 +70,9 @@ pub fn analyse(bytes: &[u8]) -> CameraResult<FrameAnalysis> {
         }
     }
 
-    let pixels = decoder
-        .decode()
-        .map_err(|err| CameraError::Protocol(format!("could not decode the preview JPEG: {err}")))?;
+    let pixels = decoder.decode().map_err(|err| {
+        CameraError::Protocol(format!("could not decode the preview JPEG: {err}"))
+    })?;
 
     let format = decoder
         .info()
@@ -164,7 +164,12 @@ mod tests {
         assert_eq!(histogram.green[255], 0);
 
         // Every channel must account for every pixel.
-        for channel in [&histogram.red, &histogram.green, &histogram.blue, &histogram.luma] {
+        for channel in [
+            &histogram.red,
+            &histogram.green,
+            &histogram.blue,
+            &histogram.luma,
+        ] {
             assert_eq!(channel.iter().sum::<u32>(), 2);
         }
     }

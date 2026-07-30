@@ -248,9 +248,8 @@ async fn get_json<T: serde::de::DeserializeOwned>(
     url: &str,
 ) -> CameraResult<T> {
     let body = send(http.get(url)).await?;
-    serde_json::from_str(&body).map_err(|err| {
-        CameraError::Protocol(format!("could not read reply from {url}: {err}"))
-    })
+    serde_json::from_str(&body)
+        .map_err(|err| CameraError::Protocol(format!("could not read reply from {url}: {err}")))
 }
 
 /// Run a request and turn a non-2xx status into a `Rejected` carrying whatever
@@ -404,10 +403,7 @@ mod tests {
         .into_status();
         assert_eq!(keyword.percent, Some(50));
 
-        let numeric = BatteryResponse {
-            level: "63".into(),
-        }
-        .into_status();
+        let numeric = BatteryResponse { level: "63".into() }.into_status();
         assert_eq!(numeric.percent, Some(63));
 
         let unknown = BatteryResponse {
@@ -420,10 +416,9 @@ mod tests {
 
     #[test]
     fn a_setting_reply_becomes_dial_values() {
-        let reply: Setting = serde_json::from_str(
-            r#"{"value":"1/125","ability":["1/250","1/125","1/60","bulb"]}"#,
-        )
-        .unwrap();
+        let reply: Setting =
+            serde_json::from_str(r#"{"value":"1/125","ability":["1/250","1/125","1/60","bulb"]}"#)
+                .unwrap();
 
         let values = reply.into_values(Dial::Shutter);
         assert_eq!(values.len(), 4);

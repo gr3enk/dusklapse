@@ -146,7 +146,12 @@ mod tests {
 
         for vendor in Vendor::ALL {
             let matching: Vec<_> = profiles.iter().filter(|p| p.vendor == vendor).collect();
-            assert_eq!(matching.len(), 1, "{vendor:?} appears {} times", matching.len());
+            assert_eq!(
+                matching.len(),
+                1,
+                "{vendor:?} appears {} times",
+                matching.len()
+            );
         }
     }
 
@@ -154,10 +159,22 @@ mod tests {
     #[test]
     fn profiles_are_filled_in() {
         for profile in vendors() {
-            assert!(!profile.label.is_empty(), "{:?} has no label", profile.vendor);
-            assert!(!profile.summary.is_empty(), "{:?} has no summary", profile.vendor);
+            assert!(
+                !profile.label.is_empty(),
+                "{:?} has no label",
+                profile.vendor
+            );
+            assert!(
+                !profile.summary.is_empty(),
+                "{:?} has no summary",
+                profile.vendor
+            );
             if profile.needs_address {
-                assert!(profile.default_port > 0, "{:?} needs a port", profile.vendor);
+                assert!(
+                    profile.default_port > 0,
+                    "{:?} needs a port",
+                    profile.vendor
+                );
             }
         }
     }

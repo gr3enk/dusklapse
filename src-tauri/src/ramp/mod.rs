@@ -367,13 +367,19 @@ impl RampState {
     /// automatic reference would destroy work rather than save it.
     ///
     /// `None` when the reference had already been aimed, so a caller can tell nothing happened.
-    pub async fn prime_reference(&self, measured: Luminance, unix_seconds: f64) -> Option<RampSettings> {
+    pub async fn prime_reference(
+        &self,
+        measured: Luminance,
+        unix_seconds: f64,
+    ) -> Option<RampSettings> {
         let mut guard = self.0.write().await;
         if guard.reference.value != DEFAULT_REFERENCE_VALUE {
             return None;
         }
 
-        let daylight = guard.daylight_now(unix_seconds).map(|(_, daylight)| daylight);
+        let daylight = guard
+            .daylight_now(unix_seconds)
+            .map(|(_, daylight)| daylight);
         guard.reference = guard.base_from_measured(measured, daylight);
         Some(guard.clone())
     }
@@ -754,10 +760,17 @@ mod tests {
         state.set_reference(Luminance::from_value(3200), 0.0).await;
 
         assert!(
-            state.prime_reference(Luminance::from_value(900), 0.0).await.is_none(),
+            state
+                .prime_reference(Luminance::from_value(900), 0.0)
+                .await
+                .is_none(),
             "priming should refuse a reference somebody chose"
         );
-        assert_eq!(state.get().await.reference.value, 3200, "and must leave it alone");
+        assert_eq!(
+            state.get().await.reference.value,
+            3200,
+            "and must leave it alone"
+        );
     }
 
     /// Priming runs through the daylight curve like any other anchor, so the frame it was given
@@ -765,7 +778,14 @@ mod tests {
     #[tokio::test]
     async fn priming_stores_the_base_behind_the_daylight_curve() {
         let state = RampState::default();
-        state.set(shaped(2.0, Some(BERLIN), DaylightShape::Linear, RampMode::Sunset)).await;
+        state
+            .set(shaped(
+                2.0,
+                Some(BERLIN),
+                DaylightShape::Linear,
+                RampMode::Sunset,
+            ))
+            .await;
         // `set` writes a reference, so put it back to untouched for this test.
         state
             .set(RampSettings {
@@ -775,12 +795,24 @@ mod tests {
             .await;
 
         let measured = Luminance::from_value(2269);
-        let stored = state.prime_reference(measured, 0.0).await.expect("untouched");
+        let stored = state
+            .prime_reference(measured, 0.0)
+            .await
+            .expect("untouched");
 
         // Half daylight: the stored base sits above the measurement by half the factor.
         let held = stored.effective_reference(Some(0.5));
-        let base_only = RampSettings { daylight: DaylightCurve { enabled: false, ..stored.daylight }, ..stored.clone() };
-        assert!(base_only.reference.value > measured.value, "the base should sit above what was measured");
+        let base_only = RampSettings {
+            daylight: DaylightCurve {
+                enabled: false,
+                ..stored.daylight
+            },
+            ..stored.clone()
+        };
+        assert!(
+            base_only.reference.value > measured.value,
+            "the base should sit above what was measured"
+        );
         assert!((held.linear - stored.effective_reference(Some(0.5)).linear).abs() < 1e-9);
     }
 

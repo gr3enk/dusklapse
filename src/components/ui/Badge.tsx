@@ -19,7 +19,13 @@ interface Props extends HTMLAttributes<HTMLSpanElement> {
 
 export function Badge({ className, children, ...rest }: Props) {
     return (
-        <span className={cn("rounded-full border border-border px-[0.6rem] py-[0.3rem] text-[0.8rem] whitespace-nowrap tabular-nums text-text-muted", className)} {...rest}>
+        <span
+            className={cn(
+                "rounded-full border border-border px-[0.6rem] py-[0.3rem] text-[0.8rem] whitespace-nowrap tabular-nums text-text-muted",
+                className,
+            )}
+            {...rest}
+        >
             {children}
         </span>
     );

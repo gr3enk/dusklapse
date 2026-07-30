@@ -24,7 +24,11 @@ export function HintStack<T extends string>({ items, active, className }: Props<
     return (
         <div className={cn("grid text-[0.85rem] text-text-muted", className)}>
             {items.map((item) => (
-                <span key={item.key} className={cn("[grid-area:1/1]", item.key === active ? "visible" : "invisible")} aria-hidden={item.key !== active}>
+                <span
+                    key={item.key}
+                    className={cn("[grid-area:1/1]", item.key === active ? "visible" : "invisible")}
+                    aria-hidden={item.key !== active}
+                >
                     {item.content}
                 </span>
             ))}

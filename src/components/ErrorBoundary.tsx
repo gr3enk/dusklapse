@@ -39,10 +39,17 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="m-auto flex max-w-md flex-col gap-4 p-6 text-center">
                 <h1 className="m-0 text-[1.3rem] font-[650]">Something in the interface broke</h1>
                 <p className="m-0 text-text-muted">
-                    The camera connection is unaffected - it lives in the app's backend, not in this screen. Reloading rejoins the session that is already open.
+                    The camera connection is unaffected - it lives in the app's backend, not in this screen. Reloading
+                    rejoins the session that is already open.
                 </p>
-                <pre className="m-0 overflow-x-auto rounded-card border border-border bg-surface p-3 text-left text-[0.8rem] text-danger">{this.state.error.message}</pre>
-                <button className="min-h-tap cursor-pointer rounded-card border border-border bg-surface-raised px-4 font-[550]" type="button" onClick={() => window.location.reload()}>
+                <pre className="m-0 overflow-x-auto rounded-card border border-border bg-surface p-3 text-left text-[0.8rem] text-danger">
+                    {this.state.error.message}
+                </pre>
+                <button
+                    className="min-h-tap cursor-pointer rounded-card border border-border bg-surface-raised px-4 font-[550]"
+                    type="button"
+                    onClick={() => window.location.reload()}
+                >
                     Reload
                 </button>
             </div>

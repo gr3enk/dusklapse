@@ -53,7 +53,10 @@ export function useSettings(): Settings {
                     setError(errorMessage(cause));
                     // Put the stored value back on screen rather than leaving a change that did
                     // not happen.
-                    void api.settings().then(setValue).catch(() => {});
+                    void api
+                        .settings()
+                        .then(setValue)
+                        .catch(() => {});
                 })
                 .finally(() => setSaving(false));
 

@@ -7,237 +7,236 @@ name: Release
 # What happens to the build afterwards - TestFlight group, submission for review - stays in App
 # Store Connect, which is where that choice belongs.
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: "Marketing version to raise (the build number always rises on its own)"
-        type: choice
-        default: patch
-        options: [patch, minor, major, none]
+    workflow_dispatch:
+        inputs:
+            bump:
+                description: "Marketing version to raise (the build number always rises on its own)"
+                type: choice
+                default: patch
+                options: [patch, minor, major, none]
 
 # Never cancel a release in flight: an upload interrupted halfway leaves a build in App Store
 # Connect in a state nobody asked for. One at a time, queued.
 concurrency:
-  group: release
-  cancel-in-progress: false
+    group: release
+    cancel-in-progress: false
 
 permissions:
-  # To push the version bump and its tag.
-  contents: write
+    # To push the version bump and its tag.
+    contents: write
 
 jobs:
-  release:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          # Tags, so a bump can see what already exists.
-          fetch-depth: 0
+    release:
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  # Tags, so a bump can see what already exists.
+                  fetch-depth: 0
 
-      # Two hand-applied patches live in the generated Xcode project, and `tauri ios init` overwrites
-      # it. Both fail in ways that are hard to trace back, so they are checked rather than assumed -
-      # in project.yml because that is the source, and in project.pbxproj because that is the file
-      # xcodebuild actually reads. They part company if someone edits one and forgets xcodegen.
-      - name: Check the Xcode project patches are intact
-        run: |
-          fail() { echo "::error file=src-tauri/gen/apple/project.yml::$1"; exit 1; }
-          YML=src-tauri/gen/apple/project.yml
-          PBX=src-tauri/gen/apple/dusklapse.xcodeproj/project.pbxproj
+            # Two hand-applied patches live in the generated Xcode project, and `tauri ios init` overwrites
+            # it. Both fail in ways that are hard to trace back, so they are checked rather than assumed -
+            # in project.yml because that is the source, and in project.pbxproj because that is the file
+            # xcodebuild actually reads. They part company if someone edits one and forgets xcodegen.
+            - name: Check the Xcode project patches are intact
+              run: |
+                  fail() { echo "::error file=src-tauri/gen/apple/project.yml::$1"; exit 1; }
+                  YML=src-tauri/gen/apple/project.yml
+                  PBX=src-tauri/gen/apple/dusklapse.xcodeproj/project.pbxproj
 
-          # Without this, Xcode cannot compile the static library so it copies it as a resource -
-          # a 398 MB libapp.a inside the .app, which App Store validation rejects outright.
-          grep -q "buildPhase: none" "$YML" ||
-            fail "The 'Externals' source entry has lost 'buildPhase: none'. libapp.a would be bundled and App Store validation would reject the build."
+                  # Without this, Xcode cannot compile the static library so it copies it as a resource -
+                  # a 398 MB libapp.a inside the .app, which App Store validation rejects outright.
+                  grep -q "buildPhase: none" "$YML" ||
+                    fail "The 'Externals' source entry has lost 'buildPhase: none'. libapp.a would be bundled and App Store validation would reject the build."
 
-          # Without this the release build is signed manually with no profile named, because the CLI
-          # sets CODE_SIGN_STYLE=Manual from the certificate alone and swallows the error when it
-          # cannot read a UUID out of IOS_MOBILE_PROVISION.
-          grep -q "PROVISIONING_PROFILE_SPECIFIER" "$YML" ||
-            fail "The release configuration has lost PROVISIONING_PROFILE_SPECIFIER. Signing would fail with 'requires a provisioning profile'."
+                  # Without this the release build is signed manually with no profile named, because the CLI
+                  # sets CODE_SIGN_STYLE=Manual from the certificate alone and swallows the error when it
+                  # cannot read a UUID out of IOS_MOBILE_PROVISION.
+                  grep -q "PROVISIONING_PROFILE_SPECIFIER" "$YML" ||
+                    fail "The release configuration has lost PROVISIONING_PROFILE_SPECIFIER. Signing would fail with 'requires a provisioning profile'."
 
-          grep -q "PROVISIONING_PROFILE_SPECIFIER" "$PBX" ||
-            fail "project.yml carries the signing patch but project.pbxproj does not. Run 'xcodegen generate' in src-tauri/gen/apple and commit the result."
+                  grep -q "PROVISIONING_PROFILE_SPECIFIER" "$PBX" ||
+                    fail "project.yml carries the signing patch but project.pbxproj does not. Run 'xcodegen generate' in src-tauri/gen/apple and commit the result."
 
-          echo "Both patches present in project.yml and project.pbxproj."
+                  echo "Both patches present in project.yml and project.pbxproj."
 
-      # The CLI reads the profile with `provisioning_profile.and_then(|p| p.uuid().ok())` - the `.ok()`
-      # turns an unreadable profile into None, signing silently stays automatic, and xcodebuild then
-      # fails with "requires a provisioning profile" and no hint as to why. Checked here so a bad
-      # secret is named in twenty seconds instead of after a full Rust build.
-      - name: Verify the signing secrets
-        env:
-          CERT: ${{ secrets.IOS_CERTIFICATE }}
-          PROFILE: ${{ secrets.IOS_MOBILE_PROVISION }}
-        run: |
-          if [ -z "$CERT" ]; then echo "::error::IOS_CERTIFICATE is empty."; exit 1; fi
-          # Whitespace stripped before decoding: `base64` ends its output with a newline, and the
-          # Rust decoder the CLI uses rejects it.
-          if ! printf '%s' "$PROFILE" | tr -d '\n\r' | base64 --decode > /tmp/profile.mobileprovision; then
-            echo "::error::IOS_MOBILE_PROVISION is not valid base64."
-            exit 1
-          fi
-          if ! PLIST=$(security cms -D -i /tmp/profile.mobileprovision 2>/dev/null); then
-            echo "::error::IOS_MOBILE_PROVISION decodes but is not a provisioning profile."
-            exit 1
-          fi
-          NAME=$(printf '%s' "$PLIST" | plutil -extract Name raw - 2>/dev/null)
-          UUID=$(printf '%s' "$PLIST" | plutil -extract UUID raw - 2>/dev/null)
-          if [ -z "$UUID" ]; then echo "::error::The profile has no UUID, which is what the CLI needs."; exit 1; fi
-          echo "Profile: $NAME"
-          echo "UUID:    $UUID"
+            # The CLI reads the profile with `provisioning_profile.and_then(|p| p.uuid().ok())` - the `.ok()`
+            # turns an unreadable profile into None, signing silently stays automatic, and xcodebuild then
+            # fails with "requires a provisioning profile" and no hint as to why. Checked here so a bad
+            # secret is named in twenty seconds instead of after a full Rust build.
+            - name: Verify the signing secrets
+              env:
+                  CERT: ${{ secrets.IOS_CERTIFICATE }}
+                  PROFILE: ${{ secrets.IOS_MOBILE_PROVISION }}
+              run: |
+                  if [ -z "$CERT" ]; then echo "::error::IOS_CERTIFICATE is empty."; exit 1; fi
+                  # Whitespace stripped before decoding: `base64` ends its output with a newline, and the
+                  # Rust decoder the CLI uses rejects it.
+                  if ! printf '%s' "$PROFILE" | tr -d '\n\r' | base64 --decode > /tmp/profile.mobileprovision; then
+                    echo "::error::IOS_MOBILE_PROVISION is not valid base64."
+                    exit 1
+                  fi
+                  if ! PLIST=$(security cms -D -i /tmp/profile.mobileprovision 2>/dev/null); then
+                    echo "::error::IOS_MOBILE_PROVISION decodes but is not a provisioning profile."
+                    exit 1
+                  fi
+                  NAME=$(printf '%s' "$PLIST" | plutil -extract Name raw - 2>/dev/null)
+                  UUID=$(printf '%s' "$PLIST" | plutil -extract UUID raw - 2>/dev/null)
+                  if [ -z "$UUID" ]; then echo "::error::The profile has no UUID, which is what the CLI needs."; exit 1; fi
+                  echo "Profile: $NAME"
+                  echo "UUID:    $UUID"
 
-      - uses: pnpm/action-setup@v6
+            - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: pnpm
 
-      # Before `pnpm install`, not after. The bump rewrites package.json, and pnpm then treats
-      # node_modules as stale - which made it try to reinstall from inside the Xcode build phase,
-      # where there is no TTY to confirm deleting the directory. Installing after the bump means
-      # nothing is stale to begin with. (The .npmrc guards the same failure from the other side.)
-      #
-      # Before the build too, so what is built is what was committed. If a later step fails, re-run
-      # with bump=none rather than raising the version twice.
-      - name: Raise the marketing version
-        if: inputs.bump != 'none'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          VERSION=$(node scripts/bump-version.mjs "${{ inputs.bump }}")
-          git commit -am "Release v$VERSION"
-          # Annotated (`-a`), not lightweight: `--follow-tags` pushes annotated tags and silently
-          # skips lightweight ones, so a plain `git tag` left the commit on main with no tag behind
-          # it - and the release step then aborted on --verify-tag after the upload had already
-          # succeeded. An annotated tag also carries who made it and when, which a release wants.
-          git tag -a "v$VERSION" -m "Release v$VERSION"
-          git push --follow-tags
+            # Before `pnpm install`, not after. The bump rewrites package.json, and pnpm then treats
+            # node_modules as stale - which made it try to reinstall from inside the Xcode build phase,
+            # where there is no TTY to confirm deleting the directory. Installing after the bump means
+            # nothing is stale to begin with. (The .npmrc guards the same failure from the other side.)
+            #
+            # Before the build too, so what is built is what was committed. If a later step fails, re-run
+            # with bump=none rather than raising the version twice.
+            - name: Raise the marketing version
+              if: inputs.bump != 'none'
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  VERSION=$(node scripts/bump-version.mjs "${{ inputs.bump }}")
+                  git commit -am "Release v$VERSION"
+                  # Annotated (`-a`), not lightweight: `--follow-tags` pushes annotated tags and silently
+                  # skips lightweight ones, so a plain `git tag` left the commit on main with no tag behind
+                  # it - and the release step then aborted on --verify-tag after the upload had already
+                  # succeeded. An annotated tag also carries who made it and when, which a release wants.
+                  git tag -a "v$VERSION" -m "Release v$VERSION"
+                  git push --follow-tags
 
-      - run: pnpm install --frozen-lockfile
+            - run: pnpm install --frozen-lockfile
 
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-ios
+            - uses: dtolnay/rust-toolchain@stable
+              with:
+                  targets: aarch64-apple-ios
 
-      # Its own cache key: this is a release-profile build for a different target than the CI
-      # checks, so sharing with them would only evict what both need.
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          shared-key: release
+            # Its own cache key: this is a release-profile build for a different target than the CI
+            # checks, so sharing with them would only evict what both need.
+            - uses: Swatinem/rust-cache@v2
+              with:
+                  workspaces: src-tauri
+                  shared-key: release
 
+            - name: Read the version
+              id: version
+              run: echo "value=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
 
-      - name: Read the version
-        id: version
-        run: echo "value=$(node -p "require('./src-tauri/tauri.conf.json').version")" >> "$GITHUB_OUTPUT"
+            # altool looks for a file named AuthKey_<key id>.p8 in this directory.
+            - name: Place the App Store Connect key
+              env:
+                  KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+                  KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+              run: |
+                  mkdir -p ~/private_keys
+                  printf '%s' "$KEY" | base64 --decode > ~/"private_keys/AuthKey_$KEY_ID.p8"
 
-      # altool looks for a file named AuthKey_<key id>.p8 in this directory.
-      - name: Place the App Store Connect key
-        env:
-          KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
-          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-        run: |
-          mkdir -p ~/private_keys
-          printf '%s' "$KEY" | base64 --decode > ~/"private_keys/AuthKey_$KEY_ID.p8"
+            # Removed rather than overwritten. Earlier builds left a stale Payload/ beside the fresh
+            # output and it was installed for two rounds before anyone noticed the version never changed.
+            - name: Clear previous output
+              run: rm -rf src-tauri/gen/apple/build
 
-      # Removed rather than overwritten. Earlier builds left a stale Payload/ beside the fresh
-      # output and it was installed for two rounds before anyone noticed the version never changed.
-      - name: Clear previous output
-        run: rm -rf src-tauri/gen/apple/build
+            # `bundleVersion` and not `--build-number`: the flag appends to the marketing version and
+            # produces a four-component CFBundleVersion like 0.1.0.7, which is outside Apple's stated
+            # three. This sets CFBundleVersion to the run number alone, which is a single integer that
+            # only ever rises - exactly what an upload has to have.
+            #
+            # The certificate and profile are read by the Tauri CLI itself from these variables, so no
+            # temporary keychain has to be built by hand here.
+            - name: Build
+              env:
+                  CERT: ${{ secrets.IOS_CERTIFICATE }}
+                  IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+                  PROFILE: ${{ secrets.IOS_MOBILE_PROVISION }}
+              run: |
+                  # Re-exported with whitespace removed rather than passed straight through: `base64` ends
+                  # its output with a newline, and pasting that into a secret is the easiest mistake to make
+                  # here. The certificate survives it, the profile does not.
+                  export IOS_CERTIFICATE="$(printf '%s' "$CERT" | tr -d '\n\r')"
+                  export IOS_MOBILE_PROVISION="$(printf '%s' "$PROFILE" | tr -d '\n\r')"
 
-      # `bundleVersion` and not `--build-number`: the flag appends to the marketing version and
-      # produces a four-component CFBundleVersion like 0.1.0.7, which is outside Apple's stated
-      # three. This sets CFBundleVersion to the run number alone, which is a single integer that
-      # only ever rises - exactly what an upload has to have.
-      #
-      # The certificate and profile are read by the Tauri CLI itself from these variables, so no
-      # temporary keychain has to be built by hand here.
-      - name: Build
-        env:
-          CERT: ${{ secrets.IOS_CERTIFICATE }}
-          IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
-          PROFILE: ${{ secrets.IOS_MOBILE_PROVISION }}
-        run: |
-          # Re-exported with whitespace removed rather than passed straight through: `base64` ends
-          # its output with a newline, and pasting that into a secret is the easiest mistake to make
-          # here. The certificate survives it, the profile does not.
-          export IOS_CERTIFICATE="$(printf '%s' "$CERT" | tr -d '\n\r')"
-          export IOS_MOBILE_PROVISION="$(printf '%s' "$PROFILE" | tr -d '\n\r')"
+                  pnpm tauri ios build \
+                    --ci \
+                    --export-method app-store-connect \
+                    -c '{"bundle":{"iOS":{"bundleVersion":"${{ github.run_number }}"}}}'
 
-          pnpm tauri ios build \
-            --ci \
-            --export-method app-store-connect \
-            -c '{"bundle":{"iOS":{"bundleVersion":"${{ github.run_number }}"}}}'
+            # Globbed and counted rather than hardcoded: the output path has already moved once between
+            # CLI versions, and a wrong path here would upload nothing while reporting success.
+            - name: Locate the package
+              id: ipa
+              run: |
+                  FOUND=$(find src-tauri/gen/apple/build -name "*.ipa" -type f)
+                  COUNT=$(printf '%s\n' "$FOUND" | grep -c . || true)
+                  if [ "$COUNT" != "1" ]; then
+                    echo "::error::Expected exactly one .ipa, found $COUNT:"; printf '%s\n' "$FOUND"
+                    exit 1
+                  fi
+                  echo "path=$FOUND" >> "$GITHUB_OUTPUT"
 
-      # Globbed and counted rather than hardcoded: the output path has already moved once between
-      # CLI versions, and a wrong path here would upload nothing while reporting success.
-      - name: Locate the package
-        id: ipa
-        run: |
-          FOUND=$(find src-tauri/gen/apple/build -name "*.ipa" -type f)
-          COUNT=$(printf '%s\n' "$FOUND" | grep -c . || true)
-          if [ "$COUNT" != "1" ]; then
-            echo "::error::Expected exactly one .ipa, found $COUNT:"; printf '%s\n' "$FOUND"
-            exit 1
-          fi
-          echo "path=$FOUND" >> "$GITHUB_OUTPUT"
+            # Kept whatever happens next, so a failed upload does not mean a lost build.
+            - uses: actions/upload-artifact@v7
+              with:
+                  name: Dusklapse-${{ steps.version.outputs.value }}-${{ github.run_number }}
+                  path: ${{ steps.ipa.outputs.path }}
+                  # Short on purpose. Artifacts inherit the repository's visibility, so once this repo is
+                  # public anyone can download them - and this one is only the fallback for an upload that
+                  # failed. After that the build lives in App Store Connect.
+                  retention-days: 7
 
-      # Kept whatever happens next, so a failed upload does not mean a lost build.
-      - uses: actions/upload-artifact@v7
-        with:
-          name: Dusklapse-${{ steps.version.outputs.value }}-${{ github.run_number }}
-          path: ${{ steps.ipa.outputs.path }}
-          # Short on purpose. Artifacts inherit the repository's visibility, so once this repo is
-          # public anyone can download them - and this one is only the fallback for an upload that
-          # failed. After that the build lives in App Store Connect.
-          retention-days: 7
+            # Validation first. It is the same check the Xcode Organizer runs, and it is what catches a
+            # malformed bundle in a minute instead of after an upload and a rejection mail.
+            - name: Validate
+              env:
+                  KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+                  ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+              run: xcrun altool --validate-app -f "${{ steps.ipa.outputs.path }}" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
 
-      # Validation first. It is the same check the Xcode Organizer runs, and it is what catches a
-      # malformed bundle in a minute instead of after an upload and a rejection mail.
-      - name: Validate
-        env:
-          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: xcrun altool --validate-app -f "${{ steps.ipa.outputs.path }}" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+            - name: Upload to App Store Connect
+              env:
+                  KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+                  ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+              run: xcrun altool --upload-app -f "${{ steps.ipa.outputs.path }}" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
 
-      - name: Upload to App Store Connect
-        env:
-          KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          ISSUER: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-        run: xcrun altool --upload-app -f "${{ steps.ipa.outputs.path }}" -t ios --apiKey "$KEY_ID" --apiIssuer "$ISSUER"
+            # After the upload, so the existence of a release means the build actually reached App Store
+            # Connect. On bump=none there is no tag to hang one on, hence the condition.
+            #
+            # `--generate-notes` writes the changelog since the previous tag; `--notes` is prepended to
+            # it. The build number goes there because it is the one thing the git history cannot tell you
+            # later - which TestFlight build belongs to which commit, which is exactly what you need when
+            # a crash report turns up in three months.
+            #
+            # No assets. The .ipa is signed for App Store distribution and will not install on any device
+            # outside TestFlight, so offering it as a download would promise something it cannot do. It
+            # stays a build artifact of this run instead.
+            - name: GitHub release
+              if: inputs.bump != 'none'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  gh release create "v${{ steps.version.outputs.value }}" \
+                    --verify-tag \
+                    --title "v${{ steps.version.outputs.value }}" \
+                    --generate-notes \
+                    --notes 'TestFlight build `${{ github.run_number }}`.'
 
-      # After the upload, so the existence of a release means the build actually reached App Store
-      # Connect. On bump=none there is no tag to hang one on, hence the condition.
-      #
-      # `--generate-notes` writes the changelog since the previous tag; `--notes` is prepended to
-      # it. The build number goes there because it is the one thing the git history cannot tell you
-      # later - which TestFlight build belongs to which commit, which is exactly what you need when
-      # a crash report turns up in three months.
-      #
-      # No assets. The .ipa is signed for App Store distribution and will not install on any device
-      # outside TestFlight, so offering it as a download would promise something it cannot do. It
-      # stays a build artifact of this run instead.
-      - name: GitHub release
-        if: inputs.bump != 'none'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "v${{ steps.version.outputs.value }}" \
-            --verify-tag \
-            --title "v${{ steps.version.outputs.value }}" \
-            --generate-notes \
-            --notes 'TestFlight build `${{ github.run_number }}`.'
-
-      - name: Summary
-        run: |
-          {
-            echo "### Uploaded"
-            echo
-            echo "| | |"
-            echo "|---|---|"
-            echo "| Version | \`${{ steps.version.outputs.value }}\` |"
-            echo "| Build | \`${{ github.run_number }}\` |"
-            echo
-            echo "Processing takes 10-30 minutes. The build then appears under TestFlight, where you choose what happens to it."
-          } >> "$GITHUB_STEP_SUMMARY"
+            - name: Summary
+              run: |
+                  {
+                    echo "### Uploaded"
+                    echo
+                    echo "| | |"
+                    echo "|---|---|"
+                    echo "| Version | \`${{ steps.version.outputs.value }}\` |"
+                    echo "| Build | \`${{ github.run_number }}\` |"
+                    echo
+                    echo "Processing takes 10-30 minutes. The build then appears under TestFlight, where you choose what happens to it."
+                  } >> "$GITHUB_STEP_SUMMARY"

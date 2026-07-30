@@ -55,34 +55,34 @@ export function useRamp(): Ramp {
         };
     }, []);
 
-    const update = useCallback(
-        (patch: Partial<RampSettings>) => {
-            setSettings((previous) => {
-                // Nothing loaded yet means there is no complete configuration to send, and
-                // sending a partial one would let the backend fill the gaps with defaults.
-                if (!previous) return previous;
+    const update = useCallback((patch: Partial<RampSettings>) => {
+        setSettings((previous) => {
+            // Nothing loaded yet means there is no complete configuration to send, and
+            // sending a partial one would let the backend fill the gaps with defaults.
+            if (!previous) return previous;
 
-                const next = { ...previous, ...patch };
-                setSaving(true);
-                setError(null);
-                api.rampConfigure(next)
-                    .then(setSettings)
-                    .catch((cause) => {
-                        setError(errorMessage(cause));
-                        // Put the stored value back on screen rather than leaving the UI
-                        // showing a change that did not happen.
-                        void api.rampSettings().then(setSettings).catch(() => {});
-                    })
-                    .finally(() => setSaving(false));
+            const next = { ...previous, ...patch };
+            setSaving(true);
+            setError(null);
+            api.rampConfigure(next)
+                .then(setSettings)
+                .catch((cause) => {
+                    setError(errorMessage(cause));
+                    // Put the stored value back on screen rather than leaving the UI
+                    // showing a change that did not happen.
+                    void api
+                        .rampSettings()
+                        .then(setSettings)
+                        .catch(() => {});
+                })
+                .finally(() => setSaving(false));
 
-                // Shown immediately; the reply above replaces it either way. Without this
-                // a toggle would not move until the round trip completed, which feels
-                // broken even when it is fast.
-                return next;
-            });
-        },
-        [],
-    );
+            // Shown immediately; the reply above replaces it either way. Without this
+            // a toggle would not move until the round trip completed, which feels
+            // broken even when it is fast.
+            return next;
+        });
+    }, []);
 
     const useCurrentFrame = useCallback(() => {
         setSaving(true);

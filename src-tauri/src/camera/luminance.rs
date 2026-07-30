@@ -196,7 +196,10 @@ mod tests {
     use super::*;
 
     fn approx(a: f32, b: f32, tolerance: f32) {
-        assert!((a - b).abs() <= tolerance, "{a} != {b} (within {tolerance})");
+        assert!(
+            (a - b).abs() <= tolerance,
+            "{a} != {b} (within {tolerance})"
+        );
     }
 
     #[test]

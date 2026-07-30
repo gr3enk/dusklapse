@@ -199,9 +199,8 @@ fn step(
         // lens or mode may no longer be offered, and inventing a stop position for it would let
         // the ramp run past a boundary someone set on purpose.
         Some(raw) => Some(
-            resolve(capabilities.dial(dial), raw).ok_or_else(|| Blocked::LimitUnavailable {
-                limit: raw.clone(),
-            })?,
+            resolve(capabilities.dial(dial), raw)
+                .ok_or_else(|| Blocked::LimitUnavailable { limit: raw.clone() })?,
         ),
         None => None,
     };
@@ -279,13 +278,25 @@ mod tests {
     use crate::ramp::DialRamp;
 
     fn shutter(raw: &str, seconds: f32) -> ExposureValue {
-        ExposureValue { raw: raw.into(), label: raw.into(), stops: Some(seconds.log2()) }
+        ExposureValue {
+            raw: raw.into(),
+            label: raw.into(),
+            stops: Some(seconds.log2()),
+        }
     }
     fn aperture(raw: &str, f: f32) -> ExposureValue {
-        ExposureValue { raw: raw.into(), label: raw.into(), stops: Some(-2.0 * f.log2()) }
+        ExposureValue {
+            raw: raw.into(),
+            label: raw.into(),
+            stops: Some(-2.0 * f.log2()),
+        }
     }
     fn iso(raw: &str, value: f32) -> ExposureValue {
-        ExposureValue { raw: raw.into(), label: raw.into(), stops: Some((value / 100.0).log2()) }
+        ExposureValue {
+            raw: raw.into(),
+            label: raw.into(),
+            stops: Some((value / 100.0).log2()),
+        }
     }
 
     /// A third-stop range around where the Z 6 actually sits at dusk.
@@ -296,15 +307,26 @@ mod tests {
     fn third_stop_capabilities() -> ExposureCapabilities {
         ExposureCapabilities {
             shutter: vec![shutter("1600", 0.16)],
-            aperture: vec![aperture("250", 2.5), aperture("220", 2.2), aperture("200", 2.0), aperture("180", 1.8)],
-            iso: vec![iso("250", 250.0), iso("320", 320.0), iso("400", 400.0), iso("500", 500.0)],
+            aperture: vec![
+                aperture("250", 2.5),
+                aperture("220", 2.2),
+                aperture("200", 2.0),
+                aperture("180", 1.8),
+            ],
+            iso: vec![
+                iso("250", 250.0),
+                iso("320", 320.0),
+                iso("400", 400.0),
+                iso("500", 500.0),
+            ],
         }
     }
 
     /// An exposure built from the third-stop list, since `exposure_at` reads the whole-stop one.
     fn third_stop_exposure(a: &str, i: &str) -> ExposureSettings {
         let caps = third_stop_capabilities();
-        let find = |values: &[ExposureValue], raw: &str| values.iter().find(|v| v.raw == raw).cloned();
+        let find =
+            |values: &[ExposureValue], raw: &str| values.iter().find(|v| v.raw == raw).cloned();
         ExposureSettings {
             shutter: find(&caps.shutter, "1600"),
             aperture: find(&caps.aperture, a),
@@ -325,13 +347,18 @@ mod tests {
                 shutter("500", 1.0 / 20.0),
             ],
             aperture: vec![aperture("250", 2.5)],
-            iso: vec![iso("1000", 1000.0), iso("1250", 1250.0), iso("1600", 1600.0)],
+            iso: vec![
+                iso("1000", 1000.0),
+                iso("1250", 1250.0),
+                iso("1600", 1600.0),
+            ],
         }
     }
 
     fn dusk_exposure(s: &str, i: &str) -> ExposureSettings {
         let caps = dusk_capabilities();
-        let find = |values: &[ExposureValue], raw: &str| values.iter().find(|v| v.raw == raw).cloned();
+        let find =
+            |values: &[ExposureValue], raw: &str| values.iter().find(|v| v.raw == raw).cloned();
         ExposureSettings {
             shutter: find(&caps.shutter, s),
             aperture: find(&caps.aperture, "250"),
@@ -358,8 +385,14 @@ mod tests {
         )
         .unwrap();
 
-        let change = correction.change.expect("the shutter has three notches of headroom");
-        assert_eq!(change.dial, Dial::Shutter, "ISO moved while the shutter had room");
+        let change = correction
+            .change
+            .expect("the shutter has three notches of headroom");
+        assert_eq!(
+            change.dial,
+            Dial::Shutter,
+            "ISO moved while the shutter had room"
+        );
         assert_eq!(change.to, "333");
         assert!(correction.blocked.is_empty());
     }
@@ -454,20 +487,47 @@ mod tests {
     fn capabilities() -> ExposureCapabilities {
         ExposureCapabilities {
             shutter: vec![
-                shutter("100", 0.01), shutter("200", 0.02), shutter("400", 0.04),
-                shutter("800", 0.08), shutter("1600", 0.16), shutter("3200", 0.32),
-                shutter("6400", 0.64), shutter("12800", 1.28), shutter("25600", 2.56),
-                ExposureValue { raw: "4294967295".into(), label: "BULB".into(), stops: None },
+                shutter("100", 0.01),
+                shutter("200", 0.02),
+                shutter("400", 0.04),
+                shutter("800", 0.08),
+                shutter("1600", 0.16),
+                shutter("3200", 0.32),
+                shutter("6400", 0.64),
+                shutter("12800", 1.28),
+                shutter("25600", 2.56),
+                ExposureValue {
+                    raw: "4294967295".into(),
+                    label: "BULB".into(),
+                    stops: None,
+                },
             ],
-            aperture: vec![aperture("180", 1.8), aperture("280", 2.8), aperture("400", 4.0), aperture("560", 5.6)],
-            iso: vec![iso("100", 100.0), iso("200", 200.0), iso("400", 400.0), iso("800", 800.0), iso("1600", 1600.0), iso("3200", 3200.0)],
+            aperture: vec![
+                aperture("180", 1.8),
+                aperture("280", 2.8),
+                aperture("400", 4.0),
+                aperture("560", 5.6),
+            ],
+            iso: vec![
+                iso("100", 100.0),
+                iso("200", 200.0),
+                iso("400", 400.0),
+                iso("800", 800.0),
+                iso("1600", 1600.0),
+                iso("3200", 3200.0),
+            ],
         }
     }
 
     fn exposure_at(s: &str, a: &str, i: &str) -> ExposureSettings {
         let caps = capabilities();
-        let find = |values: &[ExposureValue], raw: &str| values.iter().find(|v| v.raw == raw).cloned();
-        ExposureSettings { shutter: find(&caps.shutter, s), aperture: find(&caps.aperture, a), iso: find(&caps.iso, i) }
+        let find =
+            |values: &[ExposureValue], raw: &str| values.iter().find(|v| v.raw == raw).cloned();
+        ExposureSettings {
+            shutter: find(&caps.shutter, s),
+            aperture: find(&caps.aperture, a),
+            iso: find(&caps.iso, i),
+        }
     }
 
     fn frame_below(settings: &RampSettings, stops: f32) -> Luminance {
@@ -475,26 +535,54 @@ mod tests {
     }
 
     fn armed(mode: RampMode, shutter: DialRamp, aperture: DialRamp, iso: DialRamp) -> RampSettings {
-        RampSettings { active: true, mode, reference: Luminance::from_value(5000), shutter, aperture, iso, daylight: Default::default() }
+        RampSettings {
+            active: true,
+            mode,
+            reference: Luminance::from_value(5000),
+            shutter,
+            aperture,
+            iso,
+            daylight: Default::default(),
+        }
     }
     fn on(limit: Option<&str>) -> DialRamp {
-        DialRamp { enabled: true, limit: limit.map(str::to_string) }
+        DialRamp {
+            enabled: true,
+            limit: limit.map(str::to_string),
+        }
     }
     fn off() -> DialRamp {
-        DialRamp { enabled: false, limit: None }
+        DialRamp {
+            enabled: false,
+            limit: None,
+        }
     }
 
     #[test]
     fn a_disarmed_ramp_decides_nothing() {
         let settings = RampSettings::default();
         let frame = frame_below(&settings, 2.0);
-        assert!(plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).is_none());
+        assert!(plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference
+        )
+        .is_none());
     }
 
     #[test]
     fn a_frame_on_target_is_left_alone() {
         let settings = armed(RampMode::Sunset, on(None), off(), on(None));
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), settings.reference, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            settings.reference,
+            settings.reference,
+        )
+        .unwrap();
         assert!(correction.change.is_none());
         assert!(correction.blocked.is_empty());
     }
@@ -507,13 +595,24 @@ mod tests {
         // Five stops dark, but the shutter may only advance one step.
         let frame = frame_below(&settings, 5.0);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         let change = correction.change.expect("a move");
 
         assert_eq!(change.dial, Dial::Shutter);
         // 0.16 s to 0.32 s, exactly one stop - not the four the deviation would justify.
         assert_eq!(change.to, "3200");
-        assert!((change.gained_stops - 1.0).abs() < 1e-4, "{}", change.gained_stops);
+        assert!(
+            (change.gained_stops - 1.0).abs() < 1e-4,
+            "{}",
+            change.gained_stops
+        );
     }
 
     /// Priority order, and only one dial per frame.
@@ -522,7 +621,14 @@ mod tests {
         let settings = armed(RampMode::Sunset, on(None), on(None), on(None));
         let frame = frame_below(&settings, 2.0);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         assert_eq!(correction.change.unwrap().dial, Dial::Shutter);
     }
 
@@ -533,7 +639,14 @@ mod tests {
         let settings = armed(RampMode::Sunset, off(), off(), on(Some("3200")));
         let frame = frame_below(&settings, 3.31);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("320", "180", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("320", "180", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         let change = correction.change.expect("a move");
 
         assert_eq!(change.dial, Dial::Iso);
@@ -548,7 +661,14 @@ mod tests {
         let frame = frame_below(&settings, 2.0);
 
         // Shutter already sits on its own limit.
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         let change = correction.change.expect("a move");
 
         assert_eq!(change.dial, Dial::Iso);
@@ -562,14 +682,34 @@ mod tests {
         let settings = armed(RampMode::Sunset, off(), off(), on(Some("1600")));
         let frame = frame_below(&settings, 3.31);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("320", "180", "1600"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("320", "180", "1600"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
 
         assert!(correction.change.is_none());
-        let iso = correction.blocked.iter().find(|entry| entry.dial == Dial::Iso).unwrap();
-        assert_eq!(iso.reason, Blocked::AtLimit { limit: "1600".into() });
+        let iso = correction
+            .blocked
+            .iter()
+            .find(|entry| entry.dial == Dial::Iso)
+            .unwrap();
+        assert_eq!(
+            iso.reason,
+            Blocked::AtLimit {
+                limit: "1600".into()
+            }
+        );
         // And the two switched-off dials are reported as switched off, not as exhausted.
         for dial in [Dial::Shutter, Dial::Aperture] {
-            let entry = correction.blocked.iter().find(|entry| entry.dial == dial).unwrap();
+            let entry = correction
+                .blocked
+                .iter()
+                .find(|entry| entry.dial == dial)
+                .unwrap();
             assert_eq!(entry.reason, Blocked::Disabled);
         }
     }
@@ -582,9 +722,20 @@ mod tests {
         let frame = frame_below(&settings, 2.0);
 
         // Already on the longest exposure the camera lists, with no limit set.
-        let correction = plan(&settings, &capabilities(), &exposure_at("25600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("25600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
 
-        let shutter = correction.blocked.iter().find(|entry| entry.dial == Dial::Shutter).unwrap();
+        let shutter = correction
+            .blocked
+            .iter()
+            .find(|entry| entry.dial == Dial::Shutter)
+            .unwrap();
         assert_eq!(shutter.reason, Blocked::EndOfRange);
     }
 
@@ -593,7 +744,14 @@ mod tests {
         let settings = armed(RampMode::Sunset, off(), off(), off());
         let frame = frame_below(&settings, 4.0);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         assert!(correction.change.is_none());
         assert_eq!(correction.blocked.len(), 3);
     }
@@ -605,7 +763,14 @@ mod tests {
         // Two stops brighter than the reference is what triggers a sunrise correction.
         let frame = Luminance::from_linear(settings.reference.linear * 4.0);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("6400", "280", "1600"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("6400", "280", "1600"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         let change = correction.change.expect("a move");
 
         assert_eq!(change.dial, Dial::Iso);
@@ -621,9 +786,19 @@ mod tests {
         let settings = armed(RampMode::Sunset, on(None), off(), on(None));
         let frame = Luminance::from_linear(settings.reference.linear * 2.0);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         assert!(correction.change.is_none());
-        assert!(correction.blocked.is_empty(), "not blocked - just nothing to do");
+        assert!(
+            correction.blocked.is_empty(),
+            "not blocked - just nothing to do"
+        );
         assert!(correction.deviation_stops > 0.0);
     }
 
@@ -633,16 +808,38 @@ mod tests {
         let frame = frame_below(&settings, 8.0);
 
         // Sitting on the longest real value, bulb must not be the next notch.
-        let correction = plan(&settings, &capabilities(), &exposure_at("25600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("25600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         assert!(correction.change.is_none());
 
         // And a shutter already on bulb cannot be reasoned about.
         let on_bulb = ExposureSettings {
-            shutter: Some(ExposureValue { raw: "4294967295".into(), label: "BULB".into(), stops: None }),
+            shutter: Some(ExposureValue {
+                raw: "4294967295".into(),
+                label: "BULB".into(),
+                stops: None,
+            }),
             ..exposure_at("1600", "280", "400")
         };
-        let correction = plan(&settings, &capabilities(), &on_bulb, frame, settings.reference).unwrap();
-        let shutter = correction.blocked.iter().find(|entry| entry.dial == Dial::Shutter).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &on_bulb,
+            frame,
+            settings.reference,
+        )
+        .unwrap();
+        let shutter = correction
+            .blocked
+            .iter()
+            .find(|entry| entry.dial == Dial::Shutter)
+            .unwrap();
         assert_eq!(shutter.reason, Blocked::NoStopPosition);
     }
 
@@ -653,10 +850,26 @@ mod tests {
         let settings = armed(RampMode::Sunset, on(Some("999999")), off(), off());
         let frame = frame_below(&settings, 2.0);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         assert!(correction.change.is_none());
-        let shutter = correction.blocked.iter().find(|entry| entry.dial == Dial::Shutter).unwrap();
-        assert_eq!(shutter.reason, Blocked::LimitUnavailable { limit: "999999".into() });
+        let shutter = correction
+            .blocked
+            .iter()
+            .find(|entry| entry.dial == Dial::Shutter)
+            .unwrap();
+        assert_eq!(
+            shutter.reason,
+            Blocked::LimitUnavailable {
+                limit: "999999".into()
+            }
+        );
     }
 
     #[test]
@@ -664,7 +877,14 @@ mod tests {
         let settings = armed(RampMode::Sunset, on(None), off(), on(None));
         let frame = frame_below(&settings, 0.02);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         assert!(correction.change.is_none());
     }
 
@@ -678,7 +898,14 @@ mod tests {
         // A tenth of a stop out, against a one-stop grid: the step overshoots ninefold.
         let frame = frame_below(&settings, 0.1);
 
-        let correction = plan(&settings, &capabilities(), &exposure_at("1600", "280", "400"), frame, settings.reference).unwrap();
+        let correction = plan(
+            &settings,
+            &capabilities(),
+            &exposure_at("1600", "280", "400"),
+            frame,
+            settings.reference,
+        )
+        .unwrap();
         let change = correction.change.expect("the shutter should still step");
         assert_eq!(change.dial, Dial::Shutter);
     }
@@ -693,7 +920,9 @@ mod tests {
     async fn a_correction_actually_moves_a_camera() {
         use crate::camera::{CameraTarget, Vendor};
 
-        let camera = crate::camera::connect(CameraTarget::new(Vendor::Mock, "mock", 0)).await.unwrap();
+        let camera = crate::camera::connect(CameraTarget::new(Vendor::Mock, "mock", 0))
+            .await
+            .unwrap();
         let capabilities = camera.capabilities().await.unwrap();
         let before = camera.exposure().await.unwrap();
         let frame = camera
@@ -709,33 +938,57 @@ mod tests {
             mode: RampMode::Sunset,
             // Two stops brighter than the frame, so the ramp has to open up.
             reference: Luminance::from_linear(frame.linear * 4.0),
-            shutter: DialRamp { enabled: true, limit: Some("1/8".into()) },
-            aperture: DialRamp { enabled: false, limit: None },
-            iso: DialRamp { enabled: true, limit: Some("6400".into()) },
+            shutter: DialRamp {
+                enabled: true,
+                limit: Some("1/8".into()),
+            },
+            aperture: DialRamp {
+                enabled: false,
+                limit: None,
+            },
+            iso: DialRamp {
+                enabled: true,
+                limit: Some("6400".into()),
+            },
             daylight: Default::default(),
         };
 
-        let correction = plan(&settings, &capabilities, &before, frame, settings.reference).expect("a plan");
-        let change = correction.change.expect("two stops down and nothing to do?");
+        let correction =
+            plan(&settings, &capabilities, &before, frame, settings.reference).expect("a plan");
+        let change = correction
+            .change
+            .expect("two stops down and nothing to do?");
 
         camera
             .set_exposure(change.dial, &change.to)
             .await
-            .unwrap_or_else(|err| panic!("camera refused {:?} = {}: {err}", change.dial, change.to));
+            .unwrap_or_else(|err| {
+                panic!("camera refused {:?} = {}: {err}", change.dial, change.to)
+            });
 
         // The camera has to report what the plan chose - proof the token was its own vocabulary
         // and not something invented.
         let after = camera.exposure().await.unwrap();
-        assert_eq!(after.dial(change.dial).map(|value| value.raw.as_str()), Some(change.to.as_str()));
+        assert_eq!(
+            after.dial(change.dial).map(|value| value.raw.as_str()),
+            Some(change.to.as_str())
+        );
 
         // It really did get brighter, and by exactly what was planned.
         let gained = after.total_stops().unwrap() - before.total_stops().unwrap();
-        assert!((gained - change.gained_stops).abs() < 1e-3, "camera moved {gained}, plan said {}", change.gained_stops);
+        assert!(
+            (gained - change.gained_stops).abs() < 1e-3,
+            "camera moved {gained}, plan said {}",
+            change.gained_stops
+        );
 
         // One notch, not the full two stops. The bound is loose because a notch is whatever the
         // camera's own list makes it - nominal whole stops are not exact powers of two, so this
         // list steps 1.06 stops between 1/125 and 1/60.
         assert!(gained > 0.0, "gained {gained}");
-        assert!(gained < 1.5, "moved {gained} stops in one frame, which is a leap not a notch");
+        assert!(
+            gained < 1.5,
+            "moved {gained} stops in one frame, which is a leap not a notch"
+        );
     }
 }

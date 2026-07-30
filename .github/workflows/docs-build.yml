@@ -11,46 +11,46 @@ name: Docs Build
 # dependably supported by the workflow parser, and a workflow that silently fails to load is worse
 # than a few duplicated lines.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "docs/**"
-      - ".github/workflows/docs-build.yml"
-  pull_request:
-    paths:
-      - "docs/**"
-      - ".github/workflows/docs-build.yml"
+    push:
+        branches: [main]
+        paths:
+            - "docs/**"
+            - ".github/workflows/docs-build.yml"
+    pull_request:
+        paths:
+            - "docs/**"
+            - ".github/workflows/docs-build.yml"
 
 concurrency:
-  group: docs-build-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    group: docs-build-${{ github.ref }}
+    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    # `docs` is its own pnpm project with its own lockfile, not a workspace member of the app.
-    defaults:
-      run:
-        working-directory: docs
-    steps:
-      - uses: actions/checkout@v7
+    build:
+        runs-on: ubuntu-latest
+        # `docs` is its own pnpm project with its own lockfile, not a workspace member of the app.
+        defaults:
+            run:
+                working-directory: docs
+        steps:
+            - uses: actions/checkout@v7
 
-      # No `version` given: the action reads it from the `packageManager` field of the repository
-      # root's package.json, the same as the frontend workflows do. `docs/package.json` has no such
-      # field, which is why this must not be pointed at the subdirectory.
-      - uses: pnpm/action-setup@v6
+            # No `version` given: the action reads it from the `packageManager` field of the repository
+            # root's package.json, the same as the frontend workflows do. `docs/package.json` has no such
+            # field, which is why this must not be pointed at the subdirectory.
+            - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-          # Named explicitly because there are two lockfiles in this repository, and the default
-          # glob would key the cache on whichever it found first.
-          cache-dependency-path: docs/pnpm-lock.yaml
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: pnpm
+                  # Named explicitly because there are two lockfiles in this repository, and the default
+                  # glob would key the cache on whichever it found first.
+                  cache-dependency-path: docs/pnpm-lock.yaml
 
-      - run: pnpm install --frozen-lockfile
+            - run: pnpm install --frozen-lockfile
 
-      # The whole point of the workflow. A broken link, a malformed MDX file or a missing image all
-      # fail here.
-      - name: Build
-        run: pnpm build
+            # The whole point of the workflow. A broken link, a malformed MDX file or a missing image all
+            # fail here.
+            - name: Build
+              run: pnpm build

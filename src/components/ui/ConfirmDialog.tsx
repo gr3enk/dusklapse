@@ -27,7 +27,16 @@ interface Props {
  * Visually the confirming button is still on the right, where a confirmation is looked for - the
  * `order` utilities separate the reading order from the focus order.
  */
-export function ConfirmDialog({ open, title, children, confirmLabel, cancelLabel = "Cancel", destructive, onConfirm, onCancel }: Props) {
+export function ConfirmDialog({
+    open,
+    title,
+    children,
+    confirmLabel,
+    cancelLabel = "Cancel",
+    destructive,
+    onConfirm,
+    onCancel,
+}: Props) {
     return (
         <Modal open={open} onClose={onCancel} title={title} className="w-[min(26rem,92vw)]">
             <div className="text-[0.95rem] text-text-muted">{children}</div>

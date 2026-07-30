@@ -15,9 +15,20 @@ const VARIANTS: Record<NoticeVariant, string> = {
  * Errors carry `role="alert"` so a screen reader announces them when they appear; that
  * is the whole reason this distinguishes the two variants rather than taking a colour.
  */
-export function Notice({ variant = "info", className, children }: { variant?: NoticeVariant; className?: string; children: ReactNode }) {
+export function Notice({
+    variant = "info",
+    className,
+    children,
+}: {
+    variant?: NoticeVariant;
+    className?: string;
+    children: ReactNode;
+}) {
     return (
-        <p className={cn("m-0 rounded-card border px-[0.9rem] py-3 text-[0.9rem]", VARIANTS[variant], className)} role={variant === "error" ? "alert" : undefined}>
+        <p
+            className={cn("m-0 rounded-card border px-[0.9rem] py-3 text-[0.9rem]", VARIANTS[variant], className)}
+            role={variant === "error" ? "alert" : undefined}
+        >
             {children}
         </p>
     );
