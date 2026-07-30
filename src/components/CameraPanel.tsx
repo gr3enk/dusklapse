@@ -153,7 +153,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         // `listen` resolves once registered; dropping the promise would leak the
         // handler across a remount.
         return () => void unlisten.then((stop) => stop());
-    }, [readAll, report, clock.record]);
+    }, [readAll, report, clock.record, clock]);
 
     async function changeDial(dial: Dial, raw: string) {
         setBusy(true);

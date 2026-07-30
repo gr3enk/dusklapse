@@ -100,7 +100,7 @@ export function useSky(settings: RampSettings | null): Sky {
         };
         // Latitude and longitude rather than the object: a new object with the same coordinates
         // would otherwise restart the interval on every settings write.
-    }, [enabled, location?.latitude, location?.longitude, factor, shape, twilight, mode, reference]);
+    }, [enabled, location, location?.latitude, location?.longitude, factor, shape, twilight, mode, reference]);
 
     const locate = useCallback(async (): Promise<Location | null> => {
         setLocating(true);
