@@ -19,7 +19,13 @@ pub fn run() {
             // writing a rotating log file inside its container - never asked for, and
             // the source of a startup crash after the app was renamed.
             tauri_plugin_log::Builder::new()
-                .targets([Target::new(TargetKind::Stdout)])
+                // Stdout for a terminal, Webview for the log view inside the app. On a tablet in a
+                // field there is no console to attach to, which is the whole reason the second
+                // target exists.
+                .targets([
+                    Target::new(TargetKind::Stdout),
+                    Target::new(TargetKind::Webview),
+                ])
                 .level(log::LevelFilter::Info)
                 .build(),
         )

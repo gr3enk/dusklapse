@@ -1,9 +1,17 @@
-import { ClockIcon, ImageIcon, RotateCwFadingClockIcon, SettingsIcon } from "lucide-react";
+import { ClockIcon, ImageIcon, RotateCwFadingClockIcon, ScrollTextIcon, SettingsIcon } from "lucide-react";
 
 import { useElapsed } from "../hooks/useElapsed";
 import type { ShotClock } from "../hooks/useShotClock";
 import { measuredInterval } from "../lib/interval";
-import { DIALS, type BatteryStatus, type CameraInfo, type Dial, type ExposureCapabilities, type ExposureSettings, type RampSettings } from "../lib/types";
+import {
+    DIALS,
+    type BatteryStatus,
+    type CameraInfo,
+    type Dial,
+    type ExposureCapabilities,
+    type ExposureSettings,
+    type RampSettings,
+} from "../lib/types";
 import { Badge } from "./ui/Badge";
 import { Button } from "./ui/Button";
 import { Panel } from "./ui/Panel";
@@ -30,6 +38,7 @@ interface Props {
     clock: ShotClock;
     onChangeDial: (dial: Dial, raw: string) => void;
     onOpenSettings: () => void;
+    onOpenLogs: () => void;
     onDisconnect: () => void;
 }
 
@@ -41,7 +50,20 @@ interface Props {
  * editable rather than read-only - changing exposure is the whole point of the app, and
  * a detour through another screen for it would be silly.
  */
-export function CameraStatusBar({ info, capabilities, exposure, battery, busy, ramp, lastRamped, clock, onChangeDial, onOpenSettings, onDisconnect }: Props) {
+export function CameraStatusBar({
+    info,
+    capabilities,
+    exposure,
+    battery,
+    busy,
+    ramp,
+    lastRamped,
+    clock,
+    onChangeDial,
+    onOpenSettings,
+    onOpenLogs,
+    onDisconnect,
+}: Props) {
     // Measured, never configured: the intervalometer owns the timing and this app only watches it.
     // A number typed in here could disagree with what the camera is actually doing, and then it
     // would be worse than no number at all.
@@ -49,7 +71,11 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, busy, r
     const running = useElapsed(clock.firstAt);
 
     return (
-        <Panel style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr auto" }} className="grid gap-x-4 gap-y-2 px-3 py-[0.6rem]" aria-label="Camera status">
+        <Panel
+            style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr auto" }}
+            className="grid gap-x-4 gap-y-2 px-3 py-[0.6rem]"
+            aria-label="Camera status"
+        >
             {/* Takes the width its content needs and no more, so what is left over goes to
                 the meta group beside it. Given room to grow, the dials would claim all of
                 it and force the meta group onto a line of its own. */}
@@ -76,11 +102,19 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, busy, r
                 reads as a mistake rather than as a layout. */}
             <div className="flex min-w-0 flex-auto flex-wrap items-center justify-end gap-x-3 gap-y-2">
                 <div className="flex min-w-0 items-center gap-2">
-                    <span className="truncate font-semibold" title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`].filter(Boolean).join(" · ")}>
+                    <span
+                        className="truncate font-semibold"
+                        title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`]
+                            .filter(Boolean)
+                            .join(" · ")}
+                    >
                         {info.model}
                     </span>
                     <Button size="compact" onClick={onOpenSettings} aria-label="Settings" title="Settings">
                         <SettingsIcon className="size-4" />
+                    </Button>
+                    <Button size="compact" onClick={onOpenLogs} aria-label="Logs" title="Logs">
+                        <ScrollTextIcon className="size-4" />
                     </Button>
                     <Button size="compact" onClick={onDisconnect}>
                         Disconnect
@@ -104,8 +138,14 @@ export function CameraStatusBar({ info, capabilities, exposure, battery, busy, r
                     </Badge>
                 )}
                 {battery && (
-                    <Badge className={cn("flex items-center gap-1", battery.percent && battery.percent <= 15 && "text-danger")}>
-                        {battery.percent === null ? battery.label : `${battery.percent}%`} <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
+                    <Badge
+                        className={cn(
+                            "flex items-center gap-1",
+                            battery.percent && battery.percent <= 15 && "text-danger",
+                        )}
+                    >
+                        {battery.percent === null ? battery.label : `${battery.percent}%`}{" "}
+                        <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
                     </Badge>
                 )}
             </div>
@@ -165,5 +205,12 @@ const DOT_LABELS: Record<RampState, string> = {
  * shades. `role="img"` with a name is enough - there is nothing inside it to read.
  */
 function RampDot({ state }: { state: RampState }) {
-    return <span role="img" aria-label={DOT_LABELS[state]} title={DOT_LABELS[state]} className={cn("size-1.5 shrink-0 rounded-full", DOT_COLOURS[state])} />;
+    return (
+        <span
+            role="img"
+            aria-label={DOT_LABELS[state]}
+            title={DOT_LABELS[state]}
+            className={cn("size-1.5 shrink-0 rounded-full", DOT_COLOURS[state])}
+        />
+    );
 }
