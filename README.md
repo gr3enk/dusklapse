@@ -27,7 +27,7 @@ Dusklapse supports the following camera manufacturers:
 | Panasonic | planned for the future   |
 | Sony      | planned for the future   |
 
-A detailed list of supported models can be found [here](./CAMERAS.md)
+A detailed list of supported models can be found [here](https://www.dusklapse.com/docs/cameras)
 
 ## License
 
