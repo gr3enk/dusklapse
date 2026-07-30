@@ -3,7 +3,19 @@ import { CrosshairIcon, SunriseIcon, SunsetIcon } from "lucide-react";
 import type { AutoRamp } from "../hooks/useAutoRamp";
 import type { Ramp } from "../hooks/useRamp";
 import type { Sky } from "../hooks/useSky";
-import { DIALS, dialLimitLabel, stopsBetween, type CameraInfo, type Dial, type DialRamp, type ExposureCapabilities, type Luminance, type RampMode, type RampOutcome, type Blocked } from "../lib/types";
+import {
+    DIALS,
+    dialLimitLabel,
+    stopsBetween,
+    type CameraInfo,
+    type Dial,
+    type DialRamp,
+    type ExposureCapabilities,
+    type Luminance,
+    type RampMode,
+    type RampOutcome,
+    type Blocked,
+} from "../lib/types";
 import { DaylightCurveRow } from "./DaylightCurveRow";
 import { DialRampRow } from "./DialRampRow";
 import { Button } from "./ui/Button";
@@ -57,7 +69,17 @@ interface Props {
  * which is what lets it survive a WebView reload and lets the engine read the same values
  * the controls here are showing.
  */
-export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, frameLuminance, onShoot, onRefresh }: Props) {
+export function ControlPanel({
+    info,
+    busy,
+    ramp,
+    autoRamp,
+    sky,
+    capabilities,
+    frameLuminance,
+    onShoot,
+    onRefresh,
+}: Props) {
     const { settings, update, useCurrentFrame, saving, error } = ramp;
 
     // Everything below needs a loaded configuration; disabling rather than hiding keeps the
@@ -93,7 +115,8 @@ export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, fr
                     // Offering a button that is guaranteed to fail is worse than explaining
                     // why there is none.
                     <Notice className="flex-[1_1_16rem]">
-                        This body takes no remote release over Wi-Fi. Frame timing comes from your intervalometer; Dusklapse ramps the exposure between frames.
+                        This body takes no remote release over Wi-Fi. Frame timing comes from your intervalometer;
+                        Dusklapse ramps the exposure between frames.
                     </Notice>
                 )}
                 <Button onClick={onRefresh} disabled={busy}>
@@ -135,7 +158,9 @@ export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, fr
                                 // `linear` when it stores the reference, so the two halves cannot
                                 // drift apart.
                                 secondaryValue={sky.state ? sky.state.effectiveReference.value : undefined}
-                                onChange={(value) => settings && update({ reference: { ...settings.reference, value } })}
+                                onChange={(value) =>
+                                    settings && update({ reference: { ...settings.reference, value } })
+                                }
                                 step={LUMINANCE_STEP}
                                 min={LUMINANCE_MIN}
                                 max={LUMINANCE_MAX}
@@ -148,7 +173,11 @@ export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, fr
                                 onClick={useCurrentFrame}
                                 disabled={!active || !ready || saving || frameLuminance === null}
                                 className="w-full"
-                                title={frameLuminance === null ? "No frame measured yet" : "Set the reference to the frame on screen"}
+                                title={
+                                    frameLuminance === null
+                                        ? "No frame measured yet"
+                                        : "Set the reference to the frame on screen"
+                                }
                             >
                                 <CrosshairIcon className="size-4" />
                                 Use current
@@ -165,7 +194,11 @@ export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, fr
                                   : `Frame at ${frameLuminance.value}, ${describeDeviation(deviation)}`}
                             {/* Named outright when the curve has moved the goalposts, so the
                             deviation above is measured against a number that is on screen. */}
-                            {sky.state && sky.state.offsetStops < -0.005 && <span className="block">Aiming at {sky.state.effectiveReference.value} while the sky is this dark.</span>}
+                            {sky.state && sky.state.offsetStops < -0.005 && (
+                                <span className="block">
+                                    Aiming at {sky.state.effectiveReference.value} while the sky is this dark.
+                                </span>
+                            )}
                         </p>
                     </div>
 
@@ -176,7 +209,10 @@ export function ControlPanel({ info, busy, ramp, autoRamp, sky, capabilities, fr
                     reference means, which is the thing directly above it. */}
                     <div className="portrait:col-1 portrait:row-span-4">
                         <DaylightCurveRow
-                            config={settings?.daylight ?? { enabled: false, factor: 2, location: null }}
+                            config={
+                                settings?.daylight ?? { enabled: false, factor: 2, location: null, shape: "linear" }
+                            }
+                            mode={settings?.mode ?? "sunset"}
                             sky={sky}
                             rampActive={active}
                             busy={saving}
@@ -246,8 +282,8 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
         <div className="space-y-2">
             {outcome.change?.applied && (
                 <p className="m-0 tabular-nums text-alert-info">
-                    {DIAL_LABELS[outcome.change.dial]} {labelFor(outcome.change.dial, outcome.change.from)} → {labelFor(outcome.change.dial, outcome.change.to)} (
-                    {outcome.change.gainedStops > 0 ? "+" : ""}
+                    {DIAL_LABELS[outcome.change.dial]} {labelFor(outcome.change.dial, outcome.change.from)} →{" "}
+                    {labelFor(outcome.change.dial, outcome.change.to)} ({outcome.change.gainedStops > 0 ? "+" : ""}
                     {outcome.change.gainedStops.toFixed(2)} EV)
                 </p>
             )}
@@ -258,10 +294,15 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
                     <span className="block">Nothing left to adjust, so the sequence will keep drifting from here.</span>
                     {stuck.map((entry) => (
                         <span key={entry.dial} className="block">
-                            {DIAL_LABELS[entry.dial]}: {describeBlocked(entry.reason, (raw) => labelFor(entry.dial, raw))}
+                            {DIAL_LABELS[entry.dial]}:{" "}
+                            {describeBlocked(entry.reason, (raw) => labelFor(entry.dial, raw))}
                         </span>
                     ))}
-                    {off.length > 0 && <span className="block">Ramping is switched off for {off.map((entry) => DIAL_LABELS[entry.dial]).join(" and ")}.</span>}
+                    {off.length > 0 && (
+                        <span className="block">
+                            Ramping is switched off for {off.map((entry) => DIAL_LABELS[entry.dial]).join(" and ")}.
+                        </span>
+                    )}
                 </Notice>
             )}
 

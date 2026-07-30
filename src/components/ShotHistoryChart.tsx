@@ -28,7 +28,7 @@ const EXPOSURE_SERIES: Series[] = [
 
 const LUMINANCE_SERIES: Series[] = [
     { label: "L", stroke: "rgb(235 240 248)", value: (shot) => shot.luminance },
-    { label: "R", stroke: "rgb(96 156 255)", value: (shot) => shot.reference },
+    { label: "R", stroke: "rgb(112 96 255)", value: (shot) => shot.reference },
     { label: "A", stroke: "rgb(96 172 243)", value: (shot) => shot.effectiveReference },
 ];
 
@@ -162,7 +162,14 @@ function drawGuides(context: CanvasRenderingContext2D, width: number, height: nu
     }
 }
 
-function drawCurve(context: CanvasRenderingContext2D, values: (number | null)[], range: Extent, width: number, height: number, stroke: string) {
+function drawCurve(
+    context: CanvasRenderingContext2D,
+    values: (number | null)[],
+    range: Extent,
+    width: number,
+    height: number,
+    stroke: string,
+) {
     // A single shot has no line to draw, so it gets a dot - otherwise the first frame of every
     // session looks like a chart that is broken.
     const step = values.length > 1 ? width / (values.length - 1) : 0;

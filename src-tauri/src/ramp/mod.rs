@@ -67,6 +67,44 @@ pub struct DialRamp {
     pub limit: Option<String>,
 }
 
+/// How the darkening is spread across the event.
+///
+/// All three start and end in the same place - full daylight leaves the reference alone, full
+/// night applies the whole factor. They differ only in where the change is concentrated, which is
+/// what decides whether a sequence holds its brightness into dusk and then drops, or gives most of
+/// it up early and coasts.
+///
+/// Named for how they run **in time**, and they mean the same thing in both modes: the shape is
+/// applied to the progress through the event, which counts from full day at sunset and from full
+/// night at sunrise. A sunrise therefore gives back what a sunset accumulated, in the same order.
+/// That is why the icons for the two directions are crossed over in the UI rather than mirrored.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DaylightShape {
+    /// Proportional to the progress through the event.
+    Linear,
+    /// Little at first, most of it towards the end.
+    SlowThenFast,
+    /// Most of it at the start, tapering off.
+    FastThenSlow,
+}
+
+impl DaylightShape {
+    /// Map progress through the event onto how much of the factor has been applied.
+    ///
+    /// Both curves are quadratic: steep enough to be visible in a finished sequence, gentle enough
+    /// that the ramp is not asked for a sudden run of corrections. Every one of them satisfies
+    /// `f(0) = 0` and `f(1) = 1`, which is what keeps the endpoints identical across all three.
+    fn apply(self, progress: f32) -> f32 {
+        let t = progress.clamp(0.0, 1.0);
+        match self {
+            Self::Linear => t,
+            Self::SlowThenFast => t * t,
+            Self::FastThenSlow => 1.0 - (1.0 - t) * (1.0 - t),
+        }
+    }
+}
+
 /// Darkens the reference as the sky darkens, so the finished sequence does too.
 ///
 /// Without it, a sunset ramp holds one brightness all the way into the night and the result
@@ -87,6 +125,8 @@ pub struct DaylightCurve {
     /// Where the camera is. `None` until a position is supplied, which disables the curve
     /// however it is configured: there is no sun elevation without a place to stand.
     pub location: Option<Location>,
+    /// How the darkening is distributed across the event.
+    pub shape: DaylightShape,
 }
 
 impl Default for DaylightCurve {
@@ -96,6 +136,8 @@ impl Default for DaylightCurve {
             // One stop between day and night. Enough to read as night without losing the scene.
             factor: 2.0,
             location: None,
+            // The behaviour this feature had before the shapes existed.
+            shape: DaylightShape::Linear,
         }
     }
 }
@@ -179,10 +221,28 @@ impl RampSettings {
     /// Stops the curve takes off the stored reference at a given amount of daylight.
     ///
     /// Interpolated in stops rather than in the reported value, because stops are what exposure
-    /// and perception are both linear in - the same factor then produces the same *look*
-    /// wherever the reference happens to sit on the scale.
+    /// and perception are both linear in - the same factor then produces the same *look* wherever
+    /// the reference happens to sit on the scale.
+    ///
+    /// The mode is consulted because the shape describes progress through the *event*, not the
+    /// amount of daylight: a sunset counts from full day, a sunrise from full night. Without that,
+    /// a shape chosen at sunset would come out mirrored at sunrise. `Linear` is unaffected either
+    /// way, which is why this reads the same as it did before the shapes existed.
     fn offset_stops(&self, daylight: f32) -> f32 {
-        -(1.0 - daylight.clamp(0.0, 1.0)) * self.daylight.factor.max(1.0).log2()
+        let daylight = daylight.clamp(0.0, 1.0);
+        let progress = match self.mode {
+            RampMode::Sunset => 1.0 - daylight,
+            RampMode::Sunrise => daylight,
+        };
+
+        let applied = self.daylight.shape.apply(progress);
+        // A sunset accumulates the darkening; a sunrise hands it back.
+        let magnitude = match self.mode {
+            RampMode::Sunset => applied,
+            RampMode::Sunrise => 1.0 - applied,
+        };
+
+        -magnitude * self.daylight.factor.max(1.0).log2()
     }
 
     /// The reference the ramp should actually aim at.
@@ -191,9 +251,9 @@ impl RampSettings {
     /// the ramp behaves identically whether the curve is on or off.
     pub fn effective_reference(&self, daylight: Option<f32>) -> Luminance {
         match daylight {
-            Some(daylight) => {
-                Luminance::from_linear(self.reference.linear * 2f32.powf(self.offset_stops(daylight)))
-            }
+            Some(daylight) => Luminance::from_linear(
+                self.reference.linear * 2f32.powf(self.offset_stops(daylight)),
+            ),
             None => self.reference,
         }
     }
@@ -281,7 +341,9 @@ impl RampState {
     /// ramp immediately want the frame darker than the one just chosen as correct.
     pub async fn set_reference(&self, measured: Luminance, unix_seconds: f64) -> RampSettings {
         let mut guard = self.0.write().await;
-        let daylight = guard.daylight_now(unix_seconds).map(|(_, daylight)| daylight);
+        let daylight = guard
+            .daylight_now(unix_seconds)
+            .map(|(_, daylight)| daylight);
         guard.reference = guard.base_from_measured(measured, daylight);
         guard.clone()
     }
@@ -308,15 +370,173 @@ mod tests {
     };
 
     fn with_curve(factor: f32, location: Option<Location>) -> RampSettings {
+        shaped(factor, location, DaylightShape::Linear, RampMode::Sunset)
+    }
+
+    fn shaped(
+        factor: f32,
+        location: Option<Location>,
+        shape: DaylightShape,
+        mode: RampMode,
+    ) -> RampSettings {
         RampSettings {
             active: true,
+            mode,
             reference: Luminance::from_value(5000),
             daylight: DaylightCurve {
                 enabled: true,
                 factor,
                 location,
+                shape,
             },
             ..Default::default()
+        }
+    }
+
+    /// How much of the factor has been applied, from 0 to 1. The quantity the shapes act on.
+    fn applied_fraction(settings: &RampSettings, daylight: f32) -> f32 {
+        let target = settings.effective_reference(Some(daylight));
+        let stops = target
+            .stops_from(settings.reference)
+            .expect("both positive");
+        -stops / settings.daylight.factor.log2()
+    }
+
+    const SHAPES: [DaylightShape; 3] = [
+        DaylightShape::Linear,
+        DaylightShape::SlowThenFast,
+        DaylightShape::FastThenSlow,
+    ];
+
+    /// Whatever the shape, the two ends are fixed: full daylight leaves the reference alone and
+    /// full night applies the whole factor. A shape may only redistribute what happens in between.
+    #[test]
+    fn every_shape_shares_the_same_endpoints() {
+        for shape in SHAPES {
+            for mode in [RampMode::Sunset, RampMode::Sunrise] {
+                let settings = shaped(2.0, Some(BERLIN), shape, mode);
+                let day = applied_fraction(&settings, 1.0);
+                let night = applied_fraction(&settings, 0.0);
+                assert!(
+                    (day - 0.0).abs() < 1e-4,
+                    "{shape:?} {mode:?} applied {day} in full daylight"
+                );
+                assert!(
+                    (night - 1.0).abs() < 1e-4,
+                    "{shape:?} {mode:?} applied {night} at night"
+                );
+            }
+        }
+    }
+
+    /// Halfway through a sunset the three shapes have to be in a definite order, or the setting
+    /// makes no visible difference.
+    #[test]
+    fn the_shapes_are_ordered_at_the_midpoint_of_a_sunset() {
+        let half =
+            |shape| applied_fraction(&shaped(2.0, Some(BERLIN), shape, RampMode::Sunset), 0.5);
+
+        let slow = half(DaylightShape::SlowThenFast);
+        let linear = half(DaylightShape::Linear);
+        let fast = half(DaylightShape::FastThenSlow);
+
+        assert!(
+            (linear - 0.5).abs() < 1e-4,
+            "linear should be exactly half way, got {linear}"
+        );
+        assert!(
+            slow < linear,
+            "slow-then-fast should lag behind linear: {slow} vs {linear}"
+        );
+        assert!(
+            fast > linear,
+            "fast-then-slow should lead linear: {fast} vs {linear}"
+        );
+        // Quadratics, so the two sit symmetrically either side of the middle.
+        assert!(((linear - slow) - (fast - linear)).abs() < 1e-4);
+    }
+
+    /// `Linear` must behave exactly as it did before shapes existed - in both directions.
+    #[test]
+    fn linear_is_unaffected_by_the_mode() {
+        for daylight in [0.0, 0.25, 0.5, 0.75, 1.0] {
+            let sunset = applied_fraction(
+                &shaped(2.0, Some(BERLIN), DaylightShape::Linear, RampMode::Sunset),
+                daylight,
+            );
+            let sunrise = applied_fraction(
+                &shaped(2.0, Some(BERLIN), DaylightShape::Linear, RampMode::Sunrise),
+                daylight,
+            );
+            assert!(
+                (sunset - sunrise).abs() < 1e-4,
+                "at {daylight} daylight: {sunset} vs {sunrise}"
+            );
+            assert!((sunset - (1.0 - daylight)).abs() < 1e-4);
+        }
+    }
+
+    /// A sunrise gives back what a sunset accumulated, in the same order.
+    ///
+    /// This is the invariant the crossed-over icons in the UI depend on: at the same progress
+    /// through the event, the shape looks the same in both directions, so a sunrise reads as the
+    /// mirror image of a sunset rather than as a different curve.
+    #[test]
+    fn a_sunrise_undoes_a_sunset_in_the_same_order() {
+        for shape in SHAPES {
+            let sunset = shaped(3.0, Some(BERLIN), shape, RampMode::Sunset);
+            let sunrise = shaped(3.0, Some(BERLIN), shape, RampMode::Sunrise);
+
+            for step in 0..=10 {
+                let progress = step as f32 / 10.0;
+                // Progress runs from full day at sunset and from full night at sunrise.
+                let during_sunset = applied_fraction(&sunset, 1.0 - progress);
+                let during_sunrise = applied_fraction(&sunrise, progress);
+                assert!(
+                    (during_sunset + during_sunrise - 1.0).abs() < 1e-4,
+                    "{shape:?} at progress {progress}: {during_sunset} + {during_sunrise} should be 1"
+                );
+            }
+        }
+    }
+
+    /// No shape may make the target wander back up as the light keeps falling.
+    #[test]
+    fn every_shape_falls_monotonically_through_a_sunset() {
+        for shape in SHAPES {
+            let settings = shaped(3.0, Some(BERLIN), shape, RampMode::Sunset);
+            let mut previous = f32::MAX;
+            for step in 0..=20 {
+                let daylight = 1.0 - step as f32 / 20.0;
+                let target = settings.effective_reference(Some(daylight)).linear;
+                assert!(target <= previous, "{shape:?} rose at {daylight} daylight");
+                previous = target;
+            }
+        }
+    }
+
+    /// Anchoring on a frame has to round-trip for every shape, not just the linear one.
+    #[test]
+    fn anchoring_round_trips_for_every_shape() {
+        let measured = Luminance::from_value(2269);
+        for shape in SHAPES {
+            for mode in [RampMode::Sunset, RampMode::Sunrise] {
+                let settings = shaped(2.0, Some(BERLIN), shape, mode);
+                for daylight in [0.0, 0.3, 0.75, 1.0] {
+                    let base = settings.base_from_measured(measured, Some(daylight));
+                    let held = RampSettings {
+                        reference: base,
+                        ..settings.clone()
+                    }
+                    .effective_reference(Some(daylight));
+                    assert!(
+                        (held.linear - measured.linear).abs() < 1e-6,
+                        "{shape:?} {mode:?} at {daylight}: came back as {} not {}",
+                        held.value,
+                        measured.value
+                    );
+                }
+            }
         }
     }
 
@@ -365,7 +585,10 @@ mod tests {
             );
             // And the ratio itself, stated the way the setting is worded.
             let ratio = settings.reference.linear / night.linear;
-            assert!((ratio - factor).abs() < 0.01, "factor {factor} gave ratio {ratio}");
+            assert!(
+                (ratio - factor).abs() < 0.01,
+                "factor {factor} gave ratio {ratio}"
+            );
         }
     }
 
@@ -474,10 +697,27 @@ mod tests {
     fn utc_seconds(year: i64, month: u32, day: u32, hour: f64) -> f64 {
         let mut days: i64 = 0;
         for y in 1970..year {
-            days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 { 366 } else { 365 };
+            days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+                366
+            } else {
+                365
+            };
         }
         let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-        let lengths = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let lengths = [
+            31,
+            if leap { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
         days += lengths[..month as usize - 1].iter().sum::<i64>();
         days += day as i64 - 1;
         days as f64 * 86_400.0 + hour * 3_600.0
@@ -501,11 +741,15 @@ mod tests {
         };
 
         // A frame twice as bright is one stop over.
-        let over = Luminance::from_linear(0.2).stops_from(settings.reference).unwrap();
+        let over = Luminance::from_linear(0.2)
+            .stops_from(settings.reference)
+            .unwrap();
         assert!((over - 1.0).abs() < 1e-4, "{over}");
 
         // Half as bright is one stop under.
-        let under = Luminance::from_linear(0.05).stops_from(settings.reference).unwrap();
+        let under = Luminance::from_linear(0.05)
+            .stops_from(settings.reference)
+            .unwrap();
         assert!((under + 1.0).abs() < 1e-4, "{under}");
 
         // On target is zero, which is what tells the ramp to leave the camera alone.
@@ -516,7 +760,9 @@ mod tests {
     #[test]
     fn a_black_frame_yields_no_deviation() {
         let settings = RampSettings::default();
-        assert!(Luminance::from_linear(0.0).stops_from(settings.reference).is_none());
+        assert!(Luminance::from_linear(0.0)
+            .stops_from(settings.reference)
+            .is_none());
     }
 
     #[tokio::test]

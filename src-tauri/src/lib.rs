@@ -1,8 +1,8 @@
 pub mod camera;
 mod commands;
 mod ramp;
-mod settings;
 mod session;
+mod settings;
 
 use tauri_plugin_log::{Target, TargetKind};
 

@@ -162,7 +162,24 @@ export interface DaylightCurve {
     factor: number;
     /** `null` until a position is known, which leaves the curve inert however it is set. */
     location: Location | null;
+    /** How the darkening is spread across the event. */
+    shape: DaylightShape;
 }
+
+/**
+ * How the darkening is distributed across the event. Mirrors the Rust `DaylightShape`.
+ *
+ * All three share the same endpoints - full daylight leaves the reference alone, full night
+ * applies the whole factor - and differ only in where the change is concentrated.
+ *
+ * Named for how they run **in time**, and they mean the same in both modes: the shape is applied
+ * to the progress through the event, which counts from full day at sunset and from full night at
+ * sunrise. A sunrise gives back what a sunset accumulated, in the same order.
+ */
+export type DaylightShape = "linear" | "slowThenFast" | "fastThenSlow";
+
+/** The three shapes in the order they are offered. */
+export const DAYLIGHT_SHAPES: DaylightShape[] = ["linear", "slowThenFast", "fastThenSlow"];
 
 /** What the sky is doing, in the vocabulary photographers use. Mirrors the Rust `SkyPhase`. */
 export type SkyPhase = "day" | "goldenHour" | "blueHour" | "nauticalTwilight" | "astronomicalTwilight" | "night";

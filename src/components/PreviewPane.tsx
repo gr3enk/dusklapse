@@ -66,12 +66,14 @@ export function PreviewPane({ frame, count, supported, history, transferEvery }:
                 {/* Both in one row: the countdown is a standing readout and the transfer notice is
                     momentary, and they answer the same question - is anything coming. */}
                 <div className="pointer-events-none absolute top-[0.6rem] right-[0.6rem] flex items-center gap-[0.4rem]">
-                    {loading && <span className="rounded-full bg-black/60 px-[0.5rem] py-[0.2rem] text-[0.75rem]">Loading…</span>}
+                    {loading && (
+                        <span className="rounded-full bg-black/60 px-2 py-[0.2rem] text-[0.75rem]">Loading…</span>
+                    )}
                     {/* Left out at 1 of 1, where it would read "1/1" forever and say nothing. */}
                     {transferEvery > 1 && positionInCycle > 0 && (
                         <span
                             className={cn(
-                                "rounded-full bg-black/60 px-[0.5rem] py-[0.2rem] text-[0.75rem] tabular-nums",
+                                "rounded-full bg-black/60 px-2 py-[0.2rem] text-[0.75rem] tabular-nums",
                                 // The frame that actually crossed is worth marking, so the two
                                 // states of the cycle are distinguishable at a glance.
                                 positionInCycle === 1 ? "text-text" : "text-text-muted",
@@ -117,7 +119,11 @@ export function PreviewPane({ frame, count, supported, history, transferEvery }:
                     <button
                         type="button"
                         onClick={() => setShowChannels((shown) => !shown)}
-                        aria-label={showChannels ? "Showing colour channels. Tap for luminance only." : "Showing luminance only. Tap for colour channels."}
+                        aria-label={
+                            showChannels
+                                ? "Showing colour channels. Tap for luminance only."
+                                : "Showing luminance only. Tap for colour channels."
+                        }
                         className={cn(
                             "absolute bottom-[0.6rem] left-[0.6rem] flex h-[min(11.5rem,42%)] w-[min(18rem,50%)] flex-col gap-[0.3rem]",
                             "rounded-lg border border-white/15 bg-black/55 p-[0.35rem] text-left backdrop-blur-sm",
@@ -127,10 +133,14 @@ export function PreviewPane({ frame, count, supported, history, transferEvery }:
                         <div className="flex items-baseline justify-between gap-2">
                             {/* The suffix is the only thing on screen that says there is another
                                 reading behind this one. */}
-                            <Label className="text-[0.6rem] tracking-[0.08em]">Luminance {showChannels ? "· RGB" : "· L"}</Label>
+                            <Label className="text-[0.6rem] tracking-[0.08em]">
+                                Luminance {showChannels ? "· RGB" : "· L"}
+                            </Label>
                             {/* The number the ramp is regulated against, so it is the one you
                                 glance at. Tabular figures keep it from jittering sideways. */}
-                            <span className="text-base font-[650] leading-none tabular-nums text-text">{info.analysis.luminance.value}</span>
+                            <span className="text-base font-[650] leading-none tabular-nums text-text">
+                                {info.analysis.luminance.value}
+                            </span>
                         </div>
                         <HistogramChart histogram={info.analysis.histogram} showChannels={showChannels} />
                     </button>
@@ -139,9 +149,23 @@ export function PreviewPane({ frame, count, supported, history, transferEvery }:
                 {/* Beside the filename because that corner is already the pane's own furniture
                     rather than part of the photograph. */}
                 <div className="absolute bottom-[0.6rem] right-[0.6rem] flex items-center gap-[0.4rem]">
-                    {info && <span className="pointer-events-none rounded-full bg-black/55 px-2 py-[0.2rem] text-[0.7rem] tabular-nums text-text-muted">{info.filename}</span>}
-                    <OverlayToggle label="history charts" shown={showHistory} onToggle={() => setShowHistory((shown) => !shown)} Icon={FileChartLineIcon} />
-                    <OverlayToggle label="histogram" shown={showHistogram} onToggle={() => setShowHistogram((shown) => !shown)} Icon={ChartAreaIcon} />
+                    {info && (
+                        <span className="pointer-events-none rounded-full bg-black/55 px-2 py-[0.2rem] text-[0.7rem] tabular-nums text-text-muted">
+                            {info.filename}
+                        </span>
+                    )}
+                    <OverlayToggle
+                        label="history charts"
+                        shown={showHistory}
+                        onToggle={() => setShowHistory((shown) => !shown)}
+                        Icon={FileChartLineIcon}
+                    />
+                    <OverlayToggle
+                        label="histogram"
+                        shown={showHistogram}
+                        onToggle={() => setShowHistogram((shown) => !shown)}
+                        Icon={ChartAreaIcon}
+                    />
                 </div>
             </div>
 
@@ -156,7 +180,17 @@ export function PreviewPane({ frame, count, supported, history, transferEvery }:
  * `aria-pressed` rather than a changed label: it is one control with two states, and screen
  * readers announce the state from that. The dimming is what says the same thing visually.
  */
-function OverlayToggle({ label, shown, onToggle, Icon }: { label: string; shown: boolean; onToggle: () => void; Icon: typeof ChartAreaIcon }) {
+function OverlayToggle({
+    label,
+    shown,
+    onToggle,
+    Icon,
+}: {
+    label: string;
+    shown: boolean;
+    onToggle: () => void;
+    Icon: typeof ChartAreaIcon;
+}) {
     return (
         <Button
             variant="icon"
@@ -166,7 +200,10 @@ function OverlayToggle({ label, shown, onToggle, Icon }: { label: string; shown:
             title={`${shown ? "Hide" : "Show"} ${label}`}
             // Smaller than a full tap target on purpose: this sits over the photograph, and the
             // 44pt square the variant gives it would cover a corner of the frame.
-            className={cn("min-h-0 p-0 rounded-full bg-accent/10 backdrop-blur-sm text-accent", !shown && "text-text bg-text/10")}
+            className={cn(
+                "min-h-0 p-0 rounded-full bg-accent/10 backdrop-blur-sm text-accent",
+                !shown && "text-text bg-text/10",
+            )}
         >
             <Icon className="size-4" />
         </Button>

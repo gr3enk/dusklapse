@@ -19,7 +19,12 @@ import tseslint from "typescript-eslint";
  * the same ground far faster.
  */
 export default tseslint.config(
-    { ignores: ["dist", "src-tauri", "node_modules"] },
+    // `docs` is its own project with its own tooling and its own tsconfig - it is checked by
+    // `pnpm typecheck` inside that directory and by the Docs Build workflow, not from here. It
+    // also generates `.docusaurus/` and `build/`, which are gitignored; flat config does not read
+    // .gitignore, so without this the first local docs build fills this run with errors from
+    // machine-written files.
+    { ignores: ["dist", "src-tauri", "docs", "node_modules"] },
     js.configs.recommended,
     tseslint.configs.recommended,
     {
