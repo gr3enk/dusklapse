@@ -9,7 +9,7 @@ const GITHUB = "https://github.com/gr3enk/dusklapse";
 const config: Config = {
     title: "Dusklapse",
     tagline: "Holy-grail timelapse control for networked cameras",
-    favicon: "img/favicon.png",
+    favicon: "img/app-icon-rounded-no-padding.webp",
 
     future: {
         v4: true, // Improve compatibility with the upcoming Docusaurus v4
@@ -64,13 +64,11 @@ const config: Config = {
             title: "Dusklapse",
             logo: {
                 alt: "Dusklapse",
-                src: "img/logo.svg",
-                // The logo is a single-colour line drawing in black. Docusaurus renders it as an
-                // `<img>`, so `currentColor` cannot reach it - dark mode needs its own file.
-                srcDark: "img/logo-dark.svg",
+                src: "img/app-icon-rounded.webp",
             },
             items: [
                 { to: "/docs/intro", label: "Docs", position: "left" },
+                { to: "/support", label: "Support", position: "left" },
                 { href: GITHUB, label: "GitHub", position: "right" },
             ],
         },
@@ -79,7 +77,10 @@ const config: Config = {
             links: [
                 {
                     title: "Docs",
-                    items: [{ label: "Introduction", to: "/docs/intro" }],
+                    items: [
+                        { label: "Introduction", to: "/docs/intro" },
+                        { label: "Support", to: "/support" },
+                    ],
                 },
                 {
                     title: "Project",
@@ -90,7 +91,7 @@ const config: Config = {
                     ],
                 },
             ],
-            copyright: `Copyright © ${new Date().getFullYear()} Jakob Oestermann. Dual licensed under MIT and Apache-2.0. Built with Docusaurus.`,
+            copyright: `Dual licensed under MIT and Apache-2.0. Built with Docusaurus.`,
         },
         prism: {
             theme: prismThemes.github,
