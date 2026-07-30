@@ -13,6 +13,7 @@ import { useRamp } from "../hooks/useRamp";
 import { useAutoRamp } from "../hooks/useAutoRamp";
 import { useSky } from "../hooks/useSky";
 import { useShotHistory } from "../hooks/useShotHistory";
+import { usePrimeReference } from "../hooks/usePrimeReference";
 import { useShotClock } from "../hooks/useShotClock";
 import { SettingsDialog } from "./SettingsDialog";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
@@ -109,10 +110,17 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         setBattery(nextBattery);
     }, []);
 
+    // Anchors the reference on the first frame of the session, if nobody has aimed it yet.
+    const prime = usePrimeReference(frame.info, ramp.adopt);
+
     // Corrects the exposure once per measured frame. Only runs while the ramp is armed. Declared
     // after `readAll` because it takes it: the ramp writes to the camera from Rust, so the status
     // bar has no other way of learning that a dial moved.
-    const autoRamp = useAutoRamp(frame.info, ramp.settings?.active ?? false, readAll);
+    //
+    // Held back until the opening anchor has settled. Otherwise the first frame would be judged
+    // against the default reference - a number nobody chose - and the camera would be moved to
+    // chase it, moments before that reference was replaced anyway.
+    const autoRamp = useAutoRamp(frame.info, (ramp.settings?.active ?? false) && prime.settled, readAll);
     // One sample per frame, for the history overlay. Declared after the exposure state it reads so
     // the value it records is the one the frame was actually taken with.
     const history = useShotHistory(frame.info, exposure, ramp.settings, sky.state);
@@ -261,6 +269,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     onOpenSettings={() => setSettingsOpen(true)}
                     onDisconnect={() => setConfirmingDisconnect(true)}
                 />
+                {prime.error && <Notice variant="error">Could not set the opening reference: {prime.error}</Notice>}
                 {error && (
                     <Notice variant="error" className="flex flex-wrap items-center justify-between gap-2">
                         <span>{error.message}</span>

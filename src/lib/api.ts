@@ -114,6 +114,14 @@ export const api = {
     rampReferenceFromLatestFrame: () => invoke<RampSettings | null>("ramp_reference_from_latest_frame"),
 
     /**
+     * Aim the reference at the frame on screen, but only if nobody has aimed it yet.
+     *
+     * For the first frame after connecting. `null` when the reference was already set - by hand or
+     * by a session still under way - which is what makes it safe to call on every connect.
+     */
+    rampPrimeReference: () => invoke<RampSettings | null>("ramp_prime_reference"),
+
+    /**
      * Correct the exposure for the frame on screen, if it needs it.
      *
      * Takes no argument: the backend reads the brightness from the frame it already measured,

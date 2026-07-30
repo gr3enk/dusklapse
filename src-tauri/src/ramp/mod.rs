@@ -186,10 +186,10 @@ impl Default for RampSettings {
         Self {
             active: false,
             mode: RampMode::Sunset,
-            // Mid-grey. A sane starting point that is never right for a real composition -
-            // the reference is something you set from a frame you like, and half scale is
-            // the least misleading placeholder until you do.
-            reference: Luminance::from_value(5000),
+            // Mid-grey. A placeholder, not a choice - which is exactly what lets
+            // `prime_reference` recognise that nobody has aimed the ramp yet and anchor it on the
+            // first frame instead.
+            reference: Luminance::from_value(DEFAULT_REFERENCE_VALUE),
 
             // Shutter and ISO on, aperture off. Not an arbitrary split: a mechanical
             // aperture steps in coarse increments and never lands in exactly the same place
@@ -311,6 +311,12 @@ impl RampSettings {
 ///
 /// A lock rather than a channel because every reader wants the current value, not a
 /// history of changes.
+/// The reference a fresh install starts with: mid-grey on the reported scale.
+///
+/// Named because two things compare against it - the default itself, and the check for whether
+/// anyone has moved it. Two literals would eventually disagree.
+pub const DEFAULT_REFERENCE_VALUE: u32 = 5000;
+
 #[derive(Default)]
 pub struct RampState(RwLock<RampSettings>);
 
@@ -344,11 +350,34 @@ impl RampState {
         guard.clone()
     }
 
-    /// Point the reference at a brightness that was just measured.
+    /// Point the reference at a brightness that was just measured, whatever is there now.
     ///
     /// Stores the *base* reference, not the measurement: with the daylight curve running, the
     /// target already sits below the base, so storing the measurement directly would make the
     /// ramp immediately want the frame darker than the one just chosen as correct.
+    /// Point the reference at a measured frame, but only if nobody has aimed it yet.
+    ///
+    /// For the first frame of a session: a reference left at its default is a number nobody chose,
+    /// and arming a ramp against it means the first correction fights an arbitrary target.
+    /// Anchoring on what the camera is actually seeing is a better opening guess than mid-grey.
+    ///
+    /// Refuses once the reference has been moved, which is what makes it safe to run on every
+    /// connect. Reconnecting to a sequence already under way must not quietly retarget the ramp at
+    /// whatever the sky happens to be doing at that moment - that is the one case where an
+    /// automatic reference would destroy work rather than save it.
+    ///
+    /// `None` when the reference had already been aimed, so a caller can tell nothing happened.
+    pub async fn prime_reference(&self, measured: Luminance, unix_seconds: f64) -> Option<RampSettings> {
+        let mut guard = self.0.write().await;
+        if guard.reference.value != DEFAULT_REFERENCE_VALUE {
+            return None;
+        }
+
+        let daylight = guard.daylight_now(unix_seconds).map(|(_, daylight)| daylight);
+        guard.reference = guard.base_from_measured(measured, daylight);
+        Some(guard.clone())
+    }
+
     pub async fn set_reference(&self, measured: Luminance, unix_seconds: f64) -> RampSettings {
         let mut guard = self.0.write().await;
         let daylight = guard
@@ -702,6 +731,57 @@ mod tests {
             settings.effective_reference(Some(daylight)).value
         );
         assert!(sky.offset_stops <= 0.0, "the curve may only darken");
+    }
+
+    /// The opening anchor: a fresh ramp takes its reference from the first frame it is given.
+    #[tokio::test]
+    async fn an_untouched_reference_is_primed_from_the_first_frame() {
+        let state = RampState::default();
+        assert_eq!(state.get().await.reference.value, DEFAULT_REFERENCE_VALUE);
+
+        let stored = state
+            .prime_reference(Luminance::from_value(2269), 0.0)
+            .await
+            .expect("an untouched reference should be primed");
+        assert_eq!(stored.reference.value, 2269);
+    }
+
+    /// The case this guard exists for: reconnecting to a sequence already under way must not
+    /// retarget the ramp at whatever the sky is doing at that moment.
+    #[tokio::test]
+    async fn priming_refuses_once_the_reference_has_been_aimed() {
+        let state = RampState::default();
+        state.set_reference(Luminance::from_value(3200), 0.0).await;
+
+        assert!(
+            state.prime_reference(Luminance::from_value(900), 0.0).await.is_none(),
+            "priming should refuse a reference somebody chose"
+        );
+        assert_eq!(state.get().await.reference.value, 3200, "and must leave it alone");
+    }
+
+    /// Priming runs through the daylight curve like any other anchor, so the frame it was given
+    /// is what the ramp actually aims at.
+    #[tokio::test]
+    async fn priming_stores_the_base_behind_the_daylight_curve() {
+        let state = RampState::default();
+        state.set(shaped(2.0, Some(BERLIN), DaylightShape::Linear, RampMode::Sunset)).await;
+        // `set` writes a reference, so put it back to untouched for this test.
+        state
+            .set(RampSettings {
+                reference: Luminance::from_value(DEFAULT_REFERENCE_VALUE),
+                ..state.get().await
+            })
+            .await;
+
+        let measured = Luminance::from_value(2269);
+        let stored = state.prime_reference(measured, 0.0).await.expect("untouched");
+
+        // Half daylight: the stored base sits above the measurement by half the factor.
+        let held = stored.effective_reference(Some(0.5));
+        let base_only = RampSettings { daylight: DaylightCurve { enabled: false, ..stored.daylight }, ..stored.clone() };
+        assert!(base_only.reference.value > measured.value, "the base should sit above what was measured");
+        assert!((held.linear - stored.effective_reference(Some(0.5)).linear).abs() < 1e-9);
     }
 
     /// Whole hours UTC, enough for tests that only need "night" or "morning".

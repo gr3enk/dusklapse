@@ -48,6 +48,7 @@ pub fn run() {
             commands::ramp_settings,
             commands::ramp_configure,
             commands::ramp_reference_from_latest_frame,
+            commands::ramp_prime_reference,
             commands::ramp_apply,
             commands::ramp_sky,
             commands::platform_has_geolocation,

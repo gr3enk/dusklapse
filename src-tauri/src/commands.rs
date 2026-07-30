@@ -211,6 +211,30 @@ pub async fn ramp_reference_from_latest_frame(
     }
 }
 
+/// Aim the reference at the frame on screen, but only if nobody has aimed it yet.
+///
+/// For the first frame after connecting. `None` when the reference had already been set - by hand,
+/// or by an earlier session that is still under way - which is what makes this safe to call on
+/// every connect rather than only on the first one ever.
+#[tauri::command]
+pub async fn ramp_prime_reference(
+    cache: State<'_, PreviewCache>,
+    ramp: State<'_, RampState>,
+) -> CameraResult<Option<RampSettings>> {
+    let luminance = cache
+        .0
+        .lock()
+        .await
+        .as_ref()
+        .and_then(|preview| preview.analysis.as_ref())
+        .map(|analysis| analysis.luminance);
+
+    match luminance {
+        Some(luminance) => Ok(ramp.prime_reference(luminance, now_unix_seconds()).await),
+        None => Ok(None),
+    }
+}
+
 /// Where the sun is and what the daylight curve is doing about the reference.
 ///
 /// `None` when the curve is switched off or has no position yet, which is also the signal the UI

@@ -13,6 +13,14 @@ export interface Ramp {
     update: (patch: Partial<RampSettings>) => void;
     /** Point the reference at the frame currently on screen. */
     useCurrentFrame: () => void;
+    /**
+     * Take on settings the backend has already stored.
+     *
+     * For the few paths that write through a command of their own - the opening anchor is one -
+     * so their result reaches the controls without a second round trip, and without writing back
+     * a value that is already there.
+     */
+    adopt: (settings: RampSettings) => void;
 }
 
 /**
@@ -89,5 +97,7 @@ export function useRamp(): Ramp {
             .finally(() => setSaving(false));
     }, []);
 
-    return { settings, error, saving, update, useCurrentFrame };
+    const adopt = useCallback((stored: RampSettings) => setSettings(stored), []);
+
+    return { settings, error, saving, update, useCurrentFrame, adopt };
 }
