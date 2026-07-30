@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 591.93 263.76">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: none;
+        stroke: #fff;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-width: 35px;
+      }
+    </style>
+  </defs>
+  <path id="camera" class="cls-1" d="M131.16,215.26v-115.36c0-18.2,14.76-32.96,32.96-32.96h32.91c12.1,0,23.23-6.63,28.99-17.27l8.06-14.9c5.76-10.64,16.89-17.27,28.99-17.27h65.81c12.11,0,23.25,6.64,29.01,17.3l8.01,14.83c5.75,10.66,16.89,17.3,29.01,17.3h32.91c18.2,0,32.96,14.76,32.96,32.96v115.36"/>
+  <circle id="lens" class="cls-1" cx="295.97" cy="165.82" r="49.44"/>
+  <path id="horizont" class="cls-1" d="M17.5,246.26s113.66-31,279.38-31,277.55,31,277.55,31"/>
+</svg>

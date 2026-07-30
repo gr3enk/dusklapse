@@ -4,35 +4,31 @@ import type * as Preset from "@docusaurus/preset-classic";
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
+const GITHUB = "https://github.com/gr3enk/dusklapse";
+
 const config: Config = {
     title: "Dusklapse",
     tagline: "Holy-grail timelapse control for networked cameras",
-    favicon: "img/favicon.ico",
+    favicon: "img/favicon.png",
 
-    // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
     future: {
         v4: true, // Improve compatibility with the upcoming Docusaurus v4
     },
 
-    // Set the production url of your site here
     url: "https://dusklapse.com",
-    // Set the /<baseUrl>/ pathname under which your site is served
-    // For GitHub pages deployment, it is often '/<projectName>/'
     baseUrl: "/",
-    projectName: "dusklapse.github.io",
-    organizationName: "dusklapse",
     trailingSlash: false,
 
-    // GitHub pages deployment config.
-    // If you aren't using GitHub pages, you don't need these.
-    //organizationName: "gr3enk", // Usually your GitHub org/user name.
-    //projectName: "dusklapse", // Usually your repo name.
+    // Only used by `docusaurus deploy` for GitHub Pages, which this site does not use - it is
+    // deployed from Vercel. Kept accurate rather than removed, so nobody has to work out later
+    // whether the wrong values meant something.
+    organizationName: "gr3enk",
+    projectName: "dusklapse",
 
+    // Kept as `throw`. A broken link is nearly always in the navbar or footer, which puts it on
+    // every page at once, and the alternative is a site that quietly points at nothing.
     onBrokenLinks: "throw",
 
-    // Even if you don't use internationalization, you can use this field to set
-    // useful metadata like html lang. For example, if your site is Chinese, you
-    // may want to replace "en" with "zh-Hans".
     i18n: {
         defaultLocale: "en",
         locales: ["en"],
@@ -44,24 +40,12 @@ const config: Config = {
             {
                 docs: {
                     sidebarPath: "./sidebars.ts",
-                    // Please change this to your repo.
-                    // Remove this to remove the "edit this page" links.
-                    editUrl: "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
+                    editUrl: `${GITHUB}/tree/main/docs/`,
                 },
-                blog: {
-                    showReadingTime: true,
-                    feedOptions: {
-                        type: ["rss", "atom"],
-                        xslt: true,
-                    },
-                    // Please change this to your repo.
-                    // Remove this to remove the "edit this page" links.
-                    editUrl: "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
-                    // Useful options to enforce blogging best practices
-                    onInlineTags: "warn",
-                    onInlineAuthors: "warn",
-                    onUntruncatedBlogPosts: "warn",
-                },
+                // No blog. It shipped with the template full of sample posts, and a project this
+                // size announces releases on GitHub instead. To bring it back, replace `false`
+                // with the options and add a `blog/` folder.
+                blog: false,
                 theme: {
                     customCss: "./src/css/custom.css",
                 },
@@ -70,24 +54,24 @@ const config: Config = {
     ],
 
     themeConfig: {
-        // Replace with your project's social card
-        image: "img/docusaurus-social-card.jpg",
+        // No `image` yet: a social card wants roughly 1200x630, and shipping the template's
+        // Docusaurus-branded one would have been worse than having none. Add one here when it
+        // exists and link previews will pick it up.
         colorMode: {
             respectPrefersColorScheme: true,
         },
         navbar: {
             title: "Dusklapse",
             logo: {
-                alt: "Dusklapse Logo",
+                alt: "Dusklapse",
                 src: "img/logo.svg",
+                // The logo is a single-colour line drawing in black. Docusaurus renders it as an
+                // `<img>`, so `currentColor` cannot reach it - dark mode needs its own file.
+                srcDark: "img/logo-dark.svg",
             },
             items: [
                 { to: "/docs/intro", label: "Docs", position: "left" },
-                {
-                    href: "https://github.com/gr3enk/dusklapse",
-                    label: "GitHub",
-                    position: "right",
-                },
+                { href: GITHUB, label: "GitHub", position: "right" },
             ],
         },
         footer: {
@@ -95,28 +79,25 @@ const config: Config = {
             links: [
                 {
                     title: "Docs",
-                    items: [
-                        {
-                            label: "Documentation",
-                            to: "/docs/intro",
-                        },
-                    ],
+                    items: [{ label: "Introduction", to: "/docs/intro" }],
                 },
                 {
-                    title: "More",
+                    title: "Project",
                     items: [
-                        {
-                            label: "GitHub",
-                            href: "https://github.com/gr3enk/dusklapse",
-                        },
+                        { label: "GitHub", href: GITHUB },
+                        { label: "Issues", href: `${GITHUB}/issues` },
+                        { label: "Releases", href: `${GITHUB}/releases` },
                     ],
                 },
             ],
-            copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+            copyright: `Copyright © ${new Date().getFullYear()} Jakob Oestermann. Dual licensed under MIT and Apache-2.0. Built with Docusaurus.`,
         },
         prism: {
             theme: prismThemes.github,
             darkTheme: prismThemes.dracula,
+            // The languages this project is actually written in. Docusaurus bundles a small set by
+            // default and Rust is not in it, so a Rust snippet would render unhighlighted.
+            additionalLanguages: ["rust", "toml", "bash", "json"],
         },
     } satisfies Preset.ThemeConfig,
 };

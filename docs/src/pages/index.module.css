@@ -1,23 +1,46 @@
 /**
- * CSS files with the .module.css suffix will be treated as CSS modules
- * and scoped locally.
+ * Styles for the landing page.
+ *
+ * No `hero--primary`: that fills the banner with the primary colour edge to edge, and this
+ * palette's accent is loud enough that a full bleed of it is the only thing anyone would see.
+ * The heading carries the colour instead.
  */
 
-.heroBanner {
-  padding: 4rem 0;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
+.hero {
+    padding: 5rem 0;
+    text-align: center;
 }
 
-@media screen and (max-width: 996px) {
-  .heroBanner {
-    padding: 2rem;
-  }
+.title {
+    font-size: clamp(2.5rem, 8vw, 4rem);
+    margin-bottom: 0.5rem;
+    color: var(--ifm-color-primary);
 }
 
-.buttons {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.tagline {
+    font-size: 1.25rem;
+    color: var(--ifm-color-emphasis-700);
+    margin-bottom: 2rem;
+}
+
+.summary {
+    /* Measured in characters rather than pixels, so the line length stays readable at any font
+       size the reader has chosen. */
+    max-width: 46rem;
+    margin: 0 auto 2.5rem;
+    font-size: 1.05rem;
+    text-align: left;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+@media (max-width: 768px) {
+    .hero {
+        padding: 3rem 1rem;
+    }
 }

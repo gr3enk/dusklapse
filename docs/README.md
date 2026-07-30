@@ -1,43 +1,32 @@
-# Website
+# Dusklapse documentation
 
-This website is built using [Docusaurus](https://docusaurus.io/), a modern static website generator.
+The site at [dusklapse.com](https://dusklapse.com), built with
+[Docusaurus](https://docusaurus.io/).
 
-## Installation
+Its own pnpm project, not part of the app's workspace - it has its own `pnpm-lock.yaml` and its
+own dependency tree.
 
-```bash
-npm install
-```
-
-**Note**: feel free to use the package manager of your choice.
-
-## Local Development
+## Working on it
 
 ```bash
-npm run start
+pnpm install
+pnpm start
 ```
 
-This command starts a local development server and opens up a browser window. Most changes are reflected live without having to restart the server.
+`pnpm start` serves the site with hot reload. `pnpm build` produces the static site in `build/`
+and is what CI and Vercel run.
 
-## Build
+## Adding a page
 
-```bash
-npm run build
-```
-
-This command generates static content into the `build` directory and can be served using any static contents hosting service.
+Drop an `.mdx` file into `docs/`. The sidebar is generated from the folder structure, so nothing
+has to be registered; use `sidebar_position` in the front matter to place it.
 
 ## Deployment
 
-Using SSH:
+Vercel builds this directory. Automatic deployments on push are switched off in `vercel.json`, so
+a deployment happens on a manual redeploy or through a deploy hook.
 
-```bash
-USE_SSH=true npm run deploy
-```
-
-Not using SSH:
-
-```bash
-GIT_USER=<Your GitHub username> npm run deploy
-```
-
-If you are using GitHub Pages for hosting, this command is a convenient way to build the website and push to the `gh-pages` branch.
+The `Docs Build` GitHub workflow builds the site on every push and pull request that touches
+`docs/`. It exists because Docusaurus treats a broken link as a build failure, and a broken link
+in the navbar or footer appears on every page at once - better to hear about it from CI than from
+a failed deployment.

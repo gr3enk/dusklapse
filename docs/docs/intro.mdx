@@ -1,47 +1,62 @@
 ---
 sidebar_position: 1
+title: Introduction
+description: What Dusklapse does, what it needs, and what it does not do.
 ---
 
-# Tutorial Intro
+# Dusklapse
 
-Let's discover **Docusaurus in less than 5 minutes**.
+Dusklapse ramps a camera's exposure through a sunrise or a sunset, so the finished timelapse
+does not step from frame to frame as the light changes. It runs on an iPhone or iPad and talks
+to the camera over its own Wi-Fi.
 
-## Getting Started
+## What it does
 
-Get started by **creating a new site**.
+- **Measures every frame.** Each JPEG preview is decoded and reduced to one brightness number on
+  a 0–10000 scale, where mid-grey sits near 5000. The measurement is a log-average of linear
+  luminance, so a bright sky or a dark foreground does not drag it around the way an arithmetic
+  mean would.
+- **Corrects the exposure between frames.** When a frame falls below the reference, one dial moves
+  by one notch - shutter first, then aperture, then ISO at sunset, and the reverse at sunrise.
+  Each dial has its own limit and its own on/off switch.
+- **Follows the sky, optionally.** Given a position and the time, Dusklapse works out where the
+  sun is and walks the reference down as it sets, so night frames read as night rather than as an
+  evenly lit day that happens to contain stars.
+- **Shows what it is doing.** A histogram of the current frame, and charts of how the dials and
+  the brightness have moved across the whole sequence.
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
+## What it does not do
 
-### What you'll need
+**Dusklapse does not release the shutter.** Frame timing belongs to an external intervalometer,
+and the app only adjusts the exposure between frames. This is deliberate: an app that must stay
+awake and on schedule for two hours is a fragile thing to hang a night's work on.
 
-- [Node.js](https://nodejs.org/en/download/) version 20.0 or above:
-    - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
+It also never transfers RAW files. A frame's file type is checked before anything crosses the
+network, and only the JPEG is fetched - set the camera to RAW + Basic and the small JPEG becomes
+the preview while the RAW stays on the card.
 
-## Generate a new site
+## What you need
 
-Generate a new Docusaurus site using the **classic template**.
+- A camera that exposes its settings over Wi-Fi (see [Cameras](#cameras)).
+- An external intervalometer, or the camera's built-in one.
+- An iPhone or iPad on the camera's Wi-Fi.
 
-The classic template will automatically be added to your project after you run the command:
+## Cameras
 
-```bash
-npm init docusaurus@latest my-website classic
-```
+| Vendor | Protocol | Status                                                   |
+| ------ | -------- | -------------------------------------------------------- |
+| Nikon  | PTP-IP   | Works. Developed against a Z 6 in access-point mode.     |
+| Canon  | CCAPI    | Implemented, not yet verified against a body.            |
+| Sony   | -        | Not supported.                                           |
+| Mock   | -        | A simulated camera, for trying the app without hardware. |
 
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
+On Nikon bodies the camera must be in **access-point mode** - the one the menu calls _connect to
+smart device_. Station mode, where the camera joins an existing network, closes the connection as
+soon as the shutter fires.
 
-The command also installs all necessary dependencies you need to run Docusaurus.
+## Status
 
-## Start your site
-
-Run the development server:
-
-```bash
-cd my-website
-npm run start
-```
-
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
-
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
-
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
+Dusklapse is early. It is distributed through TestFlight, the version numbers are still `0.1.x`,
+and the parts that have run through a real sunset are the Nikon connection, the measurement and
+the ramp. Bug reports are welcome on
+[GitHub](https://github.com/gr3enk/dusklapse/issues).
