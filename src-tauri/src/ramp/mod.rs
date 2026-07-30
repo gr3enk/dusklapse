@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 
 use crate::camera::{Dial, Luminance};
-use sun::{Location, SkyPhase};
+use sun::{Location, SkyPhase, TwilightBand};
 
 /// Which way the light is going.
 ///
@@ -127,6 +127,12 @@ pub struct DaylightCurve {
     pub location: Option<Location>,
     /// How the darkening is distributed across the event.
     pub shape: DaylightShape,
+    /// How far below the horizon the sun must be before the sequence counts as fully dark.
+    ///
+    /// The one setting here that changes *when* rather than *how much*. Floored at astronomical
+    /// dusk the curve runs for hours and, at northern latitudes in summer, never finishes at all;
+    /// floored at civil dusk it is done within the hour.
+    pub twilight: TwilightBand,
 }
 
 impl Default for DaylightCurve {
@@ -138,6 +144,7 @@ impl Default for DaylightCurve {
             location: None,
             // The behaviour this feature had before the shapes existed.
             shape: DaylightShape::Linear,
+            twilight: TwilightBand::Astronomical,
         }
     }
 }
@@ -215,7 +222,10 @@ impl RampSettings {
             return None;
         }
         let elevation = sun::elevation(location, unix_seconds);
-        Some((elevation, sun::daylight_fraction(elevation)))
+        Some((
+            elevation,
+            sun::daylight_fraction(elevation, self.daylight.twilight),
+        ))
     }
 
     /// Stops the curve takes off the stored reference at a given amount of daylight.
@@ -388,6 +398,7 @@ mod tests {
                 factor,
                 location,
                 shape,
+                twilight: TwilightBand::Astronomical,
             },
             ..Default::default()
         }

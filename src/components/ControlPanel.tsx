@@ -210,7 +210,13 @@ export function ControlPanel({
                     <div className="portrait:col-1 portrait:row-span-4">
                         <DaylightCurveRow
                             config={
-                                settings?.daylight ?? { enabled: false, factor: 2, location: null, shape: "linear" }
+                                settings?.daylight ?? {
+                                    enabled: false,
+                                    factor: 2,
+                                    location: null,
+                                    shape: "linear",
+                                    twilight: "astronomical",
+                                }
                             }
                             mode={settings?.mode ?? "sunset"}
                             sky={sky}

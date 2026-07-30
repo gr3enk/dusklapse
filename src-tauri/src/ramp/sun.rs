@@ -77,8 +77,9 @@ pub fn elevation(location: Location, unix_seconds: f64) -> f64 {
     let mean_anomaly = (357.528 + 0.985_600_3 * n).rem_euclid(360.0).to_radians();
 
     // Ecliptic longitude: the mean longitude corrected for the orbit not being circular.
-    let ecliptic = (mean_longitude + 1.915 * mean_anomaly.sin() + 0.020 * (2.0 * mean_anomaly).sin())
-        .to_radians();
+    let ecliptic =
+        (mean_longitude + 1.915 * mean_anomaly.sin() + 0.020 * (2.0 * mean_anomaly).sin())
+            .to_radians();
 
     // Tilt of the earth's axis, drifting very slowly.
     let obliquity = (23.439 - 0.000_000_4 * n).to_radians();
@@ -95,21 +96,53 @@ pub fn elevation(location: Location, unix_seconds: f64) -> f64 {
     let hour_angle = local_sidereal - right_ascension;
 
     let latitude = location.latitude.to_radians();
-    let sin_elevation = latitude.sin() * declination.sin()
-        + latitude.cos() * declination.cos() * hour_angle.cos();
+    let sin_elevation =
+        latitude.sin() * declination.sin() + latitude.cos() * declination.cos() * hour_angle.cos();
 
     sin_elevation.clamp(-1.0, 1.0).asin().to_degrees()
 }
 
-/// How much daylight there is, from 1.0 in the day to 0.0 at astronomical night.
+/// Where the daylight fraction is taken to reach zero.
 ///
-/// Linear in solar elevation between the horizon and 18° below it. Deliberately a *stylistic*
-/// curve rather than a model of sky luminance - real sky brightness falls far faster than this
-/// and by ten stops or more, which no timelapse is graded to. What this drives is how much
-/// darker the finished sequence should look at night, which is a look, not a measurement.
-pub fn daylight_fraction(elevation_degrees: f64) -> f32 {
-    let span = HORIZON_DEGREES - ASTRONOMICAL_DEGREES;
-    let above_floor = elevation_degrees - ASTRONOMICAL_DEGREES;
+/// The three standard twilights, and the reason the setting exists: how far below the horizon the
+/// sun has to be before the sequence is treated as fully dark decides how quickly the whole thing
+/// happens. At 52° north in July the sun barely reaches -18° at all, so a curve floored there
+/// never applies the factor it was given; floored at civil dusk it is finished within the hour.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum TwilightBand {
+    /// Ends at -6°. The sky still has colour; the shortest and steepest option.
+    Civil,
+    /// Ends at -12°. The horizon is still discernible.
+    Nautical,
+    /// Ends at -18°. Full darkness, and the longest run.
+    ///
+    /// The default, because it is what the curve did before the band could be chosen.
+    #[default]
+    Astronomical,
+}
+
+impl TwilightBand {
+    /// Solar elevation at which this band ends and the fraction reaches zero.
+    pub fn floor_degrees(self) -> f64 {
+        match self {
+            Self::Civil => CIVIL_DEGREES,
+            Self::Nautical => NAUTICAL_DEGREES,
+            Self::Astronomical => ASTRONOMICAL_DEGREES,
+        }
+    }
+}
+
+/// How much daylight there is, from 1.0 in the day to 0.0 at the end of the chosen band.
+///
+/// Linear in solar elevation between the horizon and the band's floor. Deliberately a *stylistic*
+/// curve rather than a model of sky luminance - real sky brightness falls far faster than this and
+/// by ten stops or more, which no timelapse is graded to. What this drives is how much darker the
+/// finished sequence should look at night, which is a look, not a measurement.
+pub fn daylight_fraction(elevation_degrees: f64, band: TwilightBand) -> f32 {
+    let floor = band.floor_degrees();
+    let span = HORIZON_DEGREES - floor;
+    let above_floor = elevation_degrees - floor;
     (above_floor / span).clamp(0.0, 1.0) as f32
 }
 
@@ -126,7 +159,20 @@ mod tests {
         for y in 1970..year {
             days += if leap(y) { 366 } else { 365 };
         }
-        let lengths = [31, if leap(year) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        let lengths = [
+            31,
+            if leap(year) { 29 } else { 28 },
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ];
         days += lengths[..month as usize - 1].iter().sum::<i64>();
         days += day as i64 - 1;
         days as f64 * 86_400.0 + hour * 3_600.0 + minute * 60.0
@@ -149,7 +195,10 @@ mod tests {
         // At the March equinox the sun stands over the equator, so at local solar noon on the
         // Greenwich meridian its elevation is 90° minus the latitude.
         for (latitude, expected) in [(0.0, 90.0), (52.52, 37.48), (-33.87, 56.13)] {
-            let location = Location { latitude, longitude: 0.0 };
+            let location = Location {
+                latitude,
+                longitude: 0.0,
+            };
             let elevation = elevation(location, utc(2026, 3, 20, 12.0, 7.0));
             assert!(
                 (elevation - expected).abs() < 0.6,
@@ -203,19 +252,31 @@ mod tests {
         let before = elevation(BERLIN, utc(2026, 7, 28, 18.0, 45.0));
         let after = elevation(BERLIN, utc(2026, 7, 28, 19.0, 30.0));
 
-        assert!(before > HORIZON_DEGREES, "still up at 18:45 UTC, got {before}");
-        assert!(after < HORIZON_DEGREES, "already down at 19:30 UTC, got {after}");
+        assert!(
+            before > HORIZON_DEGREES,
+            "still up at 18:45 UTC, got {before}"
+        );
+        assert!(
+            after < HORIZON_DEGREES,
+            "already down at 19:30 UTC, got {after}"
+        );
     }
 
     /// The southern hemisphere runs the other way, which a hardcoded northern assumption would
     /// get backwards.
     #[test]
     fn the_southern_hemisphere_has_its_seasons_reversed() {
-        let sydney = Location { latitude: -33.87, longitude: 151.21 };
+        let sydney = Location {
+            latitude: -33.87,
+            longitude: 151.21,
+        };
         // Local noon in Sydney is around 02:00 UTC.
         let december = elevation(sydney, utc(2026, 12, 21, 1.0, 0.0));
         let june = elevation(sydney, utc(2026, 6, 21, 2.0, 0.0));
-        assert!(december > june, "December {december} should beat June {june} in Sydney");
+        assert!(
+            december > june,
+            "December {december} should beat June {june} in Sydney"
+        );
     }
 
     #[test]
@@ -230,22 +291,94 @@ mod tests {
 
     #[test]
     fn daylight_runs_from_one_to_zero_across_twilight() {
-        assert_eq!(daylight_fraction(45.0), 1.0);
-        assert_eq!(daylight_fraction(HORIZON_DEGREES), 1.0);
-        assert_eq!(daylight_fraction(ASTRONOMICAL_DEGREES), 0.0);
-        assert_eq!(daylight_fraction(-60.0), 0.0);
+        assert_eq!(daylight_fraction(45.0, TwilightBand::Astronomical), 1.0);
+        assert_eq!(
+            daylight_fraction(HORIZON_DEGREES, TwilightBand::Astronomical),
+            1.0
+        );
+        assert_eq!(
+            daylight_fraction(ASTRONOMICAL_DEGREES, TwilightBand::Astronomical),
+            0.0
+        );
+        assert_eq!(daylight_fraction(-60.0, TwilightBand::Astronomical), 0.0);
 
         // Halfway down twilight is halfway through the curve.
-        let middle = daylight_fraction((HORIZON_DEGREES + ASTRONOMICAL_DEGREES) / 2.0);
+        let middle = daylight_fraction(
+            (HORIZON_DEGREES + ASTRONOMICAL_DEGREES) / 2.0,
+            TwilightBand::Astronomical,
+        );
         assert!((middle - 0.5).abs() < 1e-4, "{middle}");
+    }
+
+    /// Each band reaches zero exactly at its own floor, and one at the horizon regardless.
+    #[test]
+    fn every_band_spans_the_horizon_to_its_own_floor() {
+        for band in [
+            TwilightBand::Civil,
+            TwilightBand::Nautical,
+            TwilightBand::Astronomical,
+        ] {
+            assert_eq!(
+                daylight_fraction(HORIZON_DEGREES, band),
+                1.0,
+                "{band:?} at the horizon"
+            );
+            assert_eq!(
+                daylight_fraction(band.floor_degrees(), band),
+                0.0,
+                "{band:?} at its floor"
+            );
+            assert_eq!(daylight_fraction(90.0, band), 1.0, "{band:?} at noon");
+        }
+    }
+
+    /// At the same elevation a narrower band is always further along, which is the whole point of
+    /// offering the choice.
+    #[test]
+    fn a_narrower_band_is_always_further_along() {
+        for elevation in [-2.0, -5.0, -9.0, -14.0] {
+            let civil = daylight_fraction(elevation, TwilightBand::Civil);
+            let nautical = daylight_fraction(elevation, TwilightBand::Nautical);
+            let astronomical = daylight_fraction(elevation, TwilightBand::Astronomical);
+            assert!(
+                civil <= nautical && nautical <= astronomical,
+                "at {elevation}°: civil {civil}, nautical {nautical}, astronomical {astronomical}"
+            );
+        }
+    }
+
+    /// A northern summer night never reaches -18°, so a curve floored there cannot finish - but
+    /// floored at civil or nautical dusk it does. This is the case the setting exists for.
+    #[test]
+    fn a_narrower_band_completes_where_astronomical_cannot() {
+        let mut lowest = f64::MAX;
+        for minute in (0..1440).step_by(10) {
+            lowest = lowest.min(elevation(BERLIN, utc(2026, 6, 21, 0.0, minute as f64)));
+        }
+
+        assert!(
+            daylight_fraction(lowest, TwilightBand::Astronomical) > 0.0,
+            "astronomical should never finish, lowest {lowest}"
+        );
+        assert_eq!(daylight_fraction(lowest, TwilightBand::Nautical), 0.0);
+        assert_eq!(daylight_fraction(lowest, TwilightBand::Civil), 0.0);
     }
 
     /// The curve must never leave 0..1, whatever elevation it is handed.
     #[test]
     fn daylight_is_always_a_fraction() {
-        for elevation in [-90.0, -18.1, -18.0, -9.0, 0.0, 0.5, 90.0] {
-            let fraction = daylight_fraction(elevation);
-            assert!((0.0..=1.0).contains(&fraction), "{elevation} gave {fraction}");
+        for band in [
+            TwilightBand::Civil,
+            TwilightBand::Nautical,
+            TwilightBand::Astronomical,
+        ] {
+            for elevation in [-90.0, -18.1, -18.0, -9.0, 0.0, 0.5, 90.0] {
+                let fraction = daylight_fraction(elevation, band);
+                assert!(
+                    (0.0..=1.0).contains(&fraction),
+                    "{band:?} at {elevation} gave {fraction}"
+                );
+            }
         }
     }
 }

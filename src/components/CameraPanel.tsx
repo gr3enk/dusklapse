@@ -94,7 +94,11 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     const readAll = useCallback(async () => {
         // Capability lists depend on the shooting mode and the attached lens, so
         // they get re-read rather than cached once at connect.
-        const [nextCapabilities, nextExposure, nextBattery] = await Promise.all([api.capabilities(), api.exposure(), api.battery()]);
+        const [nextCapabilities, nextExposure, nextBattery] = await Promise.all([
+            api.capabilities(),
+            api.exposure(),
+            api.battery(),
+        ]);
         setCapabilities(nextCapabilities);
         setExposure(nextExposure);
         setBattery(nextBattery);
@@ -227,7 +231,13 @@ export function CameraPanel({ info, onDisconnected }: Props) {
             )}
         >
             <div className="min-h-0 landscape:col-start-2 landscape:row-start-1">
-                <PreviewPane frame={frame} count={frames} supported={info.pushesEvents} history={history} transferEvery={transferEvery} />
+                <PreviewPane
+                    frame={frame}
+                    count={frames}
+                    supported={info.pushesEvents}
+                    history={history}
+                    transferEvery={transferEvery}
+                />
             </div>
 
             <div className="flex flex-col gap-2 landscape:col-start-2 landscape:row-start-2">
@@ -252,7 +262,12 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                         {/* Only where it can do something. Offering it after a value the body
                             refused would suggest the connection was the problem. */}
                         {error.lost && (
-                            <Button variant="danger" size="compact" onClick={() => void reconnect()} disabled={reconnecting}>
+                            <Button
+                                variant="danger"
+                                size="compact"
+                                onClick={() => void reconnect()}
+                                disabled={reconnecting}
+                            >
                                 {reconnecting ? "Reconnecting…" : "Reconnect"}
                             </Button>
                         )}
@@ -274,7 +289,13 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                 />
             </div>
 
-            <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} settings={settings} intervalMs={measuredInterval(clock.recent)} />
+            <SettingsDialog
+                open={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                settings={settings}
+                ramp={ramp}
+                intervalMs={measuredInterval(clock.recent)}
+            />
         </div>
     );
 }

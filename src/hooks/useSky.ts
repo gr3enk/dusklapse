@@ -63,7 +63,12 @@ export function useSky(settings: RampSettings | null): Sky {
     const enabled = settings?.daylight.enabled ?? false;
     const location = settings?.daylight.location ?? null;
     const factor = settings?.daylight.factor;
+    const shape = settings?.daylight.shape;
+    const twilight = settings?.daylight.twilight;
     const reference = settings?.reference.value;
+    // The mode too: the shapes are applied to progress through the event, which counts from full
+    // day at sunset and full night at sunrise, so switching direction changes the answer.
+    const mode = settings?.mode;
 
     useEffect(() => {
         // Nothing to poll for, and clearing is what makes the readout disappear the moment the
@@ -95,7 +100,7 @@ export function useSky(settings: RampSettings | null): Sky {
         };
         // Latitude and longitude rather than the object: a new object with the same coordinates
         // would otherwise restart the interval on every settings write.
-    }, [enabled, location?.latitude, location?.longitude, factor, reference]);
+    }, [enabled, location?.latitude, location?.longitude, factor, shape, twilight, mode, reference]);
 
     const locate = useCallback(async (): Promise<Location | null> => {
         setLocating(true);

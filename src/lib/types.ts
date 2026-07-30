@@ -164,7 +164,25 @@ export interface DaylightCurve {
     location: Location | null;
     /** How the darkening is spread across the event. */
     shape: DaylightShape;
+    /** How far below the horizon the sun must be before the sequence counts as fully dark. */
+    twilight: TwilightBand;
 }
+
+/**
+ * Where the daylight fraction reaches zero. Mirrors the Rust `TwilightBand`.
+ *
+ * Changes *when* rather than *how much*: floored at astronomical dusk the curve runs for hours
+ * and, at northern latitudes in summer, never finishes at all; floored at civil dusk it is done
+ * within the hour.
+ */
+export type TwilightBand = "civil" | "nautical" | "astronomical";
+
+/** The bands, with the elevation each ends at. */
+export const TWILIGHT_BANDS: { value: TwilightBand; label: string; degrees: number }[] = [
+    { value: "civil", label: "Civil", degrees: -6 },
+    { value: "nautical", label: "Nautical", degrees: -12 },
+    { value: "astronomical", label: "Astronomical", degrees: -18 },
+];
 
 /**
  * How the darkening is distributed across the event. Mirrors the Rust `DaylightShape`.
