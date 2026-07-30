@@ -15,6 +15,7 @@ import { useSky } from "../hooks/useSky";
 import { useShotHistory } from "../hooks/useShotHistory";
 import { useShotClock } from "../hooks/useShotClock";
 import { SettingsDialog } from "./SettingsDialog";
+import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { measuredInterval } from "../lib/interval";
 import { transferShot } from "../lib/transfer";
 import { useSettings } from "../hooks/useSettings";
@@ -71,6 +72,10 @@ export function CameraPanel({ info, onDisconnected }: Props) {
 
     // Secondary settings, stored in Rust so a WebView reload cannot undo them mid-sequence.
     const [settingsOpen, setSettingsOpen] = useState(false);
+    // Asked before disconnecting, because the button sits beside the ones used constantly and a
+    // stray tap ends the session for good: `camera_reconnect` reuses the address of the session it
+    // finds, and a deliberate disconnect is the one thing that removes it.
+    const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
     const settings = useSettings();
     // Every frame until the stored value has loaded: thinning transfers nobody asked to thin would
     // silently drop measurements for the first seconds of a session.
@@ -254,7 +259,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     clock={clock}
                     onChangeDial={changeDial}
                     onOpenSettings={() => setSettingsOpen(true)}
-                    onDisconnect={disconnect}
+                    onDisconnect={() => setConfirmingDisconnect(true)}
                 />
                 {error && (
                     <Notice variant="error" className="flex flex-wrap items-center justify-between gap-2">
@@ -296,6 +301,24 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                 ramp={ramp}
                 intervalMs={measuredInterval(clock.recent)}
             />
+
+            {/* Names what is lost and what is not. "Are you sure?" tells nobody anything, and the
+                answer here is not obvious: the settings live in the backend and survive, the
+                counters and the charts live in this screen and do not. */}
+            <ConfirmDialog
+                open={confirmingDisconnect}
+                title="Disconnect the camera?"
+                confirmLabel="Disconnect"
+                destructive
+                onCancel={() => setConfirmingDisconnect(false)}
+                onConfirm={() => {
+                    setConfirmingDisconnect(false);
+                    void disconnect();
+                }}
+            >
+                <p className="m-0">The shot count, the running time and the history charts are kept by this screen and will be lost.</p>
+                <p className="m-0 pt-2">Your ramp settings and the transfer setting are stored by the app and will still be there.</p>
+            </ConfirmDialog>
         </div>
     );
 }
