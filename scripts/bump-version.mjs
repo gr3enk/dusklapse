@@ -16,6 +16,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const FILES = ["src-tauri/tauri.conf.json", "package.json"];
 const CARGO = "src-tauri/Cargo.toml";
+const CARGO_LOCK = "src-tauri/Cargo.lock";
 
 const level = process.argv[2];
 if (!["patch", "minor", "major"].includes(level)) {
@@ -59,6 +60,23 @@ if (updatedCargo === cargo) {
     process.exit(1);
 }
 writeFileSync(CARGO, updatedCargo);
+
+// The lockfile records this crate's own version alongside every dependency, so leaving it behind
+// publishes a commit where the two disagree. Cargo then silently rewrites it on the next build -
+// including the one rust-analyzer runs when a file is opened - and everyone who pulls finds a
+// modified working tree they did not touch and a pull that refuses to run.
+//
+// Edited as text rather than by running `cargo`: the release workflow raises the version before the
+// Rust toolchain is installed, and a lockfile is not worth a toolchain.
+const lock = readFileSync(CARGO_LOCK, "utf8");
+// Anchored to this crate's own block. A dependency that happens to share the version must not be
+// touched, and `[[package]]` blocks are separated by a blank line.
+const block = new RegExp(`(\\[\\[package\\]\\]\\nname = "dusklapse"\\nversion = )"${escape(current)}"`);
+if (!block.test(lock)) {
+    console.error(`${CARGO_LOCK}: no dusklapse entry at version "${current}" to replace.`);
+    process.exit(1);
+}
+writeFileSync(CARGO_LOCK, lock.replace(block, `$1"${next}"`));
 
 console.log(next);
 

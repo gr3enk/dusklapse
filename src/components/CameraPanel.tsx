@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, errorMessage, isConnectionLost } from "../lib/api";
-import type { BatteryStatus, CameraInfo, Dial, ExposureCapabilities, ExposureSettings } from "../lib/types";
+import {
+    stopsBetween,
+    type BatteryStatus,
+    type CameraInfo,
+    type Dial,
+    type ExposureCapabilities,
+    type ExposureSettings,
+} from "../lib/types";
 import { CameraStatusBar } from "./CameraStatusBar";
 import { PreviewPane } from "./PreviewPane";
 import { Notice } from "./ui/Notice";
@@ -126,6 +133,13 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     // One sample per frame, for the history overlay. Declared after the exposure state it reads so
     // the value it records is the one the frame was actually taken with.
     const history = useShotHistory(frame.info, exposure, ramp.settings, sky.state);
+
+    // How far the last frame sat from what the ramp is aiming at. Computed here rather than in each
+    // display, because the meter in the strip and the sentence in the controls must never disagree
+    // - and the target is not the stored reference when the daylight curve has moved it.
+    const frameLuminance = frame.info?.analysis?.luminance ?? null;
+    const target = sky.state?.effectiveReference ?? ramp.settings?.reference ?? null;
+    const deviation = target && frameLuminance ? stopsBetween(frameLuminance, target) : null;
 
     const refresh = useCallback(async () => {
         setError(null);
@@ -267,6 +281,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     // body refused would otherwise mark a dial the ramp never managed to turn.
                     lastRamped={autoRamp.outcome?.change?.applied ? autoRamp.outcome.change.dial : null}
                     clock={clock}
+                    deviation={deviation}
                     onChangeDial={changeDial}
                     onOpenSettings={() => setSettingsOpen(true)}
                     onOpenLogs={() => setLogsOpen(true)}
@@ -300,7 +315,8 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     autoRamp={autoRamp}
                     sky={sky}
                     capabilities={capabilities}
-                    frameLuminance={frame.info?.analysis?.luminance ?? null}
+                    frameLuminance={frameLuminance}
+                    deviation={deviation}
                     onShoot={() => void shoot()}
                     onRefresh={() => void refresh()}
                 />

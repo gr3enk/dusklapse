@@ -6,7 +6,6 @@ import type { Sky } from "../hooks/useSky";
 import {
     DIALS,
     dialLimitLabel,
-    stopsBetween,
     type CameraInfo,
     type Dial,
     type DialRamp,
@@ -53,6 +52,13 @@ interface Props {
     capabilities: ExposureCapabilities | null;
     /** Brightness of the frame on screen, or `null` before the first one. */
     frameLuminance: Luminance | null;
+    /**
+     * Stops the frame sits from what the ramp is aiming at, or `null` before the first frame.
+     *
+     * Passed in rather than worked out here: the exposure meter in the status strip shows the same
+     * number, and two calculations of one reading eventually disagree.
+     */
+    deviation: number | null;
     onShoot: () => void;
     onRefresh: () => void;
 }
@@ -77,6 +83,7 @@ export function ControlPanel({
     sky,
     capabilities,
     frameLuminance,
+    deviation,
     onShoot,
     onRefresh,
 }: Props) {
@@ -86,12 +93,6 @@ export function ControlPanel({
     // panel from changing height the moment it arrives.
     const ready = settings !== null;
     const active = settings?.active ?? false;
-
-    // The target the engine is actually holding: the daylight curve may have walked it below
-    // the stored reference. Measuring against the stored one instead would have the readout
-    // saying "on target" while the ramp went on correcting.
-    const target = sky.state?.effectiveReference ?? settings?.reference ?? null;
-    const deviation = target && frameLuminance ? stopsBetween(frameLuminance, target) : null;
 
     // `Dial` and the settings share field names, which is what lets one handler serve all
     // three rows instead of three near-identical ones.
