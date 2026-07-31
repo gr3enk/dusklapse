@@ -205,7 +205,7 @@ function ConnectionHelp({ vendor, onClose }: { vendor: Vendor; onClose: () => vo
     return (
         <div
             className={cn(
-                "flex w-full flex-col gap-6 self-stretch",
+                "flex w-full absolute inset-0 flex-col gap-2 self-stretch",
                 "pt-[calc(var(--spacing-safe-t)+1.5rem)] pr-[calc(var(--spacing-safe-r)+1.5rem)] pb-[calc(var(--spacing-safe-b)+1.5rem)] pl-[calc(var(--spacing-safe-l)+1.5rem)]",
             )}
         >
@@ -214,10 +214,9 @@ function ConnectionHelp({ vendor, onClose }: { vendor: Vendor; onClose: () => vo
                     <ArrowLeftIcon className="size-4" />
                     Back
                 </Button>
-                <h2 className="m-0 text-[1.1rem] font-[650]">Connection help</h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+            <div className="min-h-0 flex-1 overflow-y-auto border-t border-border">
                 {Help ? <Help /> : <Notice>There is nothing to set up for this camera beyond picking it.</Notice>}
             </div>
         </div>
