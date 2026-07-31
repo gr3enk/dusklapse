@@ -25,9 +25,13 @@ export default function Home(): ReactNode {
                     </Heading>
                     <p className={styles.tagline}>{siteConfig.tagline}</p>
                     <p className={styles.summary}>
-                        Dusklapse ramps a camera's exposure through a sunrise or a sunset, so the finished sequence does
-                        not step from frame to frame as the light changes. It runs on an iPhone or iPad and talks to the
-                        camera over its own Wi-Fi.
+                        Dusklapse is an app for creating day-to-night or night-to-day time-lapses (the so-called Holy
+                        Grail) using DSLR / DSLM cameras.
+                        <br />
+                        <br />
+                        The app connects to your camera via Wi-Fi and adjusts your camera’s exposure time, aperture and
+                        ISO settings to pre-defined limits, enabling you to capture time-lapse footage with significant
+                        changes in light, such as from day to night or vice versa.
                     </p>
                     <div className={styles.actions}>
                         <Link className="button button--primary button--lg" to="/docs/intro">
