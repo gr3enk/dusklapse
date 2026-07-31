@@ -98,11 +98,11 @@ pnpm format
 
 ### Project layout
 
-| Path             | What lives there                                                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/`           | The React frontend. No camera I/O happens here - it all goes through Tauri commands.                                                                         |
-| `src-tauri/src/` | The Rust backend: camera protocols, the exposure ramp, image analysis.                                                                                       |
-| `docs/`          | The documentation site. Its own pnpm project with its own lockfile - `cd docs && pnpm install`. For more information see the [docs README](./docs/README.md) |
+| Path             | What lives there                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/`           | The React frontend. No camera I/O happens here - it all goes through Tauri commands.                                                                          |
+| `src-tauri/src/` | The Rust backend: camera protocols, the exposure ramp, image analysis.                                                                                        |
+| `docs/`          | The documentation site. Its own pnpm project with its own lockfile - `cd docs && pnpm install`. For more information see the [docs README](./docs/README.md). |
 
 Camera support is a strategy pattern: `src-tauri/src/camera/mod.rs` holds the `Camera` trait and
 the registry, and each vendor is a module beside it. Adding one means writing that module and
