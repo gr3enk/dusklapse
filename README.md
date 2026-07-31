@@ -1,7 +1,9 @@
 <img alt="Dusklapse splash" src=".github/splash.webp" />
 <p align="center">
-  <a href="https://dusklapse.com"><img src="https://img.shields.io/badge/Beta-8A2BE2" alt="Beta"></a>
-  <a href="https://dusklapse.com"><img src="https://img.shields.io/badge/License-MIT%20or%20Apache%202-green.svg" alt="License"></a>
+  <a href="https://github.com/gr3enk/dusklapse/releases"><img src="https://img.shields.io/github/v/release/gr3enk/dusklapse?color=f3607b" alt="Release"></a>
+  <a href="https://github.com/gr3enk/dusklapse/releases"><img src="https://img.shields.io/badge/Beta-8A2BE2" alt="Beta"></a>
+  <a href="https://dusklapse.com"><img src="https://img.shields.io/badge/website-dusklapse.com-green.svg" alt="Beta"></a>
+  <img src="https://img.shields.io/badge/license-MIT%20or%20Apache%202-green.svg" alt="License">
 </p>
 
 ## Introduction
