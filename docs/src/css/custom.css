@@ -35,3 +35,25 @@
 
     --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
+
+/**
+ * Screenshots in documentation pages.
+ *
+ * Infima already caps images at the width of the text column, which for the connection guides
+ * means 750px wide and 500px tall each - six of those turn a short set of steps into a long scroll,
+ * and a camera menu does not become clearer for being larger than the paragraph explaining it.
+ *
+ * Scoped to `.markdown`, the container Docusaurus wraps page content in, so the navbar logo and the
+ * footer are left alone.
+ *
+ * Centred rather than left-aligned: an image narrower than its column and flush with the text reads
+ * as a mistake rather than a choice.
+ *
+ * Override a single image by giving it an explicit width, which wins over a max-width:
+ * `<img src="/connection-guide/nikon/en1.jpg" width="700" />`
+ */
+.markdown img {
+    max-width: 30rem;
+    display: block;
+    border-radius: var(--ifm-global-radius);
+}
