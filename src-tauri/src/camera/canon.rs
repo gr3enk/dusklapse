@@ -58,6 +58,7 @@ pub fn profile() -> VendorProfile {
         access_point_host: None,
         needs_address: true,
         implemented: true,
+        developer_only: false,
     }
 }
 

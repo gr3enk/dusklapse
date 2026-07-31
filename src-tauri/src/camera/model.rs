@@ -119,6 +119,13 @@ pub struct VendorProfile {
     /// Whether a backend exists. False is not a bug - it is a vendor whose protocol has
     /// not been implemented, and the UI should say so rather than let someone try.
     pub implemented: bool,
+    /// Kept out of the picker until someone deliberately asks for it.
+    ///
+    /// For the simulator, which exists to develop and review against and is noise to everyone
+    /// else - a fake camera sitting between the real ones invites the question of what it is,
+    /// every time. The registry still describes it, so the entry that eventually appears is the
+    /// same one, built the same way; this only decides whether it is offered unprompted.
+    pub developer_only: bool,
 }
 
 /// The three exposure dials a ramp can move.

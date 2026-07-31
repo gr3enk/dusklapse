@@ -341,6 +341,13 @@ export interface VendorProfile {
     accessPointHost: string | null;
     needsAddress: boolean;
     implemented: boolean;
+    /**
+     * Kept out of the picker until someone deliberately asks for it.
+     *
+     * True for the simulator. The registry still describes it, so the entry that appears once it
+     * is unlocked is the same one; this only decides whether it is offered unprompted.
+     */
+    developerOnly: boolean;
 }
 
 export const DIALS: { id: Dial; label: string }[] = [
