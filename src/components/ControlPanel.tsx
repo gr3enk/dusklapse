@@ -80,7 +80,7 @@ export function ControlPanel({
     onShoot,
     onRefresh,
 }: Props) {
-    const { settings, update, useCurrentFrame, saving, error } = ramp;
+    const { settings, update, useCurrentFrame, error } = ramp;
 
     // Everything below needs a loaded configuration; disabling rather than hiding keeps the
     // panel from changing height the moment it arrives.
@@ -152,7 +152,7 @@ export function ControlPanel({
                             <NumberSelector
                                 label="luminance reference"
                                 className="w-full"
-                                disabled={!active || saving}
+                                disabled={!active}
                                 value={settings?.reference.value ?? 0}
                                 // Only `value` is edited here; the backend rebuilds the matching
                                 // `linear` when it stores the reference, so the two halves cannot
@@ -171,7 +171,7 @@ export function ControlPanel({
                             <Button
                                 variant="secondary"
                                 onClick={useCurrentFrame}
-                                disabled={!active || !ready || saving || frameLuminance === null}
+                                disabled={!active || !ready || frameLuminance === null}
                                 className="w-full"
                                 title={
                                     frameLuminance === null
@@ -221,7 +221,6 @@ export function ControlPanel({
                             mode={settings?.mode ?? "sunset"}
                             sky={sky}
                             rampActive={active}
-                            busy={saving}
                             onChange={(daylight) => update({ daylight })}
                         />
                     </div>
@@ -235,7 +234,6 @@ export function ControlPanel({
                                 config={settings?.[id] ?? { enabled: false, limit: null }}
                                 values={capabilities?.[id] ?? []}
                                 rampActive={active}
-                                busy={saving}
                                 onChange={(next) => updateDial(id, next)}
                             />
                         ))}

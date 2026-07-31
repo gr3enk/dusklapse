@@ -31,7 +31,7 @@ interface Props {
  * few minutes and nothing else, and on a phone in portrait that is already tight.
  */
 export function SettingsDialog({ open, onClose, settings, ramp, intervalMs }: Props) {
-    const { value, update, saving, error } = settings;
+    const { value, update, error } = settings;
     // Disabled rather than hidden until the stored value arrives, so the dialog does not change
     // height the moment it does.
     const transferEvery = value?.transferEvery ?? 1;
@@ -46,7 +46,7 @@ export function SettingsDialog({ open, onClose, settings, ramp, intervalMs }: Pr
                     label="frames per transfer"
                     value={transferEvery}
                     onChange={(transferEvery) => update({ transferEvery })}
-                    disabled={value === null || saving}
+                    disabled={value === null}
                     min={TRANSFER_EVERY_MIN}
                     max={TRANSFER_EVERY_MAX}
                     step={1}

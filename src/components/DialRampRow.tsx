@@ -13,7 +13,6 @@ interface Props {
     values: ExposureValue[];
     /** False while the ramp as a whole is disarmed. */
     rampActive: boolean;
-    busy: boolean;
     onChange: (next: DialRamp) => void;
 }
 
@@ -27,9 +26,9 @@ interface Props {
  * The select stays mounted and disabled rather than hidden when the dial is off, so the panel
  * does not change height every time a toggle is flipped.
  */
-export function DialRampRow({ label, config, values, rampActive, busy, onChange }: Props) {
+export function DialRampRow({ label, config, values, rampActive, onChange }: Props) {
     const usable = values.filter((value) => value.stops !== null);
-    const disabled = !rampActive || !config.enabled || busy;
+    const disabled = !rampActive || !config.enabled;
 
     const handleChangeLimit = useCallback(
         (direction: "up" | "down") => {
