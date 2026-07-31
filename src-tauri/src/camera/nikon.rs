@@ -153,6 +153,7 @@ pub fn profile() -> VendorProfile {
         access_point_host: Some("192.168.1.1".into()),
         needs_address: true,
         implemented: true,
+        developer_only: false,
     }
 }
 

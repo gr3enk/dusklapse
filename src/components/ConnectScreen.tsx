@@ -7,6 +7,7 @@ import { api, errorMessage } from "../lib/api";
 import type { CameraInfo, Vendor, VendorProfile } from "../lib/types";
 import { cn } from "../lib/utils";
 import NikonConnectionHelp from "./help/NikonConnectionHelp";
+import { useLongPress } from "../hooks/useLongPress";
 import { Button } from "./ui/Button";
 import { HintStack } from "./ui/HintStack";
 import { Label } from "./ui/Label";
@@ -14,13 +15,26 @@ import { Notice } from "./ui/Notice";
 import { SegmentedControl } from "./ui/SegmentedControl";
 import { TextField } from "./ui/TextField";
 
+/**
+ * How long the Connect button has to be held to reveal the simulator.
+ *
+ * Long enough that it cannot happen by accident - a slow tap or a button held while the app thinks
+ * is nowhere near - and short enough to be bearable once you know.
+ */
+const UNLOCK_HOLD_MS = 7000;
+
 interface Props {
     onConnected: (info: CameraInfo) => void;
+    /** Whether the simulator is on offer. Held by the app, so it survives connecting once. */
+    developerMode: boolean;
+    onUnlockDeveloper: () => void;
 }
 
-export function ConnectScreen({ onConnected }: Props) {
+export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }: Props) {
     const [profiles, setProfiles] = useState<VendorProfile[]>([]);
-    const [vendor, setVendor] = useState<Vendor>("mock");
+    // Nikon: the one under active development, and the only vendor with a working backend today.
+    // It was the simulator until the simulator stopped being offered.
+    const [vendor, setVendor] = useState<Vendor>("nikon");
     const [showConnectionHelp, setShowConnectionHelp] = useState(false);
     const [host, setHost] = useState("");
     const [port, setPort] = useState("");
@@ -53,7 +67,21 @@ export function ConnectScreen({ onConnected }: Props) {
         });
     }, []);
 
+    // The simulator is described by the registry like any other vendor, and hidden here rather
+    // than there - so the entry that appears once it is unlocked is the same one, built the same
+    // way, and nothing has to be kept in step.
+    const offered = profiles.filter((profile) => developerMode || !profile.developerOnly);
     const selected = profiles.find((profile) => profile.vendor === vendor);
+
+    // Seven seconds on the Connect button. Nothing hints at it and nothing shows progress - a hint
+    // would defeat the point, and nobody holds a button that long by accident. Unlocking also
+    // selects the simulator: the only reason to perform this is to use it.
+    const unlock = useLongPress(() => {
+        const simulator = profiles.find((profile) => profile.developerOnly);
+        if (!simulator) return;
+        onUnlockDeveloper();
+        setVendor(simulator.vendor);
+    }, UNLOCK_HOLD_MS);
     // Read off the profile rather than special-cased here. "The simulator has no address"
     // is a fact about the simulator, and it belongs with the simulator.
     const needsAddress = selected?.needsAddress ?? false;
@@ -140,11 +168,11 @@ export function ConnectScreen({ onConnected }: Props) {
                         aria-label="Camera"
                         value={vendor}
                         onChange={setVendor}
-                        options={profiles.map((profile) => ({ value: profile.vendor, label: profile.label }))}
+                        options={offered.map((profile) => ({ value: profile.vendor, label: profile.label }))}
                     />
                     <HintStack
                         active={vendor}
-                        items={profiles.map((profile) => ({ key: profile.vendor, content: profile.summary }))}
+                        items={offered.map((profile) => ({ key: profile.vendor, content: profile.summary }))}
                     />
                 </fieldset>
 
@@ -174,14 +202,32 @@ export function ConnectScreen({ onConnected }: Props) {
                 </div>
 
                 <div className="flex gap-2">
-                    <Button variant="primary" type="submit" className="flex-1" disabled={!canSubmit}>
-                        {busy ? "Connecting…" : "Connect"}
-                    </Button>
+                    {/* The handlers sit on the wrapper rather than the button, and the button stops
+                        taking pointer events while it is disabled - otherwise the gesture would be
+                        unavailable exactly when it is most wanted, on a vendor with no address
+                        filled in. Only this button: elsewhere a disabled button still has to show
+                        the `title` that explains why. */}
+                    <span className="flex flex-1" {...unlock}>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            className="w-full disabled:pointer-events-none"
+                            disabled={!canSubmit}
+                        >
+                            {busy ? "Connecting…" : "Connect"}
+                        </Button>
+                    </span>
                     <Button variant="icon" aria-label="Connection help" onClick={() => setShowConnectionHelp(true)}>
                         <CircleQuestionMarkIcon />
                     </Button>
                 </div>
 
+                {developerMode && (
+                    <Notice>
+                        Simulator unlocked. It runs in-process and needs no camera, and is gone again when the app
+                        restarts.
+                    </Notice>
+                )}
                 {error && <Notice variant="error">{error}</Notice>}
             </form>
         </div>

@@ -10,6 +10,10 @@ import "./App.css";
 export default function App() {
     const [info, setInfo] = useState<CameraInfo | null>(null);
     const [restoring, setRestoring] = useState(true);
+    // Held here rather than in the connect screen, which is torn down the moment a camera answers.
+    // Kept for the run of the app and no longer: a development aid should not persist into a
+    // session nobody asked it to.
+    const [developerMode, setDeveloperMode] = useState(false);
 
     // The session lives in Rust, so a WebView reload - which happens constantly
     // during development - must not drop a camera that is still connected.
@@ -45,7 +49,11 @@ export default function App() {
             ) : info ? (
                 <CameraPanel info={info} onDisconnected={() => setInfo(null)} />
             ) : (
-                <ConnectScreen onConnected={setInfo} />
+                <ConnectScreen
+                    onConnected={setInfo}
+                    developerMode={developerMode}
+                    onUnlockDeveloper={() => setDeveloperMode(true)}
+                />
             )}
         </main>
     );

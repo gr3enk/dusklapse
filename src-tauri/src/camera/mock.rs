@@ -54,6 +54,7 @@ pub fn profile() -> VendorProfile {
         // Not on a network at all, so asking for an address would be theatre.
         needs_address: false,
         implemented: true,
+        developer_only: true,
     }
 }
 
