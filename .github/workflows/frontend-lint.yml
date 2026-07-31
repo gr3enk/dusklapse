@@ -1,23 +1,11 @@
 name: Frontend Lint
 
-# Both triggers on purpose: the pull_request run is the gate, and the push run keeps main's own
-# history of green and red so a bad merge is attributable to a commit.
+# Pull requests only. A merge to main replays the same commits the pull request already
+# checked, so a push trigger runs every check a second time on code that has not changed.
 #
-# The path lists are written out twice rather than shared through a YAML anchor. Anchors are not
-# dependably supported by the workflow parser, and a workflow that silently fails to load is worse
-# than a few duplicated lines.
+# The trade-off: a commit pushed straight to main is never checked. Branch protection is what
+# closes that - require these checks and main can only be reached through a pull request.
 on:
-    push:
-        branches: [main]
-        paths:
-            - "src/**"
-            - "index.html"
-            - "package.json"
-            - "pnpm-lock.yaml"
-            - "tsconfig*.json"
-            - "vite.config.ts"
-            - "eslint.config.js"
-            - ".github/workflows/frontend-lint.yml"
     pull_request:
         paths:
             - "src/**"
@@ -29,11 +17,10 @@ on:
             - "eslint.config.js"
             - ".github/workflows/frontend-lint.yml"
 
-# A second push to the same branch makes the first run pointless, so it is cancelled. Not on main,
-# where each commit's result is worth keeping.
+# A second push to the same pull request makes the first run pointless, so it is cancelled.
 concurrency:
     group: frontend-lint-${{ github.ref }}
-    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    cancel-in-progress: true
 
 jobs:
     lint:
