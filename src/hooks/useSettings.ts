@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api, errorMessage } from "../lib/api";
 import type { AppSettings } from "../lib/types";
@@ -23,6 +23,9 @@ export function useSettings(): Settings {
     const [value, setValue] = useState<AppSettings | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    // See `useRamp`: replies are adopted, so an older one arriving late must not undo a newer
+    // change. Counted rather than prevented by disabling the controls.
+    const writes = useRef(0);
 
     useEffect(() => {
         let current = true;
@@ -45,10 +48,13 @@ export function useSettings(): Settings {
             if (!previous) return previous;
 
             const next = { ...previous, ...patch };
+            const write = ++writes.current;
             setSaving(true);
             setError(null);
             api.setSettings(next)
-                .then(setValue)
+                .then((stored) => {
+                    if (write === writes.current) setValue(stored);
+                })
                 .catch((cause) => {
                     setError(errorMessage(cause));
                     // Put the stored value back on screen rather than leaving a change that did
@@ -58,7 +64,9 @@ export function useSettings(): Settings {
                         .then(setValue)
                         .catch(() => {});
                 })
-                .finally(() => setSaving(false));
+                .finally(() => {
+                    if (write === writes.current) setSaving(false);
+                });
 
             // Shown immediately; the reply above replaces it either way.
             return next;

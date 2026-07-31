@@ -67,7 +67,6 @@ interface Props {
     sky: Sky;
     /** False while the ramp as a whole is disarmed. */
     rampActive: boolean;
-    busy: boolean;
     onChange: (next: DaylightCurve) => void;
 }
 
@@ -82,8 +81,8 @@ interface Props {
  * on the way to a viewpoint reports where the pocket is, and a tripod at a known spot is often
  * easier to type than to walk to.
  */
-export function DaylightCurveRow({ config, mode, sky, rampActive, busy, onChange }: Props) {
-    const disabled = !rampActive || !config.enabled || busy;
+export function DaylightCurveRow({ config, mode, sky, rampActive, onChange }: Props) {
+    const disabled = !rampActive || !config.enabled;
 
     const setLocation = (patch: Partial<Location>) => {
         // A half-typed coordinate is not a position. Keep whatever is there until both halves
