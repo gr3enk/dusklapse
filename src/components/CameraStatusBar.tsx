@@ -17,6 +17,7 @@ import { Button } from "./ui/Button";
 import { Panel } from "./ui/Panel";
 import { Select } from "./ui/Select";
 import DynamicBatteryIcon from "./ui/DynamicBatteryIcon";
+import { ExposureMeter } from "./ExposureMeter";
 import { cn } from "../lib/utils";
 
 interface Props {
@@ -36,6 +37,8 @@ interface Props {
      * would report n times the real interval and undercount the sequence.
      */
     clock: ShotClock;
+    /** Stops the last frame sat from the target, for the exposure meter. */
+    deviation: number | null;
     onChangeDial: (dial: Dial, raw: string) => void;
     onOpenSettings: () => void;
     onOpenLogs: () => void;
@@ -59,6 +62,7 @@ export function CameraStatusBar({
     ramp,
     lastRamped,
     clock,
+    deviation,
     onChangeDial,
     onOpenSettings,
     onOpenLogs,
@@ -121,33 +125,39 @@ export function CameraStatusBar({
                     </Button>
                 </div>
             </div>
-            <div className="flex w-full justify-end min-w-0 items-center gap-2 col-span-2">
-                {running !== null && (
-                    <Badge className="flex items-center gap-1" title="Time since the first frame">
-                        {formatDuration(running)} <ClockIcon className="size-5" />
-                    </Badge>
-                )}
-                {info.pushesEvents && (
-                    <Badge className="flex items-center gap-1">
-                        {clock.count} <ImageIcon className="size-5" />
-                    </Badge>
-                )}
-                {interval !== null && (
-                    <Badge className="flex items-center gap-1" title="Interval measured between the last frames">
-                        {formatInterval(interval)} <RotateCwFadingClockIcon className="size-5" />
-                    </Badge>
-                )}
-                {battery && (
-                    <Badge
-                        className={cn(
-                            "flex items-center gap-1",
-                            battery.percent && battery.percent <= 15 && "text-danger",
-                        )}
-                    >
-                        {battery.percent === null ? battery.label : `${battery.percent}%`}{" "}
-                        <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
-                    </Badge>
-                )}
+            <div className="flex w-full justify-between min-w-0 items-center gap-2 col-span-2">
+                <div className="flex items-center gap-2 justify-start">
+                    <ExposureMeter stops={deviation} className="mr-1" />
+                </div>
+
+                <div className="flex items-center gap-2 justify-end">
+                    {running !== null && (
+                        <Badge className="flex items-center gap-1" title="Time since the first frame">
+                            {formatDuration(running)} <ClockIcon className="size-5" />
+                        </Badge>
+                    )}
+                    {info.pushesEvents && (
+                        <Badge className="flex items-center gap-1">
+                            {clock.count} <ImageIcon className="size-5" />
+                        </Badge>
+                    )}
+                    {interval !== null && (
+                        <Badge className="flex items-center gap-1" title="Interval measured between the last frames">
+                            {formatInterval(interval)} <RotateCwFadingClockIcon className="size-5" />
+                        </Badge>
+                    )}
+                    {battery && (
+                        <Badge
+                            className={cn(
+                                "flex items-center gap-1",
+                                battery.percent && battery.percent <= 15 && "text-danger",
+                            )}
+                        >
+                            {battery.percent === null ? battery.label : `${battery.percent}%`}{" "}
+                            <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
+                        </Badge>
+                    )}
+                </div>
             </div>
         </Panel>
     );
