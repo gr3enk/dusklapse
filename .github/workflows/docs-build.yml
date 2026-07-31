@@ -6,24 +6,16 @@ name: Docs Build
 # navbar or footer - which puts it on every page at once. Without this, the first sign is a failed
 # Vercel deployment, and automatic deployments are switched off for this project anyway, so the
 # first sign would come whenever someone next remembered to deploy.
-#
-# The path lists are written out twice rather than shared through a YAML anchor. Anchors are not
-# dependably supported by the workflow parser, and a workflow that silently fails to load is worse
-# than a few duplicated lines.
 on:
-    push:
-        branches: [main]
-        paths:
-            - "docs/**"
-            - ".github/workflows/docs-build.yml"
     pull_request:
         paths:
             - "docs/**"
             - ".github/workflows/docs-build.yml"
 
+# A second push to the same pull request makes the first run pointless, so it is cancelled.
 concurrency:
     group: docs-build-${{ github.ref }}
-    cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+    cancel-in-progress: true
 
 jobs:
     build:
