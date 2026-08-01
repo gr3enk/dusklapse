@@ -27,6 +27,17 @@
 //! Either way the session must answer the camera's `Probe_Request`; see
 //! [`super::ptpip`]. Nothing else is needed to keep it alive.
 //!
+//! # Not every body reports what it is doing
+//!
+//! A Z 6 fills the event channel: property changes, `ObjectAdded`, `CaptureComplete`. A D5300 on
+//! the same code path sends nothing at all - measured, eleven minutes of silence from session open
+//! to the channel closing - while shutter, aperture and ISO read and write normally over the
+//! command channel. The symptom is a camera that connects, shows its settings, accepts changes,
+//! and never delivers a frame.
+//!
+//! Such a body does answer `GetObjectHandles`, so [`watch_card`] asks it instead. That fallback
+//! turns itself on only where no event has arrived, so it costs a talkative body nothing.
+//!
 //! # Value encoding, measured on a Z 6 (firmware V3.80)
 //!
 //! | Property | Type | Encoding |
@@ -41,8 +52,9 @@
 //! it nominally means. Irrelevant between 1/60 and 30 s, where a timelapse
 //! lives; wrong if you put it on screen as an exact EV.
 
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use async_trait::async_trait;
 
@@ -54,7 +66,7 @@ use super::model::{
 };
 use super::ptpip::{
     is_jpeg, EventMapper, Form, PropDesc, PtpEvent, PtpIp, EVENT_CAPTURE_COMPLETE,
-    EVENT_DEVICE_PROP_CHANGED, EVENT_OBJECT_ADDED,
+    EVENT_DEVICE_PROP_CHANGED, EVENT_OBJECT_ADDED, FORMAT_EXIF_JPEG,
 };
 use super::Camera;
 
@@ -133,6 +145,126 @@ fn make_mapper(recent: Arc<Mutex<VecDeque<u32>>>) -> EventMapper {
     })
 }
 
+/// How long to wait before deciding a body reports nothing.
+///
+/// A Z 6 fills the event channel from the moment the session opens - eleven notifications in five
+/// seconds was measured while the shutter was half-pressed - so any body still silent after this
+/// has to be asked rather than listened to. Long enough that an idle talkative camera is not
+/// mistaken for a mute one; short enough that the first frame is not missed by much.
+const SILENCE_GRACE: Duration = Duration::from_secs(15);
+
+/// How often to ask a silent body what is on its card.
+///
+/// The answer is only a few hundred bytes, but the question is not cheap: listing every object on
+/// the card makes the camera walk its whole filesystem, on the same card it is writing a 25 MB NEF
+/// to. Measured on a D5300 at three seconds, identical 440 KiB frames took 0.7s, then 1.4s, then
+/// 3.0s to fetch, and the session collapsed on the fourth - the body was being asked to search its
+/// card while serving an image from it.
+///
+/// This is also the worst-case delay before a frame is noticed, which is why it is not slower
+/// still. Five seconds is nothing against a timelapse interval.
+const POLL_INTERVAL: Duration = Duration::from_secs(5);
+
+/// Notice new frames on a body that never says anything.
+///
+/// A D5300 opens the event channel, stays silent for eleven minutes and then closes it: shutter,
+/// aperture and ISO all read and write correctly over the command channel, but no `ObjectAdded`
+/// or `CaptureComplete` ever arrives, so nothing downstream learns a frame exists. It does answer
+/// `GetObjectHandles` - measured, 215 JPEGs listed - which makes the card itself the signal.
+///
+/// So: wait, and if the camera has said nothing by then, take a silent baseline of what is already
+/// on the card and watch for that set to grow. Each new handle is pushed into the same ring the
+/// event mapper fills and announced as a frame, so everything downstream - the preview fetch, the
+/// luminance measurement, the ramp - is unaware of the difference.
+///
+/// This gives up permanently the moment a real event arrives. A talkative body must never have its
+/// frames counted twice, and one event is proof the camera does not need this.
+async fn watch_card(session: Arc<PtpIp>, recent: Arc<Mutex<VecDeque<u32>>>) {
+    tokio::time::sleep(SILENCE_GRACE).await;
+    if session.saw_event() {
+        return;
+    }
+
+    // Filtered to JPEG, so a full card answers with the frames rather than everything on it - and
+    // so one exposure in RAW+JPEG counts once, the same reason the event mapper prefers
+    // `CaptureComplete` over `ObjectAdded`.
+    let mut known: HashSet<u32> = match session.object_handles(FORMAT_EXIF_JPEG).await {
+        Ok(handles) => handles.into_iter().collect(),
+        Err(err) => {
+            // Nothing further to try: this body neither reports frames nor lists them.
+            log::warn!("camera reports no events and will not list its card either: {err}");
+            return;
+        }
+    };
+
+    log::info!(
+        "camera reports no events; watching its card instead ({} frame(s) already there)",
+        known.len()
+    );
+
+    loop {
+        tokio::time::sleep(POLL_INTERVAL).await;
+        if session.saw_event() {
+            log::info!("camera started reporting for itself; card watch stopping");
+            return;
+        }
+
+        // Give way to whatever is already talking to the camera, rather than queueing behind it.
+        //
+        // PTP runs one transaction at a time, so a listing asked during an image transfer waits
+        // anyway - it just waits in a way that makes things worse: the camera is made to search
+        // its card while reading from it, and every turn missed during a slow transfer fires the
+        // instant it completes, exactly when the body has a RAW to flush. Skipping costs one turn.
+        if session.is_busy() {
+            continue;
+        }
+
+        let listing = match session.object_handles(FORMAT_EXIF_JPEG).await {
+            Ok(listing) => listing,
+            Err(err) => {
+                // A single failed listing is not worth giving up over - the camera may simply be
+                // busy writing. A session that has really gone away ends this task by other means:
+                // `disconnect` and `Drop` both abort it.
+                log::debug!("could not list the card: {err}");
+                continue;
+            }
+        };
+
+        // Re-checked after the listing, not only before it: an event that arrived while this
+        // request was in flight means the frames in the answer are the event path's to report.
+        if session.saw_event() {
+            log::info!("camera started reporting for itself; card watch stopping");
+            return;
+        }
+
+        for handle in new_handles(&known, &listing) {
+            log::info!("card grew by object {handle}");
+            known.insert(handle);
+
+            let mut recent = lock(&recent);
+            recent.push_front(handle);
+            recent.truncate(RECENT_HANDLES);
+            drop(recent);
+
+            session.emit(CameraEvent::FrameRecorded);
+        }
+    }
+}
+
+/// The handles in `listing` that are not in `known`, oldest first.
+///
+/// Deliberately a set difference rather than "everything after the last one seen": handles are
+/// opaque, and while a Nikon happens to hand them out in ascending order, nothing in PTP promises
+/// it. Removals are ignored - a deleted file is not a new frame, and the entry left behind in
+/// `known` costs four bytes.
+fn new_handles(known: &HashSet<u32>, listing: &[u32]) -> Vec<u32> {
+    listing
+        .iter()
+        .copied()
+        .filter(|handle| !known.contains(handle))
+        .collect()
+}
+
 /// A poisoned lock here means a thread panicked while pushing a file handle. The
 /// contents are still a valid list of handles, and giving up on previews for the
 /// rest of the session would be the worse outcome.
@@ -159,7 +291,8 @@ pub fn profile() -> VendorProfile {
 
 pub struct NikonPtpIp {
     target: CameraTarget,
-    session: PtpIp,
+    /// Shared, because the card watch below runs on its own and needs the same session.
+    session: Arc<PtpIp>,
     info: CameraInfo,
     /// Handles of recently written files, newest first, filled in by the event
     /// mapper. Both RAW and JPEG land here; which is which is only known after
@@ -168,18 +301,31 @@ pub struct NikonPtpIp {
     /// The last handle handed to the UI, so a second request for the same frame
     /// does not pull the same megabytes across again.
     delivered: Mutex<Option<u32>>,
+    /// The card watch, so it stops when the camera goes away rather than polling a
+    /// dead session forever.
+    watch: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for NikonPtpIp {
+    fn drop(&mut self) {
+        self.watch.abort();
+    }
 }
 
 impl NikonPtpIp {
     pub async fn connect(target: CameraTarget) -> CameraResult<Self> {
         let recent = Arc::new(Mutex::new(VecDeque::with_capacity(RECENT_HANDLES)));
-        let session = PtpIp::connect(
-            &target.host,
-            target.port,
-            CLIENT_NAME,
-            make_mapper(recent.clone()),
-        )
-        .await?;
+        let session = Arc::new(
+            PtpIp::connect(
+                &target.host,
+                target.port,
+                CLIENT_NAME,
+                make_mapper(recent.clone()),
+            )
+            .await?,
+        );
+
+        let watch = tokio::spawn(watch_card(session.clone(), recent.clone()));
 
         let device = session.device_info();
         let info = CameraInfo {
@@ -202,6 +348,7 @@ impl NikonPtpIp {
             info,
             recent,
             delivered: Mutex::new(None),
+            watch,
         })
     }
 
@@ -327,13 +474,17 @@ impl Camera for NikonPtpIp {
                 Err(err) => {
                     // A handle can go stale - deleted, or the card swapped. Not a
                     // reason to give up on the ones behind it.
-                    log::debug!("could not read object {handle}: {err}");
+                    // Info, not debug: on a body whose preview never arrives this is one of the
+                    // two lines that says why, and the log view a user can reach only shows info.
+                    log::info!("could not read object {handle}: {err}");
                     continue;
                 }
             };
 
             if !is_jpeg(info.format) {
-                log::debug!(
+                // Info for the same reason: a body that reports its JPEG under a format code
+                // `is_jpeg` does not know looks exactly like a body that sends nothing at all.
+                log::info!(
                     "skipping {} - format 0x{:04x} is not a JPEG",
                     info.filename,
                     info.format
@@ -398,6 +549,8 @@ impl Camera for NikonPtpIp {
     }
 
     async fn disconnect(&self) -> CameraResult<()> {
+        // Before the session closes, so the watch cannot spend its next poll on a dead socket.
+        self.watch.abort();
         self.session.close().await
     }
 }
@@ -487,6 +640,50 @@ mod tests {
 
     fn approx(a: f32, b: f32) {
         assert!((a - b).abs() < 1e-3, "{a} != {b}");
+    }
+
+    /// The point of the baseline: a card with 215 pictures on it has not just taken 215 frames.
+    #[test]
+    fn a_full_card_is_not_a_burst_of_frames() {
+        let listing: Vec<u32> = (1..=215).collect();
+        let known: HashSet<u32> = listing.iter().copied().collect();
+
+        assert!(new_handles(&known, &listing).is_empty());
+    }
+
+    #[test]
+    fn a_frame_written_since_the_baseline_is_new() {
+        let known: HashSet<u32> = [10, 11, 12].into_iter().collect();
+
+        assert_eq!(new_handles(&known, &[10, 11, 12, 13]), vec![13]);
+    }
+
+    /// Several at once happens after a gap - a failed listing, or frames closer together than the
+    /// poll interval - and each is still its own frame.
+    #[test]
+    fn several_new_frames_come_back_oldest_first() {
+        let known: HashSet<u32> = [10].into_iter().collect();
+
+        assert_eq!(new_handles(&known, &[10, 11, 12, 13]), vec![11, 12, 13]);
+    }
+
+    /// Deleting a picture on the camera shortens the listing. Nothing about that is a new frame,
+    /// and the next real one must still be found.
+    #[test]
+    fn deletions_are_not_frames() {
+        let known: HashSet<u32> = [10, 11, 12].into_iter().collect();
+
+        assert!(new_handles(&known, &[10, 12]).is_empty());
+        assert_eq!(new_handles(&known, &[10, 12, 13]), vec![13]);
+    }
+
+    /// Handles are opaque. A body that reuses a low number after a card format must not have it
+    /// dismissed just because a larger one was seen earlier.
+    #[test]
+    fn a_handle_below_the_highest_seen_still_counts() {
+        let known: HashSet<u32> = [50, 60].into_iter().collect();
+
+        assert_eq!(new_handles(&known, &[50, 60, 7]), vec![7]);
     }
 
     #[test]

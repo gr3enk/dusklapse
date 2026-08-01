@@ -25,6 +25,7 @@
 //! and omits every property operation - while serving them perfectly. Do not
 //! gate features on that list; probe instead.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -80,6 +81,16 @@ pub const OP_OPEN_SESSION: u16 = 0x1002;
 pub const OP_CLOSE_SESSION: u16 = 0x1003;
 pub const OP_GET_OBJECT_INFO: u16 = 0x1008;
 pub const OP_GET_OBJECT: u16 = 0x1009;
+/// Ask the camera which objects it holds.
+///
+/// Standard PTP rather than a Nikon extension, so what it enables is not limited to one make.
+/// Takes a storage id, a format code and a parent handle - all three accept a wildcard.
+pub const OP_GET_OBJECT_HANDLES: u16 = 0x1007;
+/// Every storage the camera has, rather than naming one.
+pub const STORAGE_ALL: u32 = 0xFFFF_FFFF;
+/// The root of the object hierarchy, meaning "do not filter by folder".
+pub const PARENT_ANY: u32 = 0x0000_0000;
+
 pub const OP_GET_DEVICE_PROP_DESC: u16 = 0x1014;
 pub const OP_SET_DEVICE_PROP_VALUE: u16 = 0x1016;
 
@@ -227,6 +238,11 @@ pub struct PtpIp {
     event_tx: broadcast::Sender<PtpEvent>,
     /// The subset the app acts on.
     camera_event_tx: broadcast::Sender<CameraEvent>,
+    /// Whether the camera has ever volunteered anything on the event channel.
+    ///
+    /// The one fact that separates a body which reports its own frames from one that has to be
+    /// asked, and it cannot be known at connect time - only by waiting to see.
+    saw_event: Arc<AtomicBool>,
     device_info: DeviceInfo,
 }
 
@@ -289,11 +305,13 @@ impl PtpIp {
 
         let (event_tx, _) = broadcast::channel(EVENT_BUFFER);
         let (camera_event_tx, _) = broadcast::channel(EVENT_BUFFER);
+        let saw_event = Arc::new(AtomicBool::new(false));
         let events = tokio::spawn(drain_events(
             event,
             event_tx.clone(),
             camera_event_tx.clone(),
             mapper,
+            saw_event.clone(),
         ));
 
         // Built before the device info is known, then filled in: `PtpIp` has a
@@ -306,6 +324,7 @@ impl PtpIp {
             events,
             event_tx,
             camera_event_tx,
+            saw_event,
             device_info: DeviceInfo::default(),
         };
 
@@ -346,6 +365,29 @@ impl PtpIp {
     }
 
     /// Only the events the app acts on, as decided by the backend's mapper.
+    /// Whether a transaction is in flight on the command channel.
+    ///
+    /// PTP allows one at a time, so anything asked while this is true simply waits its turn - and
+    /// a caller that has nothing urgent to say is better off skipping its turn entirely than
+    /// queueing behind a multi-megabyte image and firing the moment it lands.
+    pub fn is_busy(&self) -> bool {
+        self.command.try_lock().is_err()
+    }
+
+    /// Whether the camera has volunteered anything on the event channel so far.
+    pub fn saw_event(&self) -> bool {
+        self.saw_event.load(Ordering::Relaxed)
+    }
+
+    /// Announce something the transport worked out for itself.
+    ///
+    /// For a body that reports nothing: the frame has to reach the same channel a talkative
+    /// camera's would, so that everything downstream is unaware of the difference.
+    pub fn emit(&self, event: CameraEvent) {
+        // Err only means nobody is listening, which is fine.
+        let _ = self.camera_event_tx.send(event);
+    }
+
     pub fn subscribe_camera(&self) -> broadcast::Receiver<CameraEvent> {
         self.camera_event_tx.subscribe()
     }
@@ -370,6 +412,25 @@ impl PtpIp {
     }
 
     /// Ask what a file is without downloading it.
+    /// Handles of the objects the camera holds, optionally of one format only.
+    ///
+    /// Filtering by format is what keeps this cheap enough to ask repeatedly: a card with a
+    /// thousand exposures answers with the JPEGs alone, and a handle is four bytes.
+    ///
+    /// This exists for bodies that never volunteer anything on the event channel - a D5300 opens
+    /// the channel, says nothing for eleven minutes and then closes it - where asking is the only
+    /// way to learn that a frame was taken.
+    pub async fn object_handles(&self, format: u16) -> CameraResult<Vec<u32>> {
+        let raw = self
+            .operation(
+                OP_GET_OBJECT_HANDLES,
+                &[STORAGE_ALL, format as u32, PARENT_ANY],
+                IO_TIMEOUT,
+            )
+            .await?;
+        parse_object_handles(&raw)
+    }
+
     pub async fn object_info(&self, handle: u32) -> CameraResult<ObjectInfo> {
         let raw = self
             .operation(OP_GET_OBJECT_INFO, &[handle], IO_TIMEOUT)
@@ -550,9 +611,11 @@ async fn drain_events(
     raw: broadcast::Sender<PtpEvent>,
     mapped: broadcast::Sender<CameraEvent>,
     mapper: EventMapper,
+    saw_event: Arc<AtomicBool>,
 ) {
     let (mut read, mut write): (_, OwnedWriteHalf) = stream.into_split();
 
+    let mut probed = false;
     let mut header = [0u8; 8];
     loop {
         if read.read_exact(&mut header).await.is_err() {
@@ -572,6 +635,13 @@ async fn drain_events(
 
         match kind {
             PROBE_REQUEST => {
+                if !probed {
+                    probed = true;
+                    // Once, at info: on a body whose session keeps dropping, whether the camera
+                    // checks for us at all is the first thing worth knowing, and the log view a
+                    // user can reach only shows info.
+                    log::info!("camera probes for liveness; answering its probes from here on");
+                }
                 log::debug!("PTP-IP probe from camera, answering");
                 if write_packet(&mut write, PROBE_RESPONSE, &[]).await.is_err() {
                     log::warn!("could not answer the camera's probe; session will drop");
@@ -581,6 +651,9 @@ async fn drain_events(
             EVENT => {
                 if let Some(event) = parse_event(&body) {
                     log::info!("PTP-IP event 0x{:04x} {:?}", event.code, event.params);
+                    // Deliberately not set for a probe: a keep-alive says the socket is open,
+                    // not that the camera reports what it is doing.
+                    saw_event.store(true, Ordering::Relaxed);
                     if let Some(mapped_event) = mapper(&event) {
                         // Err only means nobody is listening, which is fine.
                         let _ = mapped.send(mapped_event);
@@ -681,6 +754,21 @@ fn parse_device_info(data: &[u8]) -> CameraResult<DeviceInfo> {
 ///
 /// Everything past the filename is date and keyword metadata we have no use for,
 /// so parsing stops there.
+/// A PTP array: a count, then that many 32-bit values.
+fn parse_object_handles(raw: &[u8]) -> CameraResult<Vec<u32>> {
+    let mut reader = Reader::new(raw);
+    let count = reader.u32()? as usize;
+    // Guarded against a length the payload cannot possibly hold, which would otherwise be a very
+    // large allocation on the word of a device that has already surprised us once.
+    if count > (raw.len() - 4) / 4 {
+        return Err(CameraError::Protocol(format!(
+            "object handle array claims {count} entries but carries {} bytes",
+            raw.len() - 4
+        )));
+    }
+    (0..count).map(|_| reader.u32()).collect()
+}
+
 fn parse_object_info(data: &[u8]) -> CameraResult<ObjectInfo> {
     let mut reader = Reader::new(data);
     reader.u32()?; // storage id
@@ -904,6 +992,37 @@ mod tests {
 
     /// The dataset a Z 6 returns for a JPEG. Getting the fixed-width preamble wrong
     /// by one field would misread the format and let a RAW through.
+    #[test]
+    fn parses_an_object_handle_array() {
+        let mut data = 3u32.to_le_bytes().to_vec();
+        for handle in [0x0000_0001u32, 0x2900_0011, 0xFFFF_0000] {
+            data.extend_from_slice(&handle.to_le_bytes());
+        }
+        assert_eq!(
+            parse_object_handles(&data).unwrap(),
+            vec![0x0000_0001, 0x2900_0011, 0xFFFF_0000]
+        );
+    }
+
+    /// An empty card is a valid answer, not an error - and it is what a fresh session sees before
+    /// anything has been shot.
+    #[test]
+    fn parses_an_empty_object_handle_array() {
+        assert_eq!(
+            parse_object_handles(&0u32.to_le_bytes()).unwrap(),
+            Vec::<u32>::new()
+        );
+    }
+
+    /// A count the payload cannot hold must be refused rather than believed. The device has
+    /// already shown it does not behave the way the specification suggests.
+    #[test]
+    fn refuses_an_object_handle_count_the_payload_cannot_hold() {
+        let mut data = 1_000_000u32.to_le_bytes().to_vec();
+        data.extend_from_slice(&7u32.to_le_bytes());
+        assert!(parse_object_handles(&data).is_err());
+    }
+
     #[test]
     fn parses_object_info_and_identifies_a_jpeg() {
         let mut data = Vec::new();
