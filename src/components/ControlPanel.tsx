@@ -107,25 +107,7 @@ export function ControlPanel({
         >
             <h2 className="m-0 text-[1.1rem] font-[650]">Controls</h2>
 
-            <div className="flex flex-wrap gap-[0.6rem]">
-                {info.supportsRelease ? (
-                    <Button variant="primary" onClick={onShoot} disabled={busy}>
-                        {busy ? "Working…" : "Take a frame"}
-                    </Button>
-                ) : (
-                    // Offering a button that is guaranteed to fail is worse than explaining
-                    // why there is none.
-                    <Notice className="flex-[1_1_16rem]">
-                        This body takes no remote release over Wi-Fi. Frame timing comes from your intervalometer;
-                        Dusklapse ramps the exposure between frames.
-                    </Notice>
-                )}
-                <Button onClick={onRefresh} disabled={busy}>
-                    Re-read camera
-                </Button>
-            </div>
-
-            <div className="pl-4 text-[0.9rem] text-text-muted">
+            <div className="text-[0.9rem] text-text-muted">
                 <div className="flex items-center gap-2">
                     <h3 className="m-0 mb-1 font-semibold uppercase tracking-[0.06em]">Holy Grail</h3>
                     <Toggle checked={active} onChange={(next) => update({ active: next })} />
@@ -249,6 +231,23 @@ export function ControlPanel({
                     {error && <Notice variant="error">{error}</Notice>}
                     {autoRamp.error && <Notice variant="error">{autoRamp.error}</Notice>}
                 </div>
+            </div>
+            <div className="flex flex-wrap gap-[0.6rem]">
+                {info.supportsRelease ? (
+                    <Button variant="primary" onClick={onShoot} disabled={busy}>
+                        {busy ? "Working…" : "Take a frame"}
+                    </Button>
+                ) : (
+                    // Offering a button that is guaranteed to fail is worse than explaining
+                    // why there is none.
+                    <Notice className="flex-[1_1_16rem]">
+                        This body takes no remote release over Wi-Fi. Frame timing comes from your intervalometer;
+                        Dusklapse ramps the exposure between frames.
+                    </Notice>
+                )}
+                <Button onClick={onRefresh} disabled={busy}>
+                    Re-read camera
+                </Button>
             </div>
         </Panel>
     );
