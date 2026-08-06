@@ -112,11 +112,21 @@ export interface Luminance {
 export interface AppSettings {
     /** Transfer one frame in this many. 1 is every frame. */
     transferEvery: number;
+    /** Frames per second the finished timelapse is planned against. Nothing about the shoot reads it. */
+    fps: number;
 }
 
 /** Bounds enforced by the backend. Mirrors `TRANSFER_EVERY_MIN`/`MAX`. */
 export const TRANSFER_EVERY_MIN = 1;
 export const TRANSFER_EVERY_MAX = 30;
+
+/**
+ * The playback rates offered in the planner.
+ *
+ * The delivery formats, not a range: 24 for cinema, 25 and 50 for PAL, 30 and 60 for everything
+ * else. A free number here would invite 23 fps, which is not a format anyone delivers in.
+ */
+export const FPS_OPTIONS = [24, 25, 30, 50, 60] as const;
 
 /** Which way the light is going. Mirrors the Rust `RampMode`. */
 export type RampMode = "sunset" | "sunrise";

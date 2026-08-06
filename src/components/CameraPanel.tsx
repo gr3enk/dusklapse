@@ -25,6 +25,7 @@ import { useShotClock } from "../hooks/useShotClock";
 import { SettingsDialog } from "./SettingsDialog";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { LogDialog } from "./LogDialog";
+import { PlannerDialog } from "./PlannerDialog";
 import { measuredInterval } from "../lib/interval";
 import { transferShot } from "../lib/transfer";
 import { useSettings } from "../hooks/useSettings";
@@ -82,6 +83,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
     // Secondary settings, stored in Rust so a WebView reload cannot undo them mid-sequence.
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [logsOpen, setLogsOpen] = useState(false);
+    const [plannerOpen, setPlannerOpen] = useState(false);
     // Asked before disconnecting, because the button sits beside the ones used constantly and a
     // stray tap ends the session for good: `camera_reconnect` reuses the address of the session it
     // finds, and a deliberate disconnect is the one thing that removes it.
@@ -284,6 +286,7 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                     deviation={deviation}
                     onChangeDial={changeDial}
                     onOpenSettings={() => setSettingsOpen(true)}
+                    onOpenPlanner={() => setPlannerOpen(true)}
                     onOpenLogs={() => setLogsOpen(true)}
                     onDisconnect={() => setConfirmingDisconnect(true)}
                 />
@@ -328,6 +331,15 @@ export function CameraPanel({ info, onDisconnected }: Props) {
                 settings={settings}
                 ramp={ramp}
                 intervalMs={measuredInterval(clock.recent)}
+            />
+
+            <PlannerDialog
+                open={plannerOpen}
+                onClose={() => setPlannerOpen(false)}
+                shots={frames}
+                intervalMs={measuredInterval(clock.recent)}
+                reportsFrames={info.pushesEvents}
+                settings={settings}
             />
 
             <LogDialog open={logsOpen} onClose={() => setLogsOpen(false)} />

@@ -18,6 +18,14 @@ use tokio::sync::RwLock;
 pub const TRANSFER_EVERY_MIN: u32 = 1;
 pub const TRANSFER_EVERY_MAX: u32 = 30;
 
+/// Slowest and fastest playback rate a finished sequence may be planned against.
+///
+/// 1 exists only so the value can never be zero, which the playback arithmetic divides by. 240 is
+/// past any delivery format and is there for the same reason as the cap above: the value needs an
+/// end, and it is not this module's business to decide which rates are fashionable.
+pub const FPS_MIN: u32 = 1;
+pub const FPS_MAX: u32 = 240;
+
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -27,11 +35,22 @@ pub struct AppSettings {
     /// network, so nothing measures them. That is the point: on a short interval the sequence does
     /// not need a reading from every frame, and the radio is what drains the battery.
     pub transfer_every: u32,
+    /// Frames per second the finished timelapse will be played back at.
+    ///
+    /// Changes nothing about the shoot - no camera and no ramp reads this. It is the divisor the
+    /// planner turns a frame count into a running time with, kept here so it survives a reload
+    /// rather than being re-picked every time the dialog opens.
+    pub fps: u32,
 }
 
 impl Default for AppSettings {
     fn default() -> Self {
-        Self { transfer_every: 1 }
+        Self {
+            transfer_every: 1,
+            // PAL, and the one rate where the arithmetic can be done in the head while standing
+            // behind the camera: 25 frames is a second, so a count divides straight into a length.
+            fps: 25,
+        }
     }
 }
 
@@ -42,6 +61,7 @@ impl AppSettings {
             transfer_every: self
                 .transfer_every
                 .clamp(TRANSFER_EVERY_MIN, TRANSFER_EVERY_MAX),
+            fps: self.fps.clamp(FPS_MIN, FPS_MAX),
         }
     }
 }
@@ -81,7 +101,12 @@ mod tests {
     async fn a_zero_is_pulled_up_to_one() {
         let state = SettingsState::default();
         // Zero would be a division by zero in the caller that picks which frame to fetch.
-        let stored = state.set(AppSettings { transfer_every: 0 }).await;
+        let stored = state
+            .set(AppSettings {
+                transfer_every: 0,
+                ..AppSettings::default()
+            })
+            .await;
         assert_eq!(stored.transfer_every, 1);
     }
 
@@ -91,6 +116,7 @@ mod tests {
         let stored = state
             .set(AppSettings {
                 transfer_every: 5000,
+                ..AppSettings::default()
             })
             .await;
         assert_eq!(stored.transfer_every, TRANSFER_EVERY_MAX);
@@ -99,7 +125,37 @@ mod tests {
     #[tokio::test]
     async fn settings_survive_being_read_back() {
         let state = SettingsState::default();
-        state.set(AppSettings { transfer_every: 4 }).await;
+        state
+            .set(AppSettings {
+                transfer_every: 4,
+                ..AppSettings::default()
+            })
+            .await;
         assert_eq!(state.get().await.transfer_every, 4);
+    }
+
+    #[tokio::test]
+    async fn a_zero_frame_rate_is_pulled_up_to_one() {
+        let state = SettingsState::default();
+        // Zero is what the planner divides a frame count by to get a running time.
+        let stored = state
+            .set(AppSettings {
+                fps: 0,
+                ..AppSettings::default()
+            })
+            .await;
+        assert_eq!(stored.fps, FPS_MIN);
+    }
+
+    #[tokio::test]
+    async fn an_absurd_frame_rate_is_capped() {
+        let state = SettingsState::default();
+        let stored = state
+            .set(AppSettings {
+                fps: 100_000,
+                ..AppSettings::default()
+            })
+            .await;
+        assert_eq!(stored.fps, FPS_MAX);
     }
 }

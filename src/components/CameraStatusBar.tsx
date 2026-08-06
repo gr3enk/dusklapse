@@ -1,6 +1,15 @@
-import { ClockIcon, ImageIcon, RotateCwFadingClockIcon, ScrollTextIcon, SettingsIcon } from "lucide-react";
+import {
+    ClipboardClockIcon,
+    ClockIcon,
+    ImageIcon,
+    RotateCwFadingClockIcon,
+    ScrollTextIcon,
+    SettingsIcon,
+    UnplugIcon,
+} from "lucide-react";
 
 import { useElapsed } from "../hooks/useElapsed";
+import { formatDuration, formatInterval } from "../lib/format";
 import type { ShotClock } from "../hooks/useShotClock";
 import { measuredInterval } from "../lib/interval";
 import {
@@ -41,6 +50,7 @@ interface Props {
     deviation: number | null;
     onChangeDial: (dial: Dial, raw: string) => void;
     onOpenSettings: () => void;
+    onOpenPlanner: () => void;
     onOpenLogs: () => void;
     onDisconnect: () => void;
 }
@@ -65,6 +75,7 @@ export function CameraStatusBar({
     deviation,
     onChangeDial,
     onOpenSettings,
+    onOpenPlanner,
     onOpenLogs,
     onDisconnect,
 }: Props) {
@@ -117,11 +128,14 @@ export function CameraStatusBar({
                     <Button size="compact" onClick={onOpenSettings} aria-label="Settings" title="Settings">
                         <SettingsIcon className="size-4" />
                     </Button>
+                    <Button size="compact" onClick={onOpenPlanner} aria-label="Planner" title="Planner">
+                        <ClipboardClockIcon className="size-4" />
+                    </Button>
                     <Button size="compact" onClick={onOpenLogs} aria-label="Logs" title="Logs">
                         <ScrollTextIcon className="size-4" />
                     </Button>
                     <Button size="compact" onClick={onDisconnect}>
-                        Disconnect
+                        <UnplugIcon className="size-4" />
                     </Button>
                 </div>
             </div>
@@ -161,24 +175,6 @@ export function CameraStatusBar({
             </div>
         </Panel>
     );
-}
-
-/** A tenth of a second below ten, whole seconds above - past that the decimal is noise. */
-function formatInterval(milliseconds: number): string {
-    if (isNaN(milliseconds)) return "-";
-    const seconds = milliseconds / 1000;
-    return seconds < 10 ? `${seconds.toFixed(1)}s` : `${Math.round(seconds)}s`;
-}
-
-/** `m:ss` under an hour, `h:mm:ss` above. */
-function formatDuration(milliseconds: number): string {
-    const total = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const seconds = total % 60;
-
-    const pad = (value: number) => value.toString().padStart(2, "0");
-    return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${minutes}:${pad(seconds)}`;
 }
 
 /** What the ramp is doing to one dial, as far as this strip is concerned. */
