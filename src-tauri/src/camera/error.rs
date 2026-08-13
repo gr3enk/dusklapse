@@ -26,6 +26,14 @@ pub enum CameraError {
     #[error("camera rejected the request ({status}): {message}")]
     Rejected { status: u16, message: String },
 
+    /// We reached it and it said "not now".
+    ///
+    /// Distinct from [`CameraError::Rejected`] because it means something completely different to
+    /// the caller: the request was fine and will succeed shortly. On a body mid-exposure this is
+    /// the normal answer, not a fault, and the only sensible response is to wait.
+    #[error("the camera is busy, most likely still exposing")]
+    Busy,
+
     /// We reached it and it said something we do not understand.
     #[error("unexpected reply from camera: {0}")]
     Protocol(String),
@@ -46,6 +54,7 @@ impl CameraError {
             CameraError::UnsupportedVendor { .. } => "unsupportedVendor",
             CameraError::Transport(_) => "transport",
             CameraError::Rejected { .. } => "rejected",
+            CameraError::Busy => "busy",
             CameraError::Protocol(_) => "protocol",
             CameraError::Unavailable(_) => "unavailable",
             CameraError::ValueNotSelectable { .. } => "valueNotSelectable",
