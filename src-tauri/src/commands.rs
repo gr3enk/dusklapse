@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Emitter, State};
 
+use crate::camera::patience;
 use crate::camera::{
     BatteryStatus, CameraError, CameraInfo, CameraResult, CameraTarget, Dial, ExposureCapabilities,
     ExposureSettings, Vendor,
@@ -91,7 +92,17 @@ pub async fn camera_set_exposure(
     value: String,
     session: State<'_, CameraSession>,
 ) -> CameraResult<()> {
-    session.camera().await?.set_exposure(dial, &value).await
+    let camera = session.camera().await?;
+    // A fixed budget rather than one read from the body. The ramp knows the shutter speed because
+    // it just read it to make its decision; here that would be an extra round trip on every dial
+    // someone turns, and the round trip could itself be refused by the same busy camera.
+    patience::set_exposure_when_ready(
+        camera.as_ref(),
+        dial,
+        &value,
+        patience::UNKNOWN_SHUTTER_BUDGET,
+    )
+    .await
 }
 
 #[tauri::command]
@@ -350,7 +361,16 @@ pub async fn ramp_apply(
     let mut failed = None;
 
     if let Some(change) = &correction.change {
-        match camera.set_exposure(change.dial, &change.to).await {
+        // Waiting out the exposure is the difference between a correction that lands and one that
+        // is refused. The ramp decides on the *analysed* frame, which is a second or three after
+        // the frame itself, so at a short interval the write arrives inside the next exposure -
+        // measured at an 8s interval with a 6s shutter, where only 2s of darkness exist.
+        //
+        // The budget comes from the shutter reading above, which is already in hand.
+        let budget = patience::budget_for(&exposure);
+        match patience::set_exposure_when_ready(camera.as_ref(), change.dial, &change.to, budget)
+            .await
+        {
             Ok(()) => {
                 log::info!(
                     "ramp moved {:?} {} -> {} ({:+.2} stops)",

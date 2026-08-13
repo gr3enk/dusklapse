@@ -310,7 +310,10 @@ function RampReadout({ outcome, capabilities }: { outcome: RampOutcome; capabili
                 </Notice>
             )}
 
-            {outcome.failed && <Notice variant="error">The camera refused the change: {outcome.failed}</Notice>}
+            {/* Deliberately not "the camera refused the change". A body mid-exposure turns writes
+                away too, and blaming the value for a matter of timing sent us looking in the wrong
+                place once already. The message from the backend says which it was. */}
+            {outcome.failed && <Notice variant="error">The change did not go through: {outcome.failed}</Notice>}
         </div>
     );
 }

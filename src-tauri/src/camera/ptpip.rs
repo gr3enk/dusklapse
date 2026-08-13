@@ -108,6 +108,11 @@ pub fn is_jpeg(format: u16) -> bool {
 const RESPONSE_OK: u16 = 0x2001;
 const RESPONSE_OPERATION_NOT_SUPPORTED: u16 = 0x2005;
 const RESPONSE_DEVICE_PROP_NOT_SUPPORTED: u16 = 0x200A;
+/// The body is mid-operation and will not take another one yet.
+///
+/// Measured on a D5300 and a Z 6: a `SetDevicePropValue` sent while the shutter is open comes
+/// back with this. It is not a refusal of the value, only of the timing.
+const RESPONSE_DEVICE_BUSY: u16 = 0x2019;
 
 // Data types.
 const TYPE_INT8: u16 = 0x0001;
@@ -582,6 +587,7 @@ async fn read_until_response(
                     RESPONSE_DEVICE_PROP_NOT_SUPPORTED => {
                         Err(CameraError::Unavailable("this setting".into()))
                     }
+                    RESPONSE_DEVICE_BUSY => Err(CameraError::Busy),
                     other => Err(CameraError::Rejected {
                         status: other,
                         message: format!(

@@ -32,6 +32,7 @@ export interface CameraError {
         | "unsupportedVendor"
         | "transport"
         | "rejected"
+        | "busy"
         | "protocol"
         | "unavailable"
         | "valueNotSelectable";

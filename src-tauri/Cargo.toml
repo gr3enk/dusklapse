@@ -66,3 +66,8 @@ jpeg-decoder = { version = "0.3", default-features = false }
 # Its desktop backend is a stub that reports 0°/0° instead of failing, which is what
 # `platform_has_geolocation` exists to keep out of the UI.
 tauri-plugin-geolocation = "2.3.2"
+
+[dev-dependencies]
+# `test-util` only in dev: it lets a test pause the clock, so waiting out a thirty-five second
+# budget costs no wall time. In the shipped binary it would add a pausable timer for nothing.
+tokio = { version = "1", features = ["macros", "rt", "test-util", "time"] }

@@ -28,6 +28,7 @@ mod histogram;
 pub mod luminance;
 mod mock;
 mod model;
+pub mod patience;
 // Public so diagnostics can reach the raw protocol below the `Camera` abstraction.
 pub mod nikon;
 pub mod ptpip;
