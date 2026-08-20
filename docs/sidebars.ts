@@ -3,8 +3,7 @@ import type { SidebarsConfig } from "@docusaurus/plugin-content-docs";
 /**
  * Generated from the folder structure rather than listed by hand.
  *
- * With one page there is nothing to arrange, and this way adding a file is all it takes to get it
- * into the sidebar. Order comes from `sidebar_position` in a page's front matter, or from a
+ * Order comes from `sidebar_position` in a page's front matter, or from a
  * `_category_.json` in a folder. Swap this for an explicit list when the order needs an argument.
  */
 const sidebars: SidebarsConfig = {

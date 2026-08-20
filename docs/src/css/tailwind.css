@@ -1,0 +1,23 @@
+/**
+ * Tailwind as an island, not a site-wide base.
+ *
+ * `@import "tailwindcss"` would inject Preflight into the base layer. That reset
+ * restyles every heading, list, and image on the page, which fights Infima.
+ * Theme and utilities are imported on their own so Docusaurus keeps its own
+ * defaults.
+ *
+ * Utilities are nested under `.tw`. CSS does not care which React file imported
+ * this sheet, so a class like `flex` would otherwise match in the navbar too.
+ * Wrapping a tree in `className="tw"` is what actually limits the reach.
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+
+@layer utilities {
+    .tw {
+        @tailwind utilities;
+    }
+}
+
+@custom-variant dark (&:is([data-theme="dark"] *));
