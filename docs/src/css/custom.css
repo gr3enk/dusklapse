@@ -57,3 +57,11 @@
     display: block;
     border-radius: var(--ifm-global-radius);
 }
+
+input {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #eee;
+    border-radius: var(--ifm-global-radius);
+    font-size: 1rem;
+}

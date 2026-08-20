@@ -35,6 +35,7 @@ const config: Config = {
     },
 
     staticDirectories: ["static", "../src/assets"],
+    plugins: ["./src/plugins/tailwind-config.ts"],
 
     presets: [
         [
