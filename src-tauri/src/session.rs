@@ -156,22 +156,28 @@ mod tests {
     /// running session to a typo in an IP address would be unforgivable
     /// mid-timelapse.
     ///
-    /// Uses Sony because it is still unimplemented, so the failure is immediate
-    /// and needs no network. Pointing this at Nikon would spend the connect
-    /// timeout on an unreachable host.
+    /// Fails against a closed port on loopback rather than an unroutable address: the refusal
+    /// comes back immediately, where an unreachable host would spend the whole connect timeout.
+    ///
+    /// The port is bound and released first, so it is a real port number that is certainly free
+    /// rather than one picked in the hope that nothing uses it.
     #[tokio::test]
     async fn a_failed_connect_leaves_the_session_intact() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let closed_port = listener.local_addr().unwrap().port();
+        drop(listener);
+
         let session = CameraSession::default();
         session.connect(mock(), discard()).await.unwrap();
 
         let error = session
             .connect(
-                CameraTarget::new(Vendor::Sony, "10.0.0.1", 15740),
+                CameraTarget::new(Vendor::Nikon, "127.0.0.1", closed_port),
                 discard(),
             )
             .await
             .unwrap_err();
-        assert_eq!(error.kind(), "unsupportedVendor");
+        assert_eq!(error.kind(), "transport");
 
         assert_eq!(session.info().await.unwrap().vendor, Vendor::Mock);
     }

@@ -129,8 +129,8 @@ pub async fn connect(target: CameraTarget) -> CameraResult<Arc<dyn Camera>> {
         Vendor::Canon => Ok(Arc::new(canon::CanonCcapi::connect(target).await?)),
         Vendor::Nikon => Ok(Arc::new(nikon::NikonPtpIp::connect(target).await?)),
         Vendor::Mock => Ok(Arc::new(mock::MockCamera::new(target))),
-        // Profile only, no backend. See `sony.rs` for what it would take.
-        vendor @ Vendor::Sony => Err(CameraError::UnsupportedVendor { vendor }),
+        // Experimental, and hidden behind the long press until a camera has answered.
+        Vendor::Sony => Ok(Arc::new(sony::SonyPtpIp::connect(target).await?)),
     }
 }
 
