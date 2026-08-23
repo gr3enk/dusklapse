@@ -31,6 +31,23 @@ import { transferShot } from "../lib/transfer";
 import { useSettings } from "../hooks/useSettings";
 
 /**
+ * The same settings with one dial moved to `raw`.
+ *
+ * The new value is taken from the camera's own list rather than built here, so nothing invented
+ * ever reaches the screen. A raw token that is not in the list leaves the settings untouched and
+ * the read-back fills it in.
+ */
+function withDial(
+    exposure: ExposureSettings,
+    capabilities: ExposureCapabilities | null,
+    dial: Dial,
+    raw: string,
+): ExposureSettings {
+    const chosen = capabilities?.[dial]?.find((value) => value.raw === raw);
+    return chosen ? { ...exposure, [dial]: chosen } : exposure;
+}
+
+/**
  * How often to re-read a camera that has to be asked.
  *
  * Canon has no push channel, so this is the only way its display stays honest
@@ -74,6 +91,9 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         setError({ message: errorMessage(cause), lost: isConnectionLost(cause) });
     }, []);
     const [busy, setBusy] = useState(false);
+    // See `changeDial`: replies are adopted, so an older one arriving late must not undo a newer
+    // change. The same counter idiom `useRamp` and `useSettings` use.
+    const dialWrites = useRef(0);
     // Counted from CaptureComplete, so one per exposure rather than one per file.
     // Counts and times every shot the camera reports, transferred or not, so the readouts stay
     // honest when transfers are thinned.
@@ -186,18 +206,39 @@ export function CameraPanel({ info, onDisconnected }: Props) {
         return () => void unlisten.then((stop) => stop());
     }, [readAll, report, clock.record, clock]);
 
+    /**
+     * Turn one dial.
+     *
+     * Shown immediately, then confirmed. Waiting for the camera before moving the control means two
+     * round trips of nothing happening - and on a body whose every read is a full property
+     * inventory that is seconds, during which the dial still displays the old value and looks
+     * broken.
+     *
+     * The read-back still happens and still wins: cameras clamp to a neighbouring value more often
+     * than you would like, and the displayed value has to be the one the body actually took.
+     */
     async function changeDial(dial: Dial, raw: string) {
-        setBusy(true);
+        const write = ++dialWrites.current;
         setError(null);
+        setExposure((previous) => (previous ? withDial(previous, capabilities, dial, raw) : previous));
+
         try {
             await api.setExposure(dial, raw);
-            // Read back rather than assuming the write took: cameras silently clamp
-            // to a neighbouring value more often than you would like.
-            setExposure(await api.exposure());
+            const settled = await api.exposure();
+            // An older reply must not undo a newer change. Counted rather than prevented by
+            // disabling the controls, which is what made the whole strip flicker.
+            if (write === dialWrites.current) setExposure(settled);
         } catch (cause) {
             report(cause);
-        } finally {
-            setBusy(false);
+            // Put the camera's own value back rather than leaving a change that did not happen.
+            if (write === dialWrites.current) {
+                void api
+                    .exposure()
+                    .then((settled) => {
+                        if (write === dialWrites.current) setExposure(settled);
+                    })
+                    .catch(() => {});
+            }
         }
     }
 

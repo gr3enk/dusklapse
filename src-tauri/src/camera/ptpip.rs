@@ -85,6 +85,7 @@ pub const OP_GET_OBJECT: u16 = 0x1009;
 ///
 /// Standard PTP rather than a Nikon extension, so what it enables is not limited to one make.
 /// Takes a storage id, a format code and a parent handle - all three accept a wildcard.
+pub const OP_GET_STORAGE_IDS: u16 = 0x1004;
 pub const OP_GET_OBJECT_HANDLES: u16 = 0x1007;
 /// Every storage the camera has, rather than naming one.
 pub const STORAGE_ALL: u32 = 0xFFFF_FFFF;
@@ -203,7 +204,14 @@ pub struct DeviceInfo {
     pub model: String,
     pub device_version: String,
     pub serial: String,
+    /// Which vendor extension set the body claims to speak.
+    ///
+    /// Worth keeping because it is the first hint of where a vendor's own opcodes live: a body
+    /// declaring an extension is announcing that the standard property codes are not the whole
+    /// story.
+    pub vendor_extension_id: u32,
     pub operations: Vec<u16>,
+    pub events: Vec<u16>,
     pub properties: Vec<u16>,
 }
 
@@ -426,14 +434,28 @@ impl PtpIp {
     /// the channel, says nothing for eleven minutes and then closes it - where asking is the only
     /// way to learn that a frame was taken.
     pub async fn object_handles(&self, format: u16) -> CameraResult<Vec<u32>> {
+        self.object_handles_in(STORAGE_ALL, format).await
+    }
+
+    /// The same, naming one storage rather than asking for all of them.
+    ///
+    /// Not every body accepts the wildcard. A ZV-E10 answers `Invalid_StorageID` (0x2008) to it and
+    /// wants an identifier from [`PtpIp::storage_ids`], so a caller that has one should say so.
+    pub async fn object_handles_in(&self, storage: u32, format: u16) -> CameraResult<Vec<u32>> {
         let raw = self
             .operation(
                 OP_GET_OBJECT_HANDLES,
-                &[STORAGE_ALL, format as u32, PARENT_ANY],
+                &[storage, format as u32, PARENT_ANY],
                 IO_TIMEOUT,
             )
             .await?;
-        parse_object_handles(&raw)
+        parse_u32_array(&raw)
+    }
+
+    /// The storages the camera has, usually one card.
+    pub async fn storage_ids(&self) -> CameraResult<Vec<u32>> {
+        let raw = self.operation(OP_GET_STORAGE_IDS, &[], IO_TIMEOUT).await?;
+        parse_u32_array(&raw)
     }
 
     pub async fn object_info(&self, handle: u32) -> CameraResult<ObjectInfo> {
@@ -477,6 +499,29 @@ impl PtpIp {
             .map(|_| ());
         self.events.abort();
         result
+    }
+
+    /// Run a vendor's own opcode and return whatever data phase comes back.
+    ///
+    /// The escape hatch for a body whose controls are not reachable through the standard
+    /// operations at all. Sony is the case this exists for: a ZV-E10 advertises no
+    /// `GetDevicePropDesc` and an empty property list, and keeps everything behind its own
+    /// 0x92xx operations instead.
+    ///
+    /// Deliberately raw. The transport has no idea what these codes mean and should not: which
+    /// opcode does what is vendor knowledge and belongs in the vendor's module.
+    pub async fn vendor_operation(&self, opcode: u16, params: &[u32]) -> CameraResult<Vec<u8>> {
+        self.operation(opcode, params, IO_TIMEOUT).await
+    }
+
+    /// The same, for an opcode that carries data to the camera.
+    pub async fn vendor_operation_out(
+        &self,
+        opcode: u16,
+        params: &[u32],
+        data: &[u8],
+    ) -> CameraResult<()> {
+        self.operation_out(opcode, params, data).await.map(|_| ())
     }
 
     /// An operation with no data-out phase. Returns the data-in bytes, empty when
@@ -735,13 +780,13 @@ fn utf16z(text: &str) -> Vec<u8> {
 fn parse_device_info(data: &[u8]) -> CameraResult<DeviceInfo> {
     let mut reader = Reader::new(data);
     reader.u16()?; // standard version
-    reader.u32()?; // vendor extension id
+    let vendor_extension_id = reader.u32()?;
     reader.u16()?; // vendor extension version
     reader.ptp_string()?; // vendor extension description
     reader.u16()?; // functional mode
 
     let operations = reader.u16_array()?;
-    reader.u16_array()?; // events supported
+    let events = reader.u16_array()?;
     let properties = reader.u16_array()?;
     reader.u16_array()?; // capture formats
     reader.u16_array()?; // image formats
@@ -751,7 +796,9 @@ fn parse_device_info(data: &[u8]) -> CameraResult<DeviceInfo> {
         model: reader.ptp_string()?,
         device_version: reader.ptp_string()?,
         serial: reader.ptp_string()?,
+        vendor_extension_id,
         operations,
+        events,
         properties,
     })
 }
@@ -761,7 +808,7 @@ fn parse_device_info(data: &[u8]) -> CameraResult<DeviceInfo> {
 /// Everything past the filename is date and keyword metadata we have no use for,
 /// so parsing stops there.
 /// A PTP array: a count, then that many 32-bit values.
-fn parse_object_handles(raw: &[u8]) -> CameraResult<Vec<u32>> {
+fn parse_u32_array(raw: &[u8]) -> CameraResult<Vec<u32>> {
     let mut reader = Reader::new(raw);
     let count = reader.u32()? as usize;
     // Guarded against a length the payload cannot possibly hold, which would otherwise be a very
@@ -838,32 +885,50 @@ fn parse_prop_desc(data: &[u8]) -> CameraResult<PropDesc> {
 }
 
 /// Cursor over a PTP dataset.
-struct Reader<'a> {
+pub(super) struct Reader<'a> {
     data: &'a [u8],
     offset: usize,
 }
 
 impl<'a> Reader<'a> {
-    fn new(data: &'a [u8]) -> Self {
+    pub(super) fn new(data: &'a [u8]) -> Self {
         Self { data, offset: 0 }
     }
 
-    fn take(&mut self, count: usize) -> CameraResult<&'a [u8]> {
+    /// The next `u16` without consuming it.
+    ///
+    /// Needed where a field's meaning depends on its own value - a vendor descriptor stream whose
+    /// next word is either a count or the start of the following record.
+    pub(super) fn peek_u16(&self) -> CameraResult<u16> {
+        let bytes = self
+            .data
+            .get(self.offset..self.offset + 2)
+            .ok_or_else(short)?;
+        Ok(u16::from_le_bytes([bytes[0], bytes[1]]))
+    }
+
+    /// How many bytes are still unread. A vendor descriptor stream is a run of records with no
+    /// count in front of it, so the only way to know it is finished is to watch this.
+    pub(super) fn remaining(&self) -> usize {
+        self.data.len().saturating_sub(self.offset)
+    }
+
+    pub(super) fn take(&mut self, count: usize) -> CameraResult<&'a [u8]> {
         let end = self.offset.checked_add(count).ok_or_else(short)?;
         let slice = self.data.get(self.offset..end).ok_or_else(short)?;
         self.offset = end;
         Ok(slice)
     }
 
-    fn u8(&mut self) -> CameraResult<u8> {
+    pub(super) fn u8(&mut self) -> CameraResult<u8> {
         Ok(self.take(1)?[0])
     }
 
-    fn u16(&mut self) -> CameraResult<u16> {
+    pub(super) fn u16(&mut self) -> CameraResult<u16> {
         Ok(u16::from_le_bytes(self.take(2)?.try_into().unwrap()))
     }
 
-    fn u32(&mut self) -> CameraResult<u32> {
+    pub(super) fn u32(&mut self) -> CameraResult<u32> {
         Ok(u32::from_le_bytes(self.take(4)?.try_into().unwrap()))
     }
 
@@ -882,15 +947,19 @@ impl<'a> Reader<'a> {
     }
 
     /// PTP string: a character count that includes the terminator, then UTF-16LE.
-    fn ptp_string(&mut self) -> CameraResult<String> {
+    pub(super) fn ptp_string(&mut self) -> CameraResult<String> {
         let count = self.u8()? as usize;
         if count == 0 {
             return Ok(String::new());
         }
         let raw = self.take(count * 2)?;
+        // Fixed-size pairs, so `from_le_bytes` takes them directly - no conversion that could fail
+        // and no `unwrap` to explain.
         let units: Vec<u16> = raw
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes(pair.try_into().unwrap()))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
             .take_while(|unit| *unit != 0)
             .collect();
         String::from_utf16(&units)
@@ -911,12 +980,14 @@ impl<'a> Reader<'a> {
             .map_err(|err| CameraError::Protocol(format!("malformed string from camera: {err}")))
     }
 
-    fn u16_array(&mut self) -> CameraResult<Vec<u16>> {
+    pub(super) fn u16_array(&mut self) -> CameraResult<Vec<u16>> {
         let count = self.u32()? as usize;
         let raw = self.take(count * 2)?;
         Ok(raw
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes(pair.try_into().unwrap()))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
             .collect())
     }
 }
@@ -1005,7 +1076,7 @@ mod tests {
             data.extend_from_slice(&handle.to_le_bytes());
         }
         assert_eq!(
-            parse_object_handles(&data).unwrap(),
+            parse_u32_array(&data).unwrap(),
             vec![0x0000_0001, 0x2900_0011, 0xFFFF_0000]
         );
     }
@@ -1015,7 +1086,7 @@ mod tests {
     #[test]
     fn parses_an_empty_object_handle_array() {
         assert_eq!(
-            parse_object_handles(&0u32.to_le_bytes()).unwrap(),
+            parse_u32_array(&0u32.to_le_bytes()).unwrap(),
             Vec::<u32>::new()
         );
     }
@@ -1026,7 +1097,7 @@ mod tests {
     fn refuses_an_object_handle_count_the_payload_cannot_hold() {
         let mut data = 1_000_000u32.to_le_bytes().to_vec();
         data.extend_from_slice(&7u32.to_le_bytes());
-        assert!(parse_object_handles(&data).is_err());
+        assert!(parse_u32_array(&data).is_err());
     }
 
     #[test]

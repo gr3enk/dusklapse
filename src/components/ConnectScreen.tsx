@@ -75,9 +75,13 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
 
     // Seven seconds on the Connect button. Nothing hints at it and nothing shows progress - a hint
     // would defeat the point, and nobody holds a button that long by accident. Unlocking also
-    // selects the simulator: the only reason to perform this is to use it.
+    // selects the simulator: the commonest reason to perform this is to use it.
+    //
+    // Named rather than found by `developerOnly`, which used to identify the simulator on its own.
+    // It no longer does: an unproven backend is hidden the same way, so that search would land on
+    // whichever the registry happens to list first.
     const unlock = useLongPress(() => {
-        const simulator = profiles.find((profile) => profile.developerOnly);
+        const simulator = profiles.find((profile) => profile.vendor === "mock");
         if (!simulator) return;
         onUnlockDeveloper();
         setVendor(simulator.vendor);
