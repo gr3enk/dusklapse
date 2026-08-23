@@ -107,8 +107,10 @@ fn measure_rgb(pixels: &[u8]) -> (Histogram, Meter) {
     let mut histogram = Histogram::empty();
     let mut meter = Meter::new();
 
-    for pixel in pixels.chunks_exact(3) {
-        let (red, green, blue) = (pixel[0], pixel[1], pixel[2]);
+    // `as_chunks` rather than `chunks_exact`, so each pixel arrives as a fixed-size array and can
+    // be destructured. The trailing bytes of a buffer that is not a whole number of pixels are
+    // discarded either way.
+    for &[red, green, blue] in pixels.as_chunks::<3>().0 {
         histogram.red[red as usize] += 1;
         histogram.green[green as usize] += 1;
         histogram.blue[blue as usize] += 1;

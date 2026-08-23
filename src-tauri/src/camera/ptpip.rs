@@ -953,9 +953,13 @@ impl<'a> Reader<'a> {
             return Ok(String::new());
         }
         let raw = self.take(count * 2)?;
+        // Fixed-size pairs, so `from_le_bytes` takes them directly - no conversion that could fail
+        // and no `unwrap` to explain.
         let units: Vec<u16> = raw
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes(pair.try_into().unwrap()))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
             .take_while(|unit| *unit != 0)
             .collect();
         String::from_utf16(&units)
@@ -980,8 +984,10 @@ impl<'a> Reader<'a> {
         let count = self.u32()? as usize;
         let raw = self.take(count * 2)?;
         Ok(raw
-            .chunks_exact(2)
-            .map(|pair| u16::from_le_bytes(pair.try_into().unwrap()))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_le_bytes(*pair))
             .collect())
     }
 }
