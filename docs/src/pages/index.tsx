@@ -46,6 +46,9 @@ export default function Home(): ReactNode {
                     </div>
                 </div>
             </header>
+            <div className="">
+                <img src="/img/interface_1.webp" alt="Dusklapse Screenshot" />
+            </div>
         </Layout>
     );
 }
