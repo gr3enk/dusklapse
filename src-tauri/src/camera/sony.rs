@@ -159,6 +159,11 @@ const FORM_NONE: u8 = 0x00;
 const FORM_RANGE: u8 = 0x01;
 const FORM_ENUMERATION: u8 = 0x02;
 
+/// `enabled` byte: the camera is offering this control at the moment.
+const ENABLED: u8 = 1;
+/// `get_set` byte: the property can be written, not only read.
+const GET_SET: u8 = 1;
+
 /// Below this, a word following an enumeration is a second list rather than the next record.
 ///
 /// Some bodies write the enumeration twice, the second one authoritative. Nothing flags it; the
@@ -255,6 +260,12 @@ pub struct SonyProp {
     pub code: u16,
     pub datatype: u16,
     pub current: u32,
+    /// Whether the camera says this value can be set *right now*.
+    ///
+    /// Not a fixed fact about the property. A body changes its mind with the shooting mode and
+    /// with what it is busy doing, and it is the only statement available about whether a write
+    /// will be honoured - the write itself reports success either way.
+    pub writable: bool,
     /// What the dial may be set to. Empty for a property described by a range, for the same reason
     /// as everywhere else in this app: invented step positions produce writes the body rejects.
     pub values: Vec<u32>,
@@ -360,6 +371,7 @@ impl SonyPtpIp {
     /// insisting on the requested value would spend the whole budget every time that happened.
     async fn settle(&self, property: u16, was: u32) {
         let started = std::time::Instant::now();
+        let mut declared_writable = None;
 
         for attempt in 1..=SETTLE_ATTEMPTS {
             tokio::time::sleep(SETTLE_INTERVAL).await;
@@ -368,6 +380,7 @@ impl SonyPtpIp {
                     let Some(prop) = props.get(&property) else {
                         return;
                     };
+                    declared_writable = Some(prop.writable);
                     if prop.current != was {
                         // Info only when it took more than one look, which is the case worth
                         // knowing about. A body that answers at once stays silent rather than
@@ -389,10 +402,17 @@ impl SonyPtpIp {
             }
         }
 
-        log::info!(
-            "camera still reports the old value for 0x{property:04x} after {:.1}s; the display may \
-             lag behind the camera",
-            started.elapsed().as_secs_f32()
+        // The flag is the camera's own statement about whether the write could ever have taken.
+        // A body that says "writable" and then ignores the write is doing something the protocol
+        // gives no way to see; one that says otherwise has told us plainly and we can say so too.
+        log::warn!(
+            "camera accepted the write to 0x{property:04x} but still reports the old value after \
+             {:.1}s (camera declares it writable: {})",
+            started.elapsed().as_secs_f32(),
+            match declared_writable {
+                Some(writable) => writable.to_string(),
+                None => "unknown".to_string(),
+            }
         );
     }
 
@@ -546,8 +566,8 @@ fn parse_all_props(raw: &[u8]) -> CameraResult<Vec<SonyProp>> {
 fn parse_prop(reader: &mut Reader) -> CameraResult<SonyProp> {
     let code = reader.u16()?;
     let datatype = reader.u16()?;
-    reader.u8()?; // get/set
-    reader.u8()?; // enabled
+    let get_set = reader.u8()?;
+    let enabled = reader.u8()?;
 
     read_value(reader, datatype)?; // default value, never used
     let current = read_value(reader, datatype)?;
@@ -588,8 +608,19 @@ fn parse_prop(reader: &mut Reader) -> CameraResult<SonyProp> {
         code,
         datatype,
         current,
+        writable: writable(get_set, enabled),
         values,
     })
+}
+
+/// Whether a descriptor's two flag bytes say the value can be set.
+///
+/// Read the way libgphoto2 reads them for a body speaking extension protocol 3.00, which is what a
+/// ZV-E10 answers with. `enabled` is the camera's live judgement - 1 means the control is available,
+/// 0 means greyed out and 2 means shown but not offered - and `get_set` is the property's own
+/// nature, 1 where it can be written at all.
+fn writable(get_set: u8, enabled: u8) -> bool {
+    enabled == ENABLED && get_set == GET_SET
 }
 
 /// A count followed by that many values.
@@ -676,11 +707,13 @@ fn report(props: &HashMap<u16, SonyProp>) {
     ] {
         match props.get(&code) {
             Some(prop) => log::info!(
-                "{label} 0x{code:04x}: type 0x{:04x}, now {} (raw 0x{:08x}), {} selectable",
+                "{label} 0x{code:04x}: type 0x{:04x}, now {} (raw 0x{:08x}), {} selectable, \
+                 camera says writable: {}",
                 prop.datatype,
                 describe(code, prop.current),
                 prop.current,
-                prop.values.len()
+                prop.values.len(),
+                prop.writable
             ),
             None => log::warn!("{label} 0x{code:04x} is not among the reported properties"),
         }
@@ -1302,6 +1335,17 @@ mod tests {
 
         assert_eq!(map(&event), Some(CameraEvent::FrameRecorded));
         assert_eq!(map(&event), None, "the file's twin is the same frame");
+    }
+
+    /// The two flag bytes are the only statement a camera makes about whether a write will take.
+    #[test]
+    fn a_property_is_writable_only_when_offered_and_settable() {
+        assert!(writable(GET_SET, ENABLED));
+        // Read-only property, however available it is.
+        assert!(!writable(0, ENABLED));
+        // Greyed out, and shown but not offered.
+        assert!(!writable(GET_SET, 0));
+        assert!(!writable(GET_SET, 2));
     }
 
     /// A range yields no selectable values, the same rule the Nikon backend follows.
