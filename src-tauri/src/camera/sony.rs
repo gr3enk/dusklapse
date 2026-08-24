@@ -242,15 +242,16 @@ pub fn profile() -> VendorProfile {
     VendorProfile {
         vendor: Vendor::Sony,
         label: Vendor::Sony.label().to_string(),
-        summary: "PTP-IP - experimental, use 'PC Remote Function' with Wi-Fi Direct".into(),
+        summary: "PTP-IP - use 'PC Remote Function' with Wi-Fi Direct".into(),
         default_port: Vendor::Sony.default_port(),
         // Measured on a ZV-E10 hosting its own network.
         access_point_host: Some("192.168.122.1".into()),
         needs_address: true,
         implemented: true,
-        // Still behind the long press: the handshake and the readouts are confirmed, ramping a
-        // whole sequence on one is not.
-        developer_only: true,
+        // Offered like any other vendor. Measured on a ZV-E10: the session holds, the three dials
+        // read and write, frames are announced and the picture comes across for the ramp to
+        // measure. Other Sony bodies are unverified, but that is true of every vendor here.
+        developer_only: false,
     }
 }
 
@@ -1037,9 +1038,11 @@ fn non_empty(value: &str) -> Option<String> {
 mod tests {
     use super::*;
 
+    /// Offered on the connect screen, unlike the mock camera.
     #[test]
-    fn the_profile_stays_behind_the_long_press() {
-        assert!(profile().developer_only);
+    fn the_profile_is_shown_like_any_other_vendor() {
+        assert!(!profile().developer_only);
+        assert!(profile().implemented);
     }
 
     #[test]
