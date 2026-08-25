@@ -1,0 +1,37 @@
+name: Feature Request
+description: Suggest or request a new feature
+labels: ["feature"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Please fill out the sections below to properly describe the new feature you are suggesting.
+    - type: dropdown
+      id: category
+      attributes:
+          label: In which category does the feature belong?
+          options:
+              - "Camera Communication / Control"
+              - "Algorithm / Processing"
+              - "User Interface / User Experience"
+              - "Other"
+    - type: textarea
+      id: description
+      attributes:
+          label: Describe the feature
+          placeholder: A button in the screen X that allows to do Y
+      validations:
+          required: true
+          body:
+    - type: upload
+      id: files
+      attributes:
+          label: Upload any relevant attachments
+          description: "Drag and drop any relevant screenshots or log files."
+      validations:
+          required: false
+          accept: ".png,.jpg,.gif,.log,.txt,.zip"
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for your suggestion!
