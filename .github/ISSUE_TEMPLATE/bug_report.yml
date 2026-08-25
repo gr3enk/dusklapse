@@ -1,0 +1,79 @@
+name: Bug Report
+description: Report a bug
+labels: ["bug"]
+body:
+    - type: markdown
+      attributes:
+          value: |
+              Please fill out the sections below to help identify and fix the bug
+    - type: dropdown
+      id: vendor
+      attributes:
+          label: Which camera vendor are you using?
+          options:
+              - "Canon"
+              - "Nikon"
+              - "Sony"
+              - "Panasonic"
+              - "Non Camera related Bug"
+      validations:
+          required: true
+    - type: input
+      id: camera_model
+      attributes:
+          label: Which camera model are you using?
+          description: Please provide the full model name. Pay Attention to the generation of the camera model as well (e.g. Mark III).
+          placeholder: e.g. Nikon Z6 II
+      validations:
+          required: true
+    - type: input
+      id: camera_firmware
+      attributes:
+          label: Which camera firmware are you using?
+          description: Please provide the full firmware version if possible.
+          placeholder: e.g. 1.0.1
+      validations:
+          required: false
+    - type: input
+      id: device_model
+      attributes:
+          label: On which device do you use Dusklapse?
+          placeholder: e.g. iPad Pro M1
+      validations:
+          required: true
+    - type: textarea
+      id: description
+      attributes:
+          label: Describe your issue
+          placeholder: When I click here this happens
+      validations:
+          required: true
+    - type: textarea
+      id: steps
+      attributes:
+          label: Steps to reproduce
+          placeholder: |
+              1. Click here
+              2. Click there
+              3. ...
+      validations:
+          required: true
+    - type: textarea
+      id: logs
+      attributes:
+          label: Please provide the logs of the issue if possible.
+          description: "Paste the logs here or attach them as a file down below."
+      validations:
+          required: false
+    - type: upload
+      id: files
+      attributes:
+          label: Upload any relevant attachments
+          description: "Drag and drop any relevant screenshots or log files."
+      validations:
+          required: false
+          accept: ".png,.jpg,.gif,.log,.txt,.zip"
+    - type: markdown
+      attributes:
+          value: |
+              Thanks for reporting this issue!
