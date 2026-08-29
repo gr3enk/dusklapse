@@ -23,7 +23,7 @@ body:
       attributes:
           label: Which camera model are you using?
           description: Please provide the full model name. Pay Attention to the generation of the camera model as well (e.g. Mark III).
-          placeholder: e.g. Nikon Z6 II
+          placeholder: e.g. EOS R6 Mark II
       validations:
           required: true
     - type: input
