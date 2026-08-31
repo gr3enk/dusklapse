@@ -40,7 +40,14 @@ export default function App() {
             className={cn(
                 "flex min-h-lvh flex-col",
                 filling
-                    ? "h-lvh max-h-lvh items-stretch justify-stretch overflow-hidden pt-[calc(var(--spacing-safe-t)+1.5rem)] pr-[calc(var(--spacing-safe-r)+1.25rem)] pb-[calc(var(--spacing-safe-b)+0.5rem)] pl-[calc(var(--spacing-safe-l)+1.25rem)]"
+                    ? cn(
+                          "h-lvh max-h-lvh items-stretch justify-stretch overflow-hidden",
+                          // Tighter on a phone, where an inch of margin is an inch the
+                          // controls do not get. The safe-area insets are added on top of it
+                          // either way, so the notch is still cleared.
+                          "pt-[calc(var(--spacing-safe-t)+0.75rem)] pr-[calc(var(--spacing-safe-r)+0.75rem)] pb-[calc(var(--spacing-safe-b)+0.5rem)] pl-[calc(var(--spacing-safe-l)+0.75rem)]",
+                          "sm:pt-[calc(var(--spacing-safe-t)+1.5rem)] sm:pr-[calc(var(--spacing-safe-r)+1.25rem)] sm:pl-[calc(var(--spacing-safe-l)+1.25rem)]",
+                      )
                     : "items-center justify-center",
             )}
         >

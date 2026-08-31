@@ -16,6 +16,7 @@
         "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,css,md,yml,yaml}\" && cargo fmt --manifest-path src-tauri/Cargo.toml --check"
     },
     "dependencies": {
+        "@rive-app/react-canvas": "^4.33.0",
         "@tauri-apps/api": "^2",
         "@tauri-apps/plugin-geolocation": "^2.3.2",
         "@tauri-apps/plugin-log": "^2.9.0",

@@ -97,22 +97,27 @@ export function DaylightCurveRow({ config, mode, sky, rampActive, onChange }: Pr
     };
 
     return (
-        <div className="flex flex-col gap-2">
-            <span>Auto Luminance</span>
-
-            <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
+            {/* Switch beside the name, the way the dial rows carry theirs, and the sentence
+                on its own line under both: sharing a line with the switch left it three words
+                wide in a landscape column. */}
+            <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="truncate">Auto Luminance</span>
                 <Toggle
                     disabled={!rampActive}
                     checked={config.enabled}
                     onChange={(enabled) => onChange({ ...config, enabled })}
                 />
-                <span className="text-sm opacity-60">Darken the reference as the sun goes down</span>
             </div>
+            <p className="m-0 text-sm opacity-60">Darken the reference as the sun goes down</p>
 
             <div className="flex flex-col gap-2 pt-1">
                 <div className="flex flex-wrap items-end gap-2">
                     <TextField
                         label="Latitude"
+                        // Wide enough for a coordinate. Sharing the row equally instead left
+                        // both fields a few characters wide on a phone.
+                        fieldClassName="flex-[1_1_8rem]"
                         type="number"
                         inputMode="decimal"
                         step="0.0001"
@@ -127,6 +132,7 @@ export function DaylightCurveRow({ config, mode, sky, rampActive, onChange }: Pr
                     />
                     <TextField
                         label="Longitude"
+                        fieldClassName="flex-[1_1_8rem]"
                         type="number"
                         inputMode="decimal"
                         step="0.0001"
@@ -142,7 +148,12 @@ export function DaylightCurveRow({ config, mode, sky, rampActive, onChange }: Pr
                     {/* Hidden rather than disabled where there is no plugin to call: a button that
                 cannot ever work is worse than no button. */}
                     {sky.canLocate && (
-                        <Button variant="secondary" onClick={useMyLocation} disabled={disabled || sky.locating}>
+                        <Button
+                            variant="secondary"
+                            className="shrink-0"
+                            onClick={useMyLocation}
+                            disabled={disabled || sky.locating}
+                        >
                             <LocateFixedIcon className="size-4" />
                             {/* {sky.locating ? "Locating…" : "Use my location"} */}
                         </Button>
@@ -150,10 +161,12 @@ export function DaylightCurveRow({ config, mode, sky, rampActive, onChange }: Pr
                 </div>
                 <label className={"flex min-w-0 flex-col gap-1"}>
                     <Label>Factor</Label>
-                    <div className="grid grid-cols-2 items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <NumberSelector
                             label="night darkening factor"
-                            className=""
+                            // The three shape buttons below cannot be drawn any narrower, so
+                            // this is the half that gives, and drops onto its own line first.
+                            className="flex-[1_1_9rem]"
                             disabled={disabled}
                             value={config.factor}
                             // Rounded because repeatedly adding 0.25 in binary floating point drifts, and
@@ -166,7 +179,11 @@ export function DaylightCurveRow({ config, mode, sky, rampActive, onChange }: Pr
                         {/* `aria-pressed` rather than radio roles, the same as `SegmentedControl`:
                         these act immediately rather than being a form field to submit. The label
                         carries the whole meaning, since the icons are the only thing on screen. */}
-                        <div className="flex items-center gap-2" role="group" aria-label="Shape of the darkening">
+                        <div
+                            className="flex shrink-0 items-center gap-2"
+                            role="group"
+                            aria-label="Shape of the darkening"
+                        >
                             {DAYLIGHT_SHAPES.map((shape) => {
                                 const { label, sunset, sunrise } = SHAPES[shape];
                                 const Icon = mode === "sunset" ? sunset : sunrise;

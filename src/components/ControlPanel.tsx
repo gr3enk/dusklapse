@@ -102,7 +102,12 @@ export function ControlPanel({
         <Panel
             // `overscroll-contain` stops this list handing its scroll on to the page when it
             // reaches the end.
-            className="flex h-full flex-col gap-4 overflow-y-auto overscroll-contain p-[0.9rem]"
+            //
+            // `@container` because what decides the arrangement below is how wide this panel
+            // is, not how wide the window is. In landscape it is a narrow column beside the
+            // preview even on a large tablet, and a viewport breakpoint would call that wide
+            // and lay it out in two columns that do not fit.
+            className="@container flex h-full flex-col gap-4 overflow-y-auto overscroll-contain p-[0.9rem]"
             aria-label="Timelapse ramping"
         >
             <h2 className="m-0 text-[1.1rem] font-[650]">Controls</h2>
@@ -112,85 +117,113 @@ export function ControlPanel({
                     <h3 className="m-0 mb-1 font-semibold uppercase tracking-[0.06em]">Holy Grail</h3>
                     <Toggle checked={active} onChange={(next) => update({ active: next })} />
                 </div>
-                <div className="grid portrait:grid-cols-2 landscape:grid-cols-1 portrait:gap-x-8 gap-y-4 pt-4">
-                    <div className="flex items-center gap-2 portrait:col-1">
-                        {MODES.map(({ mode, label, Icon }) => (
-                            <Button
-                                key={mode}
-                                variant={settings?.mode === mode ? "primary" : "secondary"}
-                                onClick={() => update({ mode })}
-                                className="w-full"
-                                disabled={!active}
-                                aria-pressed={settings?.mode === mode}
-                            >
-                                <Icon className="size-4" />
-                                <span className="mr-1">{label}</span>
-                            </Button>
-                        ))}
-                    </div>
-
-                    <div className="flex flex-col gap-2 portrait:col-1 portrait:row-span-2">
-                        <Label>Luminance reference</Label>
-                        <div className="grid grid-cols-2 flex-wrap items-center gap-2 w-full">
-                            <NumberSelector
-                                label="luminance reference"
-                                className="w-full"
-                                disabled={!active}
-                                value={settings?.reference.value ?? 0}
-                                // Only `value` is edited here; the backend rebuilds the matching
-                                // `linear` when it stores the reference, so the two halves cannot
-                                // drift apart.
-                                secondaryValue={sky.state ? sky.state.effectiveReference.value : undefined}
-                                onChange={(value) =>
-                                    settings && update({ reference: { ...settings.reference, value } })
-                                }
-                                step={LUMINANCE_STEP}
-                                min={LUMINANCE_MIN}
-                                max={LUMINANCE_MAX}
-                            />
-                            {/* Needs no value passed to it: the backend reads the brightness from
-                            the frame it already measured, so what gets stored is provably
-                            what was measured. Disabled until a frame exists to point at. */}
-                            <Button
-                                variant="secondary"
-                                onClick={useCurrentFrame}
-                                disabled={!active || !ready || frameLuminance === null}
-                                className="w-full"
-                                title={
-                                    frameLuminance === null
-                                        ? "No frame measured yet"
-                                        : "Set the reference to the frame on screen"
-                                }
-                            >
-                                <CrosshairIcon className="size-4" />
-                                Use current
-                            </Button>
+                {/* Two columns only once this panel is genuinely wide enough for both. Below
+                    that everything is one column: the controls in here are toggle plus
+                    button plus dropdown rows, and half of a phone's width is narrower than
+                    any of them can be drawn. */}
+                <div className="grid gap-x-8 gap-y-4 pt-4 @xl:grid-cols-2 @xl:items-start">
+                    <div className="flex min-w-0 flex-col gap-4">
+                        <div className="flex min-w-0 items-center gap-2">
+                            {MODES.map(({ mode, label, Icon }) => (
+                                <Button
+                                    key={mode}
+                                    variant={settings?.mode === mode ? "primary" : "secondary"}
+                                    onClick={() => update({ mode })}
+                                    // Tighter, and without the icon, while the panel is narrow:
+                                    // in a landscape column on a phone this is the difference
+                                    // between "Sunset" and "S…", and the word is the part that
+                                    // says which one this is.
+                                    className="min-w-0 flex-auto gap-1 px-2 @xs:gap-2 @xs:px-[1.1rem]"
+                                    disabled={!active}
+                                    aria-pressed={settings?.mode === mode}
+                                >
+                                    <Icon className="hidden size-4 shrink-0 @xs:block" />
+                                    <span className="truncate">{label}</span>
+                                </Button>
+                            ))}
                         </div>
 
-                        {/* The reference is only meaningful next to where the sequence actually
+                        <div className="flex flex-col gap-2">
+                            <Label>Luminance reference</Label>
+                            <div className="flex flex-wrap items-center gap-2 w-full">
+                                <NumberSelector
+                                    label="luminance reference"
+                                    // A basis rather than a share, so on a narrow panel the button
+                                    // below drops onto its own line at full width instead of
+                                    // wrapping its caption in half.
+                                    className="flex-[1_1_9rem]"
+                                    disabled={!active}
+                                    value={settings?.reference.value ?? 0}
+                                    // Only `value` is edited here; the backend rebuilds the matching
+                                    // `linear` when it stores the reference, so the two halves cannot
+                                    // drift apart.
+                                    secondaryValue={sky.state ? sky.state.effectiveReference.value : undefined}
+                                    onChange={(value) =>
+                                        settings && update({ reference: { ...settings.reference, value } })
+                                    }
+                                    step={LUMINANCE_STEP}
+                                    min={LUMINANCE_MIN}
+                                    max={LUMINANCE_MAX}
+                                />
+                                {/* Needs no value passed to it: the backend reads the brightness from
+                            the frame it already measured, so what gets stored is provably
+                            what was measured. Disabled until a frame exists to point at. */}
+                                <Button
+                                    variant="secondary"
+                                    onClick={useCurrentFrame}
+                                    disabled={!active || !ready || frameLuminance === null}
+                                    className="flex-[1_1_9rem]"
+                                    title={
+                                        frameLuminance === null
+                                            ? "No frame measured yet"
+                                            : "Set the reference to the frame on screen"
+                                    }
+                                >
+                                    <CrosshairIcon className="size-4" />
+                                    Use current
+                                </Button>
+                            </div>
+
+                            {/* The reference is only meaningful next to where the sequence actually
                         is, and this is the number the engine will act on. */}
-                        <p className="m-0 tabular-nums opacity-60 text-sm">
-                            {frameLuminance === null
-                                ? "No frame measured yet."
-                                : deviation === null
-                                  ? `Frame at ${frameLuminance.value}, deviation unavailable.`
-                                  : `Frame at ${frameLuminance.value}, ${describeDeviation(deviation)}`}
-                            {/* Named outright when the curve has moved the goalposts, so the
+                            <p className="m-0 tabular-nums opacity-60 text-sm">
+                                {frameLuminance === null
+                                    ? "No frame measured yet."
+                                    : deviation === null
+                                      ? `Frame at ${frameLuminance.value}, deviation unavailable.`
+                                      : `Frame at ${frameLuminance.value}, ${describeDeviation(deviation)}`}
+                                {/* Named outright when the curve has moved the goalposts, so the
                             deviation above is measured against a number that is on screen. */}
-                            {sky.state && sky.state.offsetStops < -0.005 && (
-                                <span className="block">
-                                    Aiming at {sky.state.effectiveReference.value} while the sky is this dark.
-                                </span>
-                            )}
-                        </p>
+                                {sky.state && sky.state.offsetStops < -0.005 && (
+                                    <span className="block">
+                                        Aiming at {sky.state.effectiveReference.value} while the sky is this dark.
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+
+                        {/* One row per dial. The label flips with the mode because the stored
+                        number does not: the limit is always the far end of the ramp's travel,
+                        and which end that is depends on which way the light is going. */}
+                        <div className="flex flex-col gap-4">
+                            {DIALS.map(({ id }) => (
+                                <DialRampRow
+                                    key={id}
+                                    dial={id}
+                                    label={settings ? dialLimitLabel(id, settings.mode) : ""}
+                                    config={settings?.[id] ?? { enabled: false, limit: null }}
+                                    values={capabilities?.[id] ?? []}
+                                    rampActive={active}
+                                    onChange={(next) => updateDial(id, next)}
+                                />
+                            ))}
+                        </div>
                     </div>
 
-                    {/* One row per dial. The label flips with the mode because the stored number
-                    does not: the limit is always the far end of the ramp's travel, and which
-                    end that is depends on which way the light is going. */}
-                    {/* Placed after the reference and before the dials: it changes what the
-                    reference means, which is the thing directly above it. */}
-                    <div className="portrait:col-1 portrait:row-span-4">
+                    {/* Its own column where there is room for one, and last in the single
+                    column otherwise. It changes what the reference means, so it reads after
+                    the reference and after the limits it modifies. */}
+                    <div className="min-w-0">
                         <DaylightCurveRow
                             config={
                                 settings?.daylight ?? {
@@ -206,20 +239,6 @@ export function ControlPanel({
                             rampActive={active}
                             onChange={(daylight) => update({ daylight })}
                         />
-                    </div>
-
-                    <div className="portrait:col-2 portrait:row-start-1 portrait:row-span-4">
-                        {DIALS.map(({ id }) => (
-                            <DialRampRow
-                                key={id}
-                                dial={id}
-                                label={settings ? dialLimitLabel(id, settings.mode) : ""}
-                                config={settings?.[id] ?? { enabled: false, limit: null }}
-                                values={capabilities?.[id] ?? []}
-                                rampActive={active}
-                                onChange={(next) => updateDial(id, next)}
-                            />
-                        ))}
                     </div>
                 </div>
 
