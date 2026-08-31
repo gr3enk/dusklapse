@@ -62,8 +62,11 @@ export function Select({
             {hideLabel ? (
                 <span className="sr-only">{label}</span>
             ) : (
-                <Label className="flex items-center gap-1.5">
-                    {label}
+                // Truncating rather than overflowing: three of these sit side by side in
+                // the status strip, and on a narrow one "APERTURE" would otherwise run
+                // straight through its neighbour's caption.
+                <Label className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate">{label}</span>
                     {labelAdornment}
                 </Label>
             )}

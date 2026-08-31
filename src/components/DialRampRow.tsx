@@ -46,37 +46,52 @@ export function DialRampRow({ label, config, values, rampActive, onChange }: Pro
     );
 
     return (
-        <div className="flex flex-col gap-2">
-            <span>{label}</span>
-            <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
+            {/* The switch sits with the caption it governs rather than in the row of
+                controls. The caption's line has width to spare at every size; the controls'
+                line has none to spare in a landscape column on a phone, and the switch was
+                taking the width the dropdown needs to show which value is set. */}
+            <div className="flex min-w-0 items-center justify-between gap-2">
+                <span className="truncate">{label}</span>
                 <Toggle
                     disabled={!rampActive}
                     checked={config.enabled}
                     onChange={(enabled) => onChange({ ...config, enabled })}
                 />
-
+            </div>
+            {/* The dropdown is the one part that may shrink; a nudge button drawn smaller
+                than its tap target is not one you can hit. */}
+            <div className="flex min-w-0 items-center gap-2">
                 <Button
                     disabled={disabled}
                     onClick={() => handleChangeLimit("down")}
                     variant="secondary"
                     size="compact"
+                    className="shrink-0"
                 >
                     <MinusIcon className="size-4" />
                 </Button>
                 <Select
                     label={label}
-                    // The label is already above the toggle; repeating it over the select would
-                    // say the same thing twice.
+                    // The caption on the line above already names this; repeating it over the
+                    // select would say the same thing twice.
                     hideLabel
                     value={config.limit ?? undefined}
                     emptyLabel="Not set"
                     allowEmpty
-                    className="flex-1"
+                    className="w-full"
+                    fieldClassName="min-w-0 flex-1"
                     disabled={disabled || usable.length === 0}
                     onChange={(event) => onChange({ ...config, limit: event.currentTarget.value || null })}
                     options={usable.map((value) => ({ value: value.raw, label: value.label }))}
                 />
-                <Button disabled={disabled} onClick={() => handleChangeLimit("up")} variant="secondary" size="compact">
+                <Button
+                    disabled={disabled}
+                    onClick={() => handleChangeLimit("up")}
+                    variant="secondary"
+                    size="compact"
+                    className="shrink-0"
+                >
                     <PlusIcon className="size-4" />
                 </Button>
             </div>

@@ -86,15 +86,21 @@ export function CameraStatusBar({
     const running = useElapsed(clock.firstAt);
 
     return (
+        // Wrapping rather than a fixed pair of columns: on a phone the dials alone are as
+        // much as a line will hold, and halving the width for a second column is what
+        // squeezed the captions into each other and pushed the buttons off the edge.
+        //
+        // `@container` so the pieces below size themselves against this strip rather than
+        // against the window. In landscape the strip is a fraction of the width, and a
+        // viewport breakpoint would call that case wide.
         <Panel
-            style={{ gridTemplateColumns: "1fr 1fr", gridTemplateRows: "1fr auto" }}
-            className="grid gap-x-4 gap-y-2 px-3 py-[0.6rem]"
+            className="@container flex flex-wrap items-center gap-x-4 gap-y-2 px-3 py-[0.6rem]"
             aria-label="Camera status"
         >
-            {/* Takes the width its content needs and no more, so what is left over goes to
-                the meta group beside it. Given room to grow, the dials would claim all of
-                it and force the meta group onto a line of its own. */}
-            <div className="flex min-w-0 max-w-104 flex-auto gap-2">
+            {/* A floor rather than a share: below about this width the dials stop being
+                readable, so they take the whole line and the meta group drops beneath
+                them. Capped above, so on a wide strip the leftover goes to that group. */}
+            <div className="flex min-w-0 max-w-104 flex-[1_1_17rem] gap-2">
                 {DIALS.map(({ id, label }) => {
                     const values = capabilities?.[id] ?? [];
                     const current = exposure?.[id];
@@ -112,39 +118,23 @@ export function CameraStatusBar({
                 })}
             </div>
 
-            {/* One wrapper so these two wrap together. Left to themselves the readouts stay
-                beside the dials and the identity drops alone onto a second line, which
-                reads as a mistake rather than as a layout. */}
-            <div className="flex min-w-0 flex-auto flex-wrap items-center justify-end gap-x-3 gap-y-2">
-                <div className="flex min-w-0 items-center gap-2">
-                    <span
-                        className="truncate font-semibold"
-                        title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`]
-                            .filter(Boolean)
-                            .join(" · ")}
-                    >
-                        {info.model}
-                    </span>
-                    <Button size="compact" onClick={onOpenSettings} aria-label="Settings" title="Settings">
-                        <SettingsIcon className="size-4" />
-                    </Button>
-                    <Button size="compact" onClick={onOpenPlanner} aria-label="Planner" title="Planner">
-                        <ClipboardClockIcon className="size-4" />
-                    </Button>
-                    <Button size="compact" onClick={onOpenLogs} aria-label="Logs" title="Logs">
-                        <ScrollTextIcon className="size-4" />
-                    </Button>
-                    <Button size="compact" onClick={onDisconnect}>
-                        <UnplugIcon className="size-4" />
-                    </Button>
-                </div>
-            </div>
-            <div className="flex w-full justify-between min-w-0 items-center gap-2 col-span-2">
-                <div className="flex items-center gap-2 justify-start">
-                    <ExposureMeter stops={deviation} className="mr-1" />
-                </div>
+            {/* Dropped on a narrow strip rather than truncated: one letter and an ellipsis
+                identifies nothing, and the model is not something you consult mid-sequence.
+                Everything else in here is, so it is what keeps the room. */}
+            <span
+                className="hidden min-w-0 flex-[1_1_auto] truncate text-right font-semibold @md:inline"
+                title={[info.manufacturer, info.firmware, info.serial && `#${info.serial}`].filter(Boolean).join(" · ")}
+            >
+                {info.model}
+            </span>
 
-                <div className="flex items-center gap-2 justify-end">
+            {/* The meter against the readouts, with the buttons on the same line. They are
+                all furniture rather than exposure, and giving the buttons a line of their
+                own cost a row of height that the preview wants back. */}
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+                <ExposureMeter stops={deviation} />
+
+                <div className="flex flex-wrap items-center gap-2">
                     {running !== null && (
                         <Badge className="flex items-center gap-1" title="Time since the first frame">
                             {formatDuration(running)} <ClockIcon className="size-5" />
@@ -171,6 +161,23 @@ export function CameraStatusBar({
                             <DynamicBatteryIcon className="size-5" value={battery.percent ?? -1} />
                         </Badge>
                     )}
+                </div>
+
+                {/* Pushed to the far end of whichever line they land on, so they stay in the
+                    same corner whether or not the readouts left room beside them. */}
+                <div className="ml-auto flex items-center gap-2">
+                    <Button size="compact" onClick={onOpenSettings} aria-label="Settings" title="Settings">
+                        <SettingsIcon className="size-4" />
+                    </Button>
+                    <Button size="compact" onClick={onOpenPlanner} aria-label="Planner" title="Planner">
+                        <ClipboardClockIcon className="size-4" />
+                    </Button>
+                    <Button size="compact" onClick={onOpenLogs} aria-label="Logs" title="Logs">
+                        <ScrollTextIcon className="size-4" />
+                    </Button>
+                    <Button size="compact" onClick={onDisconnect} aria-label="Disconnect" title="Disconnect">
+                        <UnplugIcon className="size-4" />
+                    </Button>
                 </div>
             </div>
         </Panel>

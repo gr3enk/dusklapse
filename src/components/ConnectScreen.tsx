@@ -127,7 +127,7 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
             <div className="flex min-h-0 items-center justify-center overflow-y-auto">
                 <form
                     className={cn(
-                        "flex w-full max-w-full lg:max-w-104 flex-col gap-5",
+                        "flex w-full max-w-full md:max-w-104 flex-col gap-5",
                         "pt-8 pr-[calc(var(--spacing-safe-r)+1.25rem)] pb-[calc(var(--spacing-safe-b)+2rem)] pl-[calc(var(--spacing-safe-l)+1.25rem)]",
                     )}
                     onSubmit={connect}
