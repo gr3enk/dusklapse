@@ -48,7 +48,7 @@ pub fn profile() -> VendorProfile {
     VendorProfile {
         vendor: Vendor::Mock,
         label: Vendor::Mock.label().to_string(),
-        summary: "Fake camera running in-process".into(),
+        summary: "Fake / Mockup camera. It runs in-process and needs no camera, and is gone again when the app restarts.".into(),
         default_port: Vendor::Mock.default_port(),
         access_point_host: None,
         // Not on a network at all, so asking for an address would be theatre.

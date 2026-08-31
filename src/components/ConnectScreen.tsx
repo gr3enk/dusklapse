@@ -116,15 +116,18 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
     }
 
     return (
-        <div className="grid h-dvh w-full grid-rows-2 self-stretch overflow-hidden">
-            <div className="pointer-events-none min-h-0 overflow-hidden" aria-hidden="true">
+        <div className="grid h-dvh w-full grid-rows-2 [@media(max-height:500px)]:grid-rows-1 self-stretch overflow-hidden">
+            <div
+                className="pointer-events-none min-h-0 overflow-hidden [@media(max-height:500px)]:hidden"
+                aria-hidden="true"
+            >
                 <Rive className="h-full w-full" src={dusklapseSplash} stateMachine="main" layout={SPLASH_LAYOUT} />
             </div>
 
             <div className="flex min-h-0 items-center justify-center overflow-y-auto">
                 <form
                     className={cn(
-                        "flex w-full max-w-104 flex-col gap-5",
+                        "flex w-full max-w-full lg:max-w-104 flex-col gap-5",
                         "pt-8 pr-[calc(var(--spacing-safe-r)+1.25rem)] pb-[calc(var(--spacing-safe-b)+2rem)] pl-[calc(var(--spacing-safe-l)+1.25rem)]",
                     )}
                     onSubmit={connect}
@@ -133,7 +136,7 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
                         {/* Centred as a block. A centred mark over left-aligned text looks like an
                         accident; centring both makes it a header, with the fields left-aligned
                         below as usual. */}
-                        <span className="logo mx-auto block w-[min(8.5rem,40%)]" role="img" aria-label="Dusklapse" />
+                        <span className="logo mx-auto block w-[min(6rem,40%)]" role="img" aria-label="Dusklapse" />
                         <p className="mt-3 mb-0 text-text-muted">Connect to a camera on your network.</p>
                     </header>
 
@@ -197,12 +200,12 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
                         </Button>
                     </div>
 
-                    {developerMode && (
+                    {/* {developerMode && (
                         <Notice>
                             Simulator unlocked. It runs in-process and needs no camera, and is gone again when the app
                             restarts.
                         </Notice>
-                    )}
+                    )} */}
                     {error && <Notice variant="error">{error}</Notice>}
                 </form>
             </div>
