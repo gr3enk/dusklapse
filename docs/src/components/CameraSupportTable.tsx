@@ -109,6 +109,10 @@ function CameraSupportTableInner() {
                 header: "Model",
             },
             {
+                accessorKey: "note",
+                header: "Note",
+            },
+            {
                 header: "Support",
                 cell: ({ row }) => {
                     if (!row.original.general_support) {

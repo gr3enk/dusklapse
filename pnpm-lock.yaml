@@ -8,7 +8,7 @@ importers:
 
   .:
     dependencies:
-      '@rive-app/react-canvas':
+      '@rive-app/react-webgl2':
         specifier: ^4.33.0
         version: 4.33.0(react@19.2.8)
       '@tauri-apps/api':
@@ -398,13 +398,13 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@rive-app/canvas@2.41.0':
-    resolution: {integrity: sha512-07e+4+/yqRlTODczhCmoXHXZEkfAyJ+X/miXomP/f48a5pMFwX7eW1AibqkEvFxq2z4yAQokpWZSoVTMpbuqVQ==}
-
-  '@rive-app/react-canvas@4.33.0':
-    resolution: {integrity: sha512-x3ow+VhvPgdZLWc1tiIDi/zGlJo7rw9vhvJ2WkzTXXBwV/SsupUnqHOA/WeeDGN+6nXeJBKY3AT5C2+NocvB5A==}
+  '@rive-app/react-webgl2@4.33.0':
+    resolution: {integrity: sha512-9K7hs1BfMX4qjkBio7vdY+lX0nI/p7enALaGdyOYODs47fZoMlEtSUm8tchsTHYT5q8PluG0tsSzRmhlV16BDA==}
     peerDependencies:
       react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0
+
+  '@rive-app/webgl2@2.41.0':
+    resolution: {integrity: sha512-SCfy5u2q6SCyyH6H2pWYU2iEqkrQVlItxpVKks2Nk9RXQAoaFYQTTkfJHCfcrpyew/o2QxEk43HYTnQNlSMIGw==}
 
   '@rolldown/pluginutils@1.0.0-beta.27':
     resolution: {integrity: sha512-+d0F4MKMCbeVUJwG96uQ4SgAznZNSq93I3V+9NHA4OpvqG8mRCpGdKmK8l/dl02h2CCDHwW2FqilnTyDcAnqjA==}
@@ -1760,12 +1760,12 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@rive-app/canvas@2.41.0': {}
-
-  '@rive-app/react-canvas@4.33.0(react@19.2.8)':
+  '@rive-app/react-webgl2@4.33.0(react@19.2.8)':
     dependencies:
-      '@rive-app/canvas': 2.41.0
+      '@rive-app/webgl2': 2.41.0
       react: 19.2.8
+
+  '@rive-app/webgl2@2.41.0': {}
 
   '@rolldown/pluginutils@1.0.0-beta.27': {}
 

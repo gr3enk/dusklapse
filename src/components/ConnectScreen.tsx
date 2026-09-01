@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import Rive, { Alignment, Fit, Layout } from "@rive-app/react-canvas";
+import { Alignment, Fit, Layout, useRive } from "@rive-app/react-webgl2";
 import { ArrowLeftIcon, CircleQuestionMarkIcon } from "lucide-react";
 
 import dusklapseSplash from "../assets/dusklapse_splash.riv?url";
+import dusklapseSplashPoster from "../assets/dusklapse_splash.svg?url";
 import { api, errorMessage } from "../lib/api";
 import type { CameraInfo, Vendor, VendorProfile } from "../lib/types";
 import { cn } from "../lib/utils";
@@ -121,7 +122,7 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
                 className="pointer-events-none min-h-0 overflow-hidden [@media(max-height:500px)]:hidden"
                 aria-hidden="true"
             >
-                <Rive className="h-full w-full" src={dusklapseSplash} stateMachine="main" layout={SPLASH_LAYOUT} />
+                <SplashAnimation />
             </div>
 
             <div className="flex min-h-0 items-center justify-center overflow-y-auto">
@@ -209,6 +210,30 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
                     {error && <Notice variant="error">{error}</Notice>}
                 </form>
             </div>
+        </div>
+    );
+}
+
+function SplashAnimation() {
+    const [loaded, setLoaded] = useState(false);
+    const { RiveComponent } = useRive({
+        src: dusklapseSplash,
+        stateMachine: "main",
+        layout: SPLASH_LAYOUT,
+        autoplay: true,
+        onLoad: () => setLoaded(true),
+    });
+
+    return (
+        <div className="relative h-full w-full overflow-hidden">
+            <RiveComponent className="h-full w-full" />
+            {!loaded && (
+                <img
+                    className="absolute inset-0 h-full w-full object-cover object-bottom"
+                    src={dusklapseSplashPoster}
+                    alt=""
+                />
+            )}
         </div>
     );
 }
