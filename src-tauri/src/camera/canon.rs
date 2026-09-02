@@ -17,7 +17,7 @@
 //! reference. If a body rejects something, check its own `/ccapi` listing first
 //! - that is the authority for what it supports, not this file.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -678,6 +678,12 @@ async fn watch(
     // task is running at all.
     log::info!("watching {url} for new frames");
     let mut described = false;
+    // Recently counted frames, so the two files of one exposure are one frame even when they
+    // arrive in different answers.
+    let mut seen: VecDeque<String> = VecDeque::new();
+    // Counted so the log can say what the strip is showing. A ramp advancing faster than the
+    // shutter is the kind of fault that is obvious in a number and invisible in prose.
+    let mut announced: u32 = 0;
     let mut complained = false;
 
     // The first answer is not a report of what changed; it is the camera describing itself from
@@ -738,12 +744,16 @@ async fn watch(
                 );
             }
         } else {
-            for frame in frames_in(&answer.addedcontents) {
+            for frame in new_frames(&mut seen, &answer.addedcontents) {
                 if let Some(jpeg) = frame.jpeg {
                     *lock(&pending) = Some(jpeg);
                 }
-                // Err only means nobody is listening, which is fine.
-                let _ = events.send(CameraEvent::FrameRecorded);
+                if !frame.counted {
+                    announced += 1;
+                    log::info!("frame {announced} announced");
+                    // Err only means nobody is listening, which is fine.
+                    let _ = events.send(CameraEvent::FrameRecorded);
+                }
             }
         }
 
@@ -756,15 +766,31 @@ async fn watch(
 /// One frame, and the JPEG belonging to it if the camera wrote one.
 struct Frame {
     jpeg: Option<String>,
+    /// Whether this frame was already announced when its other file arrived.
+    ///
+    /// Its picture is still the newest one to show; only the counting has happened already.
+    counted: bool,
 }
 
-/// Group added files into the frames that produced them.
+/// How many frames to remember having counted.
 ///
-/// A body shooting RAW+JPEG writes two files per exposure, and counting files would run the ramp
-/// at double speed - the same trap the Nikon backend avoids by counting captures rather than
-/// objects. Canon has no capture event, but its filenames do the grouping: `IMG_0042.CR3` and
-/// `IMG_0042.JPG` are one frame.
-fn frames_in(paths: &[String]) -> Vec<Frame> {
+/// Enough to span the gap between the two files of one exposure, however many answers that takes,
+/// and small enough that a session lasting all night does not grow a list of every picture in it.
+const RECENT_FRAMES: usize = 16;
+
+/// Group newly added files into the frames that produced them, skipping frames already counted.
+///
+/// Two separate problems, and both are the same trap the Nikon backend avoids by counting captures
+/// rather than objects.
+///
+/// A body shooting RAW+JPEG writes two files per exposure, so counting files runs the ramp at
+/// double speed. The filenames do the grouping: `IMG_0042.CR3` and `IMG_0042.JPG` are one frame.
+///
+/// And those two files do not have to arrive together. The camera writes them a moment apart, and
+/// a poll landing between them puts one in each answer - which grouping *within* an answer cannot
+/// see. So the frames counted recently are remembered, and one that has been counted is not
+/// counted again when its other half turns up.
+fn new_frames(seen: &mut VecDeque<String>, paths: &[String]) -> Vec<Frame> {
     let mut frames: Vec<(String, Frame)> = Vec::new();
 
     for path in paths {
@@ -779,10 +805,38 @@ fn frames_in(paths: &[String]) -> Vec<Frame> {
 
         let jpeg = is_jpeg_path(path).then(|| path.clone());
         match frames.iter_mut().find(|(name, _)| *name == stem) {
-            // The JPEG half of a pair already seen as a RAW.
+            // The JPEG half of a pair already seen as a RAW in this same answer.
             Some((_, frame)) => frame.jpeg = frame.jpeg.take().or(jpeg),
-            None => frames.push((stem, Frame { jpeg })),
+            // The half of a pair whose twin arrived in an earlier answer: the picture is still
+            // worth taking, but the frame has been counted already.
+            None if seen.contains(&stem) => {
+                if let Some(jpeg) = jpeg {
+                    frames.push((
+                        stem,
+                        Frame {
+                            jpeg: Some(jpeg),
+                            counted: true,
+                        },
+                    ));
+                }
+            }
+            None => frames.push((
+                stem,
+                Frame {
+                    jpeg,
+                    counted: false,
+                },
+            )),
         }
+    }
+
+    for (stem, frame) in &frames {
+        if !frame.counted {
+            seen.push_back(stem.clone());
+        }
+    }
+    while seen.len() > RECENT_FRAMES {
+        seen.pop_front();
     }
 
     frames.into_iter().map(|(_, frame)| frame).collect()
@@ -981,6 +1035,65 @@ mod tests {
 
     /// A manual lens leaves the aperture unreadable for as long as it is mounted. Losing the other
     /// two dials over it would make the camera useless for a case that works perfectly well.
+    /// The bug this cost an evening on: the camera writes the RAW and the JPEG a moment apart, and
+    /// a poll landing between them puts one in each answer. Grouping inside a single answer cannot
+    /// see that, so the same exposure was counted twice.
+    #[test]
+    fn a_pair_split_across_two_answers_is_still_one_frame() {
+        let mut seen = VecDeque::new();
+
+        let first = new_frames(
+            &mut seen,
+            &["/ccapi/ver130/contents/sd/100CANON/IMG_0318.CR3".to_string()],
+        );
+        assert_eq!(first.len(), 1);
+        assert!(!first[0].counted, "the first sighting counts");
+        assert!(first[0].jpeg.is_none(), "a RAW is nothing to measure");
+
+        let second = new_frames(
+            &mut seen,
+            &["/ccapi/ver130/contents/sd/100CANON/IMG_0318.JPG".to_string()],
+        );
+        assert_eq!(second.len(), 1);
+        assert!(second[0].counted, "the same exposure must not count twice");
+        assert!(
+            second[0].jpeg.is_some(),
+            "its picture is still the one to show"
+        );
+    }
+
+    /// The memory must not swallow later exposures - only the twin of one already counted.
+    #[test]
+    fn the_next_exposure_still_counts() {
+        let mut seen = VecDeque::new();
+        new_frames(
+            &mut seen,
+            &["/ccapi/ver130/contents/sd/100CANON/IMG_0318.JPG".to_string()],
+        );
+
+        let next = new_frames(
+            &mut seen,
+            &["/ccapi/ver130/contents/sd/100CANON/IMG_0319.JPG".to_string()],
+        );
+        assert_eq!(next.len(), 1);
+        assert!(!next[0].counted);
+    }
+
+    /// A night's sequence must not grow a list of every picture in it.
+    #[test]
+    fn the_memory_of_counted_frames_stays_bounded() {
+        let mut seen = VecDeque::new();
+        for number in 0..100 {
+            new_frames(
+                &mut seen,
+                &[format!(
+                    "/ccapi/ver130/contents/sd/100CANON/IMG_{number:04}.JPG"
+                )],
+            );
+        }
+        assert_eq!(seen.len(), RECENT_FRAMES);
+    }
+
     #[test]
     fn one_unreadable_dial_does_not_cost_the_others() {
         let settled = settled([Ok(Some(a_setting())), Err(refused()), Ok(Some(a_setting()))])
@@ -1067,7 +1180,7 @@ mod tests {
             "/ccapi/ver110/contents/sd/100CANON/IMG_0042.JPG".to_string(),
         ];
 
-        let frames = frames_in(&added);
+        let frames = new_frames(&mut VecDeque::new(), &added);
         assert_eq!(frames.len(), 1, "one exposure, one frame");
         assert_eq!(
             frames[0].jpeg.as_deref(),
@@ -1083,7 +1196,7 @@ mod tests {
             "/ccapi/ver110/contents/sd/100CANON/IMG_0042.JPG".to_string(),
             "/ccapi/ver110/contents/sd/100CANON/IMG_0043.JPG".to_string(),
         ];
-        assert_eq!(frames_in(&added).len(), 2);
+        assert_eq!(new_frames(&mut VecDeque::new(), &added).len(), 2);
     }
 
     /// Shooting RAW alone is still a frame; there is simply nothing to measure it with.
@@ -1091,7 +1204,7 @@ mod tests {
     fn a_raw_only_frame_counts_but_offers_no_preview() {
         let added = ["/ccapi/ver110/contents/sd/100CANON/IMG_0042.CR3".to_string()];
 
-        let frames = frames_in(&added);
+        let frames = new_frames(&mut VecDeque::new(), &added);
         assert_eq!(frames.len(), 1);
         assert!(frames[0].jpeg.is_none());
     }
