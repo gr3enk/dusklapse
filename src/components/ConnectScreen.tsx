@@ -5,6 +5,7 @@ import { ArrowLeftIcon, CircleQuestionMarkIcon } from "lucide-react";
 import dusklapseSplash from "../assets/dusklapse_splash.riv?url";
 import dusklapseSplashPoster from "../assets/dusklapse_splash.svg?url";
 import { api, errorMessage } from "../lib/api";
+import { loadLastTarget, saveLastTarget } from "../lib/lastTarget";
 import type { CameraInfo, Vendor, VendorProfile } from "../lib/types";
 import { cn } from "../lib/utils";
 import NikonConnectionHelp from "./help/NikonConnectionHelp";
@@ -34,9 +35,12 @@ interface Props {
 
 export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }: Props) {
     const [profiles, setProfiles] = useState<VendorProfile[]>([]);
-    // Nikon: the one under active development, and the only vendor with a working backend today.
-    // It was the simulator until the simulator stopped being offered.
-    const [vendor, setVendor] = useState<Vendor>("nikon");
+    // The camera this app last reached, so a second session starts where the first left off. Read
+    // once, when the screen is built: after that the field belongs to whoever is typing in it.
+    //
+    // Nikon is the fallback rather than a preference - it is the vendor with the longest-standing
+    // backend, and something has to be selected before anything has been connected.
+    const [vendor, setVendor] = useState<Vendor>(() => loadLastTarget()?.vendor ?? "nikon");
     const [showConnectionHelp, setShowConnectionHelp] = useState(false);
     const [host, setHost] = useState("");
     const [port, setPort] = useState("");
@@ -89,9 +93,29 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
     // nothing.
     useEffect(() => {
         if (!selected) return;
+
+        // The remembered address wins for the camera it belongs to. Switching to a *different*
+        // vendor is a fresh choice and gets that vendor's own defaults - carrying one camera's
+        // address over to another would be worse than an empty field.
+        const remembered = loadLastTarget();
+        if (remembered?.vendor === selected.vendor) {
+            setHost(remembered.host);
+            setPort(remembered.port);
+            return;
+        }
+
         setHost(selected.accessPointHost ?? "");
         setPort(String(selected.defaultPort));
     }, [selected]);
+
+    // A remembered vendor that is no longer on offer must not leave the screen showing a camera
+    // nobody can select - the simulator after a restart, or any vendor hidden again later.
+    useEffect(() => {
+        if (profiles.length === 0) return;
+        const available = profiles.filter((profile) => developerMode || !profile.developerOnly);
+        if (available.length === 0 || available.some((profile) => profile.vendor === vendor)) return;
+        setVendor(available[0].vendor);
+    }, [profiles, developerMode, vendor]);
 
     async function connect(event: React.FormEvent) {
         event.preventDefault();
@@ -104,6 +128,9 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
                 host: needsAddress ? host.trim() : "",
                 port: Number(port) || 0,
             });
+            // Only after the camera actually answered. Remembering an address that was never
+            // reached would hand the next session the same wrong guess.
+            saveLastTarget({ vendor, host: host.trim(), port });
             onConnected(info);
         } catch (cause) {
             setError(errorMessage(cause));
