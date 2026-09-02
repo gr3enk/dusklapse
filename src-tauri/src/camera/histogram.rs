@@ -38,6 +38,21 @@ const LUMA_BLUE: f32 = 0.0722;
 const BINS: usize = 256;
 
 /// Decode a preview JPEG and measure it.
+/// The pixel dimensions in a JPEG's header, without decoding it.
+///
+/// For backends whose transport does not carry them: Canon's content listing gives paths and no
+/// metadata, and Sony's object info reports 0x0 for the copy held in camera memory. Reading the
+/// header costs a few bytes where decoding the frame costs megabytes.
+///
+/// `None` for anything that is not a readable JPEG - the caller has a picture either way, and a
+/// missing size is worth less than a wrong one.
+pub fn dimensions(bytes: &[u8]) -> Option<(u32, u32)> {
+    let mut decoder = Decoder::new(bytes);
+    decoder.read_info().ok()?;
+    let info = decoder.info()?;
+    Some((info.width as u32, info.height as u32))
+}
+
 pub fn analyse(bytes: &[u8]) -> CameraResult<FrameAnalysis> {
     let mut decoder = Decoder::new(bytes);
 
