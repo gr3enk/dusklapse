@@ -9,6 +9,7 @@ import { loadLastTarget, saveLastTarget } from "../lib/lastTarget";
 import type { CameraInfo, Vendor, VendorProfile } from "../lib/types";
 import { cn } from "../lib/utils";
 import NikonConnectionHelp from "./help/NikonConnectionHelp";
+import CanonConnectionHelp from "./help/CanonConnectionHelp";
 import { useLongPress } from "../hooks/useLongPress";
 import { Button } from "./ui/Button";
 import { HintStack } from "./ui/HintStack";
@@ -274,6 +275,7 @@ function SplashAnimation() {
  */
 const CONNECTION_HELP_COMPONENTS: Partial<Record<Vendor, () => React.ReactElement>> = {
     nikon: NikonConnectionHelp,
+    canon: CanonConnectionHelp,
 };
 
 function ConnectionHelp({ vendor, onClose }: { vendor: Vendor; onClose: () => void }) {
