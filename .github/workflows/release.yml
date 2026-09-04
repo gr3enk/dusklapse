@@ -34,8 +34,8 @@ jobs:
                   # Tags, so a bump can see what already exists.
                   fetch-depth: 0
 
-            # Two hand-applied patches live in the generated Xcode project, and `tauri ios init` overwrites
-            # it. Both fail in ways that are hard to trace back, so they are checked rather than assumed -
+            # Three things the generated Xcode project must carry, and `tauri ios init` overwrites it.
+            # All three fail in ways that are hard to trace back, so they are checked rather than assumed -
             # in project.yml because that is the source, and in project.pbxproj because that is the file
             # xcodebuild actually reads. They part company if someone edits one and forgets xcodegen.
             - name: Check the Xcode project patches are intact
@@ -58,7 +58,17 @@ jobs:
                   grep -q "PROVISIONING_PROFILE_SPECIFIER" "$PBX" ||
                     fail "project.yml carries the signing patch but project.pbxproj does not. Run 'xcodegen generate' in src-tauri/gen/apple and commit the result."
 
-                  echo "Both patches present in project.yml and project.pbxproj."
+                  # The privacy manifest. Unlike the two above, losing this breaks nothing at build time:
+                  # the upload succeeds, TestFlight works, and the only sign is an ITMS-91053 mail that
+                  # turns into a rejection later. Checked here because nothing else would notice.
+                  MANIFEST=src-tauri/gen/apple/dusklapse_iOS/PrivacyInfo.xcprivacy
+                  test -f "$MANIFEST" ||
+                    fail "PrivacyInfo.xcprivacy is missing. Apple answers a build without it with ITMS-91053 and eventually rejects it."
+
+                  grep -q "PrivacyInfo.xcprivacy in Resources" "$PBX" ||
+                    fail "The privacy manifest exists but is not in the Resources build phase, so it would not reach the app bundle. Run 'xcodegen generate' in src-tauri/gen/apple and commit the result."
+
+                  echo "All three patches present in project.yml and project.pbxproj."
 
             # The CLI reads the profile with `provisioning_profile.and_then(|p| p.uuid().ok())` - the `.ok()`
             # turns an unreadable profile into None, signing silently stays automatic, and xcodebuild then

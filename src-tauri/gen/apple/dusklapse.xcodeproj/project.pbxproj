@@ -19,6 +19,7 @@
 		A28B06752875B3ABFF8B573D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 16B2AE847F3F8F3E15DB0BA2 /* Security.framework */; };
 		E95DB7FD591AF9A1AD19F790 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F69F029F0E98E474B985C7DE /* QuartzCore.framework */; };
 		FF61F7B5C8D81E6D7040D16B /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4BD40D69BFC37ADD5FD8118E /* CoreGraphics.framework */; };
+		FFD312A988748C4274D28965 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A12EE9C8C3A9B490F9C3193C /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -47,10 +48,12 @@
 		8D0F89CC7286C7A52B20556B /* dusklapse_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = dusklapse_iOS.entitlements; sourceTree = "<group>"; };
 		913BB3D703C7D351B54FC3BE /* nikon.rs */ = {isa = PBXFileReference; path = nikon.rs; sourceTree = "<group>"; };
 		9704FEBD9460E1F82E541D10 /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		A12EE9C8C3A9B490F9C3193C /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		B1A6AD42B95008D6A52DDC97 /* mod.rs */ = {isa = PBXFileReference; path = mod.rs; sourceTree = "<group>"; };
 		B5A3F62980E8A4DF8329A02F /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		BA05BEBD1A31EEAB61BE939F /* session.rs */ = {isa = PBXFileReference; path = session.rs; sourceTree = "<group>"; };
 		C997A27740A6BC21EDBA8C1C /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		CD49BA2DE7808CF958DA6505 /* patience.rs */ = {isa = PBXFileReference; path = patience.rs; sourceTree = "<group>"; };
 		D0F5D02FABACE2F7E962AC47 /* ptpip.rs */ = {isa = PBXFileReference; path = ptpip.rs; sourceTree = "<group>"; };
 		D20C3C985F45508516495DD8 /* settings.rs */ = {isa = PBXFileReference; path = settings.rs; sourceTree = "<group>"; };
 		DD26F2E3297789E8B34D6F64 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
@@ -85,6 +88,7 @@
 			children = (
 				8D0F89CC7286C7A52B20556B /* dusklapse_iOS.entitlements */,
 				865DF07CC4EFFDA7CB2BA14A /* Info.plist */,
+				A12EE9C8C3A9B490F9C3193C /* PrivacyInfo.xcprivacy */,
 			);
 			path = dusklapse_iOS;
 			sourceTree = "<group>";
@@ -199,6 +203,7 @@
 				B1A6AD42B95008D6A52DDC97 /* mod.rs */,
 				5BCC66CD29F890703086A910 /* model.rs */,
 				913BB3D703C7D351B54FC3BE /* nikon.rs */,
+				CD49BA2DE7808CF958DA6505 /* patience.rs */,
 				D0F5D02FABACE2F7E962AC47 /* ptpip.rs */,
 				58DFCC53596A553E7FCA7D06 /* sony.rs */,
 			);
@@ -228,7 +233,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		"TEMP_2D67C9D8-EE8F-46AF-B177-59EAD0D08EE5" /* x86_64 */ = {
+		"TEMP_FBCD6E5D-6F10-4818-BAD2-ACFFDAF82173" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -298,6 +303,7 @@
 			files = (
 				863F91B8739E7CCADB5A8397 /* Assets.xcassets in Resources */,
 				5E768D6611B14F17F93FAA1C /* LaunchScreen.storyboard in Resources */,
+				FFD312A988748C4274D28965 /* PrivacyInfo.xcprivacy in Resources */,
 				3335271E0312F966B5DFF60A /* assets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
