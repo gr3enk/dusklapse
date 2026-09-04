@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Privacy manifest, required by Apple since May 2024.
+
+    An app that uses one of the "required reason APIs" without declaring why is answered after
+    upload with ITMS-91053, and eventually rejected. What this build actually uses was measured
+    rather than guessed: the release binary's undefined symbols were searched for every symbol in
+    Apple's list, and exactly three turned up - stat, fstat and lstat. They belong to one category.
+
+    Nothing else appeared: no NSUserDefaults, no statfs or statvfs (disk space), no systemUptime
+    (boot time), no activeInputModes (keyboard). So this file declares one category and no more.
+    An over-broad declaration is its own error, answered with ITMS-91054 or ITMS-91055.
+
+    Re-measure when a dependency is added:
+
+        nm -u <the built .app>/Dusklapse | grep -E 'stat|UserDefaults|systemUptime|activeInputModes'
+-->
+<plist version="1.0">
+<dict>
+    <!-- Dusklapse tracks nobody and talks to no server. Everything it does happens between the
+         tablet and a camera on the same Wi-Fi. -->
+    <key>NSPrivacyTracking</key>
+    <false/>
+    <key>NSPrivacyTrackingDomains</key>
+    <array/>
+
+    <!-- Nothing is collected. The location the daylight curve uses never leaves the device: it is
+         turned into a sun elevation on the spot and neither stored nor transmitted. -->
+    <key>NSPrivacyCollectedDataTypes</key>
+    <array/>
+
+    <key>NSPrivacyAccessedAPITypes</key>
+    <array>
+        <dict>
+            <!-- stat, fstat and lstat. They come from the log file the app writes and from the
+                 Rust standard library's own filesystem calls - both inside the app's container. -->
+            <key>NSPrivacyAccessedAPIType</key>
+            <string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+            <key>NSPrivacyAccessedAPITypeReasons</key>
+            <array>
+                <!-- "Access the timestamps, size, or other metadata of files inside the app
+                      container, app group container, or app's CloudKit container." -->
+                <string>C617.1</string>
+            </array>
+        </dict>
+    </array>
+</dict>
+</plist>
