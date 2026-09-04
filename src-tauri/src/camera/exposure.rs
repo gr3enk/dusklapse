@@ -10,7 +10,9 @@
 //! number up. That means total brightness is just the sum of the three dials,
 //! and a ramp of "+1 stop over the next 40 frames" is plain addition.
 
-use super::model::{Dial, ExposureSettings, ExposureValue};
+use std::cmp::Ordering;
+
+use super::model::{Dial, ExposureCapabilities, ExposureSettings, ExposureValue};
 
 /// ISO the stop scale is anchored to. ISO 100 contributes 0 stops.
 const ISO_REFERENCE: f32 = 100.0;
@@ -231,6 +233,36 @@ impl ExposureSettings {
     }
 }
 
+impl ExposureCapabilities {
+    /// Put every dial in one order: darkest first, brightest last.
+    ///
+    /// Bodies enumerate their dials however they please, and they disagree. A Z 6 lists shutter
+    /// speeds from 1/8000 down to 30 s; an R100 lists them the other way round, bulb first. Left
+    /// alone that difference reaches the UI, where the limit stepper walks the list by index - and
+    /// the same "+" button that lengthens the exposure on one body shortens it on the other.
+    ///
+    /// So the order is decided here rather than left to whoever sent it. Brightness is the axis
+    /// every dial has in common and the one the ramp limits are named for ("longest exposure",
+    /// "max ISO", "widest aperture"), which makes "+" mean the same thing on all three: more
+    /// light. For aperture that reads f/22 first and the widest setting last, which is upside down
+    /// from how a lens barrel is printed but the right way up for what this control does.
+    ///
+    /// `bulb` and `auto` have no place on a brightness axis, so they sit after the values that do,
+    /// in the order the camera gave them. The sort is stable, so values the camera reports as
+    /// equally bright keep its ordering too.
+    pub fn ordered(mut self) -> Self {
+        for dial in [&mut self.shutter, &mut self.aperture, &mut self.iso] {
+            dial.sort_by(|a, b| match (a.stops, b.stops) {
+                (Some(a), Some(b)) => a.partial_cmp(&b).unwrap_or(Ordering::Equal),
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (None, None) => Ordering::Equal,
+            });
+        }
+        self
+    }
+}
+
 /// Pick the selectable value closest to a target brightness.
 ///
 /// Values without a stop position (`bulb`, `auto`) are skipped. Ties go to the
@@ -256,6 +288,66 @@ mod tests {
 
     fn approx(a: f32, b: f32) {
         assert!((a - b).abs() < 1e-4, "{a} != {b}");
+    }
+
+    fn values(dial: Dial, raws: &[&str]) -> Vec<ExposureValue> {
+        raws.iter()
+            .map(|raw| ExposureValue::from_raw(dial, *raw))
+            .collect()
+    }
+
+    fn labels(values: &[ExposureValue]) -> Vec<&str> {
+        values.iter().map(|value| value.label.as_str()).collect()
+    }
+
+    /// The two bodies that exposed this: an R100 enumerates its shutter speeds longest first, a
+    /// Z 6 shortest first. Both have to arrive the same way up, or the limit stepper in the UI
+    /// runs backwards on one of them.
+    #[test]
+    fn puts_every_vendors_dials_the_same_way_up() {
+        let canon = ExposureCapabilities {
+            shutter: values(Dial::Shutter, &["bulb", "30\"", "1\"", "1/125", "1/4000"]),
+            ..Default::default()
+        }
+        .ordered();
+
+        let nikon = ExposureCapabilities {
+            shutter: values(Dial::Shutter, &["1/4000", "1/125", "1", "30"]),
+            ..Default::default()
+        }
+        .ordered();
+
+        assert_eq!(
+            labels(&canon.shutter),
+            ["1/4000", "1/125", "1s", "30s", "BULB"]
+        );
+        assert_eq!(labels(&nikon.shutter), ["1/4000", "1/125", "1s", "30s"]);
+    }
+
+    /// Aperture runs the other way from how a lens barrel is printed, on purpose: the axis is
+    /// brightness, so the widest opening is the far end on every dial. ISO's `auto` follows
+    /// `bulb` in having no place on that axis at all.
+    #[test]
+    fn orders_the_other_two_dials_by_brightness_as_well() {
+        let ordered = ExposureCapabilities {
+            aperture: values(Dial::Aperture, &["f1.8", "f5.6", "f22"]),
+            iso: values(Dial::Iso, &["auto", "6400", "100", "800"]),
+            ..Default::default()
+        }
+        .ordered();
+
+        assert_eq!(labels(&ordered.aperture), ["f/22", "f/5.6", "f/1.8"]);
+        assert_eq!(labels(&ordered.iso), ["100", "800", "6400", "AUTO"]);
+    }
+
+    /// A body that reports nothing on a dial - aperture on a manual lens - still has to come back
+    /// as an empty dial rather than as a panic.
+    #[test]
+    fn orders_an_empty_dial_without_complaint() {
+        assert_eq!(
+            ExposureCapabilities::default().ordered(),
+            ExposureCapabilities::default()
+        );
     }
 
     #[test]

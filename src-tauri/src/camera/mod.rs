@@ -54,11 +54,23 @@ pub trait Camera: Send + Sync {
     /// UI reads this on every render.
     fn info(&self) -> &CameraInfo;
 
-    /// Which values each dial will currently accept.
+    /// Which values each dial will currently accept, darkest first.
     ///
     /// Re-read this after a mode or lens change; the lists are not fixed per
     /// body.
-    async fn capabilities(&self) -> CameraResult<ExposureCapabilities>;
+    ///
+    /// Not implemented by backends: it normalises what [`Camera::read_capabilities`]
+    /// returns, so that no vendor's own enumeration order can reach the UI. See
+    /// [`ExposureCapabilities::ordered`] for why that matters.
+    async fn capabilities(&self) -> CameraResult<ExposureCapabilities> {
+        Ok(self.read_capabilities().await?.ordered())
+    }
+
+    /// The dials exactly as the body reports them, in whatever order it uses.
+    ///
+    /// This is the one a backend writes. Everything else calls
+    /// [`Camera::capabilities`].
+    async fn read_capabilities(&self) -> CameraResult<ExposureCapabilities>;
 
     /// What the camera is set to right now.
     async fn exposure(&self) -> CameraResult<ExposureSettings>;

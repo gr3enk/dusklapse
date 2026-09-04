@@ -802,7 +802,7 @@ impl Camera for SonyPtpIp {
         &self.info
     }
 
-    async fn capabilities(&self) -> CameraResult<ExposureCapabilities> {
+    async fn read_capabilities(&self) -> CameraResult<ExposureCapabilities> {
         let props = self.snapshot().await?;
         Ok(ExposureCapabilities {
             shutter: selectable(Dial::Shutter, &props),
