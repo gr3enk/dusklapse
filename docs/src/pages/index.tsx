@@ -5,6 +5,10 @@ import Layout from "@theme/Layout";
 import Heading from "@theme/Heading";
 
 import styles from "./index.module.css";
+import Hero from "../components/Hero";
+import Providers from "../providers";
+import Features from "../components/Features";
+import Waitlist from "../components/Waitlist";
 
 /**
  * The landing page.
@@ -18,37 +22,11 @@ export default function Home(): ReactNode {
 
     return (
         <Layout title={siteConfig.title} description={siteConfig.tagline}>
-            <header className={styles.hero}>
-                <div className="container">
-                    <Heading as="h1" className={styles.title}>
-                        {siteConfig.title}
-                    </Heading>
-                    <p className={styles.tagline}>{siteConfig.tagline}</p>
-                    <p className={styles.summary}>
-                        Dusklapse is an app for creating day-to-night or night-to-day time-lapses (the so-called Holy
-                        Grail) using DSLR / DSLM cameras.
-                        <br />
-                        <br />
-                        The app connects to your camera via Wi-Fi and adjusts your camera’s exposure time, aperture and
-                        ISO settings to pre-defined limits, enabling you to capture time-lapse footage with significant
-                        changes in light, such as from day to night or vice versa.
-                    </p>
-                    <div className={styles.actions}>
-                        <Link className="button button--primary button--lg" to="/docs/intro">
-                            Read the docs
-                        </Link>
-                        <Link
-                            className="button button--secondary button--lg"
-                            href="https://github.com/gr3enk/dusklapse"
-                        >
-                            GitHub
-                        </Link>
-                    </div>
-                </div>
-            </header>
-            <div className="">
-                <img src="/img/interface_1.webp" alt="Dusklapse Screenshot" />
-            </div>
+            <Providers>
+                <Hero />
+                <Features />
+                {/* <Waitlist /> */}
+            </Providers>
         </Layout>
     );
 }
