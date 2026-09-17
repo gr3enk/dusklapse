@@ -347,7 +347,7 @@ impl Camera for CanonCcapi {
         &self.info
     }
 
-    async fn capabilities(&self) -> CameraResult<ExposureCapabilities> {
+    async fn read_capabilities(&self) -> CameraResult<ExposureCapabilities> {
         let [shutter, aperture, iso] = self.read_dials().await?;
 
         Ok(ExposureCapabilities {

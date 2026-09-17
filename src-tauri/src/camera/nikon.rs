@@ -373,7 +373,7 @@ impl Camera for NikonPtpIp {
         &self.info
     }
 
-    async fn capabilities(&self) -> CameraResult<ExposureCapabilities> {
+    async fn read_capabilities(&self) -> CameraResult<ExposureCapabilities> {
         // Sequential, unlike the Canon backend: a PTP session is one transaction
         // at a time, so there is nothing to gain from issuing these in parallel.
         Ok(ExposureCapabilities {

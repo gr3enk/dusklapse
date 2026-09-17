@@ -4,6 +4,7 @@ import { ArrowLeftIcon, CircleQuestionMarkIcon } from "lucide-react";
 
 import dusklapseSplash from "../assets/dusklapse_splash.riv?url";
 import dusklapseSplashPoster from "../assets/dusklapse_splash.svg?url";
+import { normalizeAddress } from "../lib/address";
 import { api, errorMessage } from "../lib/api";
 import { loadLastTarget, saveLastTarget } from "../lib/lastTarget";
 import type { CameraInfo, Vendor, VendorProfile } from "../lib/types";
@@ -191,8 +192,11 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
                         <TextField
                             label="Address"
                             value={host}
-                            onChange={(event) => setHost(event.currentTarget.value)}
+                            onChange={(event) => setHost(normalizeAddress(event.currentTarget.value))}
                             placeholder="192.168.1.42"
+                            // Digits first, because that is nearly all an address is. What the
+                            // keypad puts beside them differs per device and per locale, which is
+                            // `normalizeAddress`'s problem rather than this field's.
                             inputMode="decimal"
                             autoCapitalize="off"
                             autoCorrect="off"

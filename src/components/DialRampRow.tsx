@@ -23,6 +23,11 @@ interface Props {
  * ramp cannot reason about them and `nearest` already refuses to pick them - offering one as
  * a limit would be offering a setting the engine must then ignore.
  *
+ * The nudge buttons walk that same filtered list, so they can only land on values the dropdown
+ * is willing to show. Rust hands every dial over darkest first, whichever vendor is connected,
+ * which is what makes "+" mean more light here rather than "further down whatever list this
+ * particular body happened to send".
+ *
  * The select stays mounted and disabled rather than hidden when the dial is off, so the panel
  * does not change height every time a toggle is flipped.
  */
@@ -32,17 +37,23 @@ export function DialRampRow({ label, config, values, rampActive, onChange }: Pro
 
     const handleChangeLimit = useCallback(
         (direction: "up" | "down") => {
-            if (config.limit) {
-                const currentIndex = values.findIndex((value) => value.raw === config.limit);
-                const newIndex = direction === "up" ? currentIndex + 1 : currentIndex - 1;
-                const newLimit = values[newIndex]?.raw;
-                onChange({ ...config, limit: newLimit });
-            } else {
-                const newLimit = values[0]?.raw;
-                onChange({ ...config, limit: newLimit });
+            if (usable.length === 0) return;
+
+            const current = usable.findIndex((value) => value.raw === config.limit);
+            if (current < 0) {
+                // Nothing set yet, or a limit this camera no longer offers. Starting at the end
+                // the button points away from leaves it somewhere to go on the first press.
+                const start = direction === "up" ? usable[0] : usable[usable.length - 1];
+                onChange({ ...config, limit: start.raw });
+                return;
             }
+
+            // Clamped rather than wrapped: a limit that jumps from the longest exposure to the
+            // shortest because someone pressed once too often is a ruined sequence.
+            const next = Math.min(Math.max(current + (direction === "up" ? 1 : -1), 0), usable.length - 1);
+            onChange({ ...config, limit: usable[next].raw });
         },
-        [config.limit, values, onChange],
+        [config, usable, onChange],
     );
 
     return (

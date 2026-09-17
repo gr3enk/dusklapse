@@ -109,7 +109,7 @@ impl Camera for MockCamera {
         &self.info
     }
 
-    async fn capabilities(&self) -> CameraResult<ExposureCapabilities> {
+    async fn read_capabilities(&self) -> CameraResult<ExposureCapabilities> {
         Ok(ExposureCapabilities {
             shutter: values(Dial::Shutter, SHUTTER),
             aperture: values(Dial::Aperture, APERTURE),
