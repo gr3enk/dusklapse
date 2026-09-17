@@ -93,6 +93,15 @@ const config: Config = {
                         { label: "Releases", href: `${GITHUB}/releases` },
                     ],
                 },
+                {
+                    // Reachable from every page, which is both what a German provider is expected
+                    // to offer and what the App Store's privacy policy link points at.
+                    title: "Legal",
+                    items: [
+                        { label: "Imprint", to: "/imprint" },
+                        { label: "Privacy", to: "/privacy" },
+                    ],
+                },
             ],
             copyright: `Dual licensed under MIT and Apache-2.0. Built with Docusaurus.`,
         },
