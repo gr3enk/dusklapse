@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Alignment, Fit, Layout, useRive } from "@rive-app/react-webgl2";
+import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { ArrowLeftIcon, CircleQuestionMarkIcon } from "lucide-react";
 
 import dusklapseSplash from "../assets/dusklapse_splash.riv?url";
@@ -27,6 +29,8 @@ import { TextField } from "./ui/TextField";
  */
 const UNLOCK_HOLD_MS = 7000;
 const SPLASH_LAYOUT = new Layout({ fit: Fit.Cover, alignment: Alignment.BottomCenter });
+const WEBSITE_URL = "https://dusklapse.com";
+const GITHUB_URL = "https://github.com/gr3enk/dusklapse";
 
 interface Props {
     onConnected: (info: CameraInfo) => void;
@@ -37,6 +41,7 @@ interface Props {
 
 export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }: Props) {
     const [profiles, setProfiles] = useState<VendorProfile[]>([]);
+    const [appVersion, setAppVersion] = useState<string | null>(null);
     // The camera this app last reached, so a second session starts where the first left off. Read
     // once, when the screen is built: after that the field belongs to whoever is typing in it.
     //
@@ -48,6 +53,21 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
     const [port, setPort] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let current = true;
+        getVersion().then(
+            (version) => {
+                if (current) setAppVersion(version);
+            },
+            // Version metadata is helpful, but a failure to read it must not keep the user from
+            // connecting to their camera. The placeholder remains visible in that unlikely case.
+            () => undefined,
+        );
+        return () => {
+            current = false;
+        };
+    }, []);
 
     // The list of cameras comes from the backend, where each vendor describes itself.
     // Nothing here knows which vendors exist.
@@ -146,7 +166,7 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
     }
 
     return (
-        <div className="grid h-dvh w-full grid-rows-2 [@media(max-height:500px)]:grid-rows-1 self-stretch overflow-hidden">
+        <div className="relative grid h-dvh w-full grid-rows-2 [@media(max-height:500px)]:grid-rows-1 self-stretch overflow-hidden">
             <div
                 className="pointer-events-none min-h-0 overflow-hidden [@media(max-height:500px)]:hidden"
                 aria-hidden="true"
@@ -242,7 +262,33 @@ export function ConnectScreen({ onConnected, developerMode, onUnlockDeveloper }:
                     {error && <Notice variant="error">{error}</Notice>}
                 </form>
             </div>
+
+            <footer
+                className={cn(
+                    "absolute bottom-safe-b left-safe-l z-10",
+                    "flex min-h-tap items-center gap-3 px-3 text-xs text-text-muted",
+                )}
+            >
+                <span className="tabular-nums">Version {appVersion ?? "…"}</span>
+                <ExternalLink href={WEBSITE_URL}>Website</ExternalLink>
+                <ExternalLink href={GITHUB_URL}>GitHub</ExternalLink>
+            </footer>
         </div>
+    );
+}
+
+function ExternalLink({ href, children }: { href: string; children: React.ReactNode }) {
+    return (
+        <a
+            className="flex min-h-tap items-center underline underline-offset-2 hover:text-text focus-visible:text-text"
+            href={href}
+            onClick={(event) => {
+                event.preventDefault();
+                void openUrl(href);
+            }}
+        >
+            {children}
+        </a>
     );
 }
 
