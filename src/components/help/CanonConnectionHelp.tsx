@@ -1,10 +1,4 @@
-import img1 from "../../assets/connection-guide/canon/en1.jpg";
-import img2 from "../../assets/connection-guide/canon/en2.jpg";
-import img3 from "../../assets/connection-guide/canon/en3.jpg";
-import img4 from "../../assets/connection-guide/canon/en4.jpg";
-import img5 from "../../assets/connection-guide/canon/en5.jpg";
-import img6 from "../../assets/connection-guide/canon/en6.jpg";
-import img7 from "../../assets/connection-guide/canon/en7.jpg";
+import { TextStep } from "./HelpComponents";
 
 export default function NikonConnectionHelp() {
     return (
@@ -31,37 +25,13 @@ export default function NikonConnectionHelp() {
             </div>
             <p>To connect to your Canon camera, you need to follow these steps:</p>
 
-            <ImageStep
-                step="Step 1: Open the Menu and switch to the 'Network' tab. Select the 'Wi-Fi Settings' option."
-                image={img1}
-            />
-            <ImageStep step="Step 2: Click on Camera Control API." image={img2} />
-            <ImageStep step="Step 3: Click on Connect." image={img3} />
-            <ImageStep
-                step="The camera has now set up a network (access point). You will now see an SSID and a password on the screen. Use these credentials to connect the device running Dusklapse to the camera's network."
-                image={img4}
-            />
-            <ImageStep
-                step="Step 4: After connecting your device to the camera's network, you will see the ccapi url on the screen."
-                image={img5}
-            />
-            <ImageStep
-                step="In Dusklapse, select Canon under ‘Camera’. Enter the IP-Address and Port from the prompted ccapi url on the camera screen. Now click ‘Connect’. Dusklapse should then switch to the camera interface."
-                image={img7}
-            />
-            <ImageStep
-                step="Once the connection has been successfully established, you will see the message ‘Connection Established’ on your camera screen."
-                image={img6}
-            />
-        </div>
-    );
-}
-
-function ImageStep({ step, image }: { step: string; image: string }) {
-    return (
-        <div className="py-4">
-            <p>{step}</p>
-            <img src={image} alt="Canon Connection Help" className="max-h-84 mt-2" />
+            <TextStep step="Step 1: Open the Menu and switch to the 'Network' tab. Select the 'Wi-Fi Settings' option." />
+            <TextStep step="Step 2: Click on Camera Control API." />
+            <TextStep step="Step 3: Click on Connect." />
+            <TextStep step="The camera has now set up a network (access point). You will now see an SSID and a password on the screen. Use these credentials to connect the device running Dusklapse to the camera's network." />
+            <TextStep step="Step 4: After connecting your device to the camera's network, you will see the ccapi url on the screen." />
+            <TextStep step="In Dusklapse, select Canon under ‘Camera’. Enter the IP-Address and Port from the prompted ccapi url on the camera screen. Now click ‘Connect’. Dusklapse should then switch to the camera interface." />
+            <TextStep step="Once the connection has been successfully established, you will see the message ‘Connection Established’ on your camera screen." />
         </div>
     );
 }
